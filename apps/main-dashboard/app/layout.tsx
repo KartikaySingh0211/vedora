@@ -5,7 +5,7 @@ import "./globals.css";
 import QueryProvider from "@/providers/query-provider";
 import ThemeWrapper from "@/providers/theme-provider";
 import { Toaster } from "sonner";
-import Sidebar from "@/components/sidebar";
+import DashboardShell from "@/components/dashboard-shell";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -36,12 +36,7 @@ export default function RootLayout({
 				>
 					<ThemeWrapper>
 						<QueryProvider>
-							<div className="flex min-h-screen">
-								<Sidebar />
-								<main className="flex-1 overflow-y-auto p-6 min-w-0 bg-white dark:bg-[#0A0C10] text-black dark:text-white">
-									{children}
-								</main>
-							</div>
+							<DashboardShell>{children}</DashboardShell>
 							<Toaster
 								position="top-right"
 								theme="system"

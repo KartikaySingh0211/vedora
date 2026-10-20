@@ -5,6 +5,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
@@ -22,6 +23,7 @@ import {
   calculateEstimatedTranscodedSize,
   GIB_BYTES,
 } from '../../config/plans.config';
+import { TranscoderService } from '../transcoder/transcoder.service';
 
 export interface VideoResponse {
   id: string;
@@ -35,6 +37,7 @@ export interface VideoResponse {
   bucketId: string | null;
   size: number;
   estimatedTranscodedSize: number;
+  transcodedSize: number | null;
   duration: number;
   status: VideoStatus;
   resolutions: string[];
@@ -59,6 +62,7 @@ export class VideoService {
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: DrizzleDb,
     private readonly storageService: StorageService,
+    @Optional() private readonly transcoderService?: TranscoderService,
   ) {}
 
   /**
@@ -78,6 +82,7 @@ export class VideoService {
       bucketId: row.bucket_id,
       size: Number(row.size),
       estimatedTranscodedSize: Number(row.estimated_transcoded_size),
+      transcodedSize: row.transcoded_size ? Number(row.transcoded_size) : null,
       duration: row.duration,
       status: row.status,
       resolutions: row.resolutions || ['720p'],
@@ -301,7 +306,30 @@ export class VideoService {
           .where(eq(playlist.id, videoRecord.playlist_id));
       }
 
-      return this.serializeVideo(updatedVideo);
+      const serialized = this.serializeVideo(updatedVideo);
+
+      // 7. Enqueue asynchronous transcoding job
+      if (this.transcoderService) {
+        await this.transcoderService
+          .enqueueTranscodeJob({
+            videoId: updatedVideo.id,
+            userId: updatedVideo.user_id,
+            storageKey: updatedVideo.storage_key || dto.storageKey,
+            bucketId: updatedVideo.bucket_id || undefined,
+            resolutions: updatedVideo.resolutions || ['720p'],
+            title: updatedVideo.title,
+            slug: updatedVideo.slug,
+            duration: updatedVideo.duration,
+          })
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(
+              `Failed to enqueue transcode job for video ${updatedVideo.id}: ${msg}`,
+            );
+          });
+      }
+
+      return serialized;
     });
   }
 

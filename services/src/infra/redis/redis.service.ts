@@ -179,6 +179,62 @@ export class RedisService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  async rpush(key: string, value: string): Promise<number> {
+    if (!this.client || !this.isConnected) return 0;
+    try {
+      return await this.client.rpush(key, value);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis RPUSH failed: ${msg}`);
+      return 0;
+    }
+  }
+
+  async lpop(key: string): Promise<string | null> {
+    if (!this.client || !this.isConnected) return null;
+    try {
+      return await this.client.lpop(key);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis LPOP failed: ${msg}`);
+      return null;
+    }
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    if (!this.client || !this.isConnected) return [];
+    try {
+      return await this.client.lrange(key, start, stop);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis LRANGE failed: ${msg}`);
+      return [];
+    }
+  }
+
+  async ltrim(key: string, start: number, stop: number): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    try {
+      await this.client.ltrim(key, start, stop);
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis LTRIM failed: ${msg}`);
+      return false;
+    }
+  }
+
+  async llen(key: string): Promise<number> {
+    if (!this.client || !this.isConnected) return 0;
+    try {
+      return await this.client.llen(key);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis LLEN failed: ${msg}`);
+      return 0;
+    }
+  }
+
   async onApplicationShutdown(): Promise<void> {
     if (this.client) {
       try {

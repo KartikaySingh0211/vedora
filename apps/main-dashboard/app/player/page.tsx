@@ -3,18 +3,19 @@
 import {
   Check,
   ChevronRight,
-  ImageIcon,
+  Loader2,
   Play,
   PlayCircle,
   PlaySquare,
-  UploadCloud,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { fetchWithAuth, PlayerSettingsItem } from "../../lib/api-client";
 
-const languages = ["English (en)", "Spanish (es)", "French (fr)"];
-const fonts = ["Rubik", "Inter", "Poppins"];
 const controls = [
   "Play / Pause",
   "10s Backward",
@@ -54,16 +55,71 @@ const presetColors = [
 ];
 
 export default function PlayerSettingsPage() {
-  const [selectedLanguage, setSelectedLanguage] = useState("English (en)");
-  const [selectedFont, setSelectedFont] = useState("Rubik");
-  const [fontColor, setFontColor] = useState("#ffffff");
-  const [bgColor, setBgColor] = useState("#000000");
-  const [fontSize, setFontSize] = useState(20);
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
   const [primaryColor, setPrimaryColor] = useState("#3b82f6");
+  const [controlBarBg, setControlBarBg] = useState("rgba(0, 0, 0, 0.7)");
+  const [selectedPlayIcon, setSelectedPlayIcon] = useState<string>("default");
+  const [watermarkPosition, setWatermarkPosition] = useState<string>("top-right");
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(80);
+  const [enableSubtitles, setEnableSubtitles] = useState<boolean>(true);
+  const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [enabledControls, setEnabledControls] = useState<string[]>(controls);
-  const [useCustomIcon, setUseCustomIcon] = useState(false);
-  const [selectedPlayIcon, setSelectedPlayIcon] = useState("Classic ▶️");
-  const [customIconFile, setCustomIconFile] = useState<File | null>(null);
+
+  // Fetch settings from API
+  const { data: settings, isLoading } = useQuery<PlayerSettingsItem>({
+    queryKey: ["player-settings"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchWithAuth<PlayerSettingsItem>("/player-settings", token);
+    },
+  });
+
+  // Populate local form state when settings load
+  useEffect(() => {
+    if (settings) {
+      const timer = setTimeout(() => {
+        if (settings.primary_color) setPrimaryColor(settings.primary_color);
+        if (settings.control_bar_bg) setControlBarBg(settings.control_bar_bg);
+        if (settings.play_icon_style) setSelectedPlayIcon(settings.play_icon_style);
+        if (settings.watermark_position) setWatermarkPosition(settings.watermark_position);
+        if (settings.watermark_opacity !== undefined)
+          setWatermarkOpacity(settings.watermark_opacity);
+        if (settings.enable_subtitles !== undefined)
+          setEnableSubtitles(settings.enable_subtitles);
+        if (settings.watermark_url) setWatermarkUrl(settings.watermark_url);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [settings]);
+
+  // Mutation to persist settings
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      return fetchWithAuth<PlayerSettingsItem>("/player-settings", token, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primaryColor,
+          controlBarBg,
+          playIconStyle: selectedPlayIcon,
+          watermarkPosition,
+          watermarkOpacity,
+          enableSubtitles,
+          watermarkUrl: watermarkUrl.trim() || null,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["player-settings"] });
+      toast.success("Player settings saved successfully!");
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed to save settings: ${err.message}`);
+    },
+  });
 
   const toggleControl = (control: string) => {
     setEnabledControls((prev) =>
@@ -90,185 +146,113 @@ export default function PlayerSettingsPage() {
       <div className="space-y-1 mb-8">
         <h1 className="text-2xl font-semibold">Player Settings</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[500px]">
-          Customize your video player’s appearance and behavior for a seamless
-          brand experience.
+          Customize your video player’s appearance, brand colors, watermarking, and behavior for a seamless playback experience.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Player Language */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
-          <label className="text-sm font-semibold mb-1 block">
-            Player UI Language
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Select the UI language that will be displayed in the video player.
-          </p>
-          <select
-            value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
-            className="w-full bg-slate-100 dark:bg-slate-800/50 text-sm px-3 py-2 rounded-md"
-          >
-            {languages.map((lang) => (
-              <option key={lang}>{lang}</option>
-            ))}
-          </select>
+      {isLoading ? (
+        <div className="flex items-center justify-center p-12 text-gray-400">
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-
-        {/* Player Font */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
-          <label className="text-sm font-semibold mb-1 block">
-            Font Family
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Select the font family that will be used in the video player.
-          </p>
-          <select
-            value={selectedFont}
-            onChange={(e) => setSelectedFont(e.target.value)}
-            className="w-full bg-slate-100 dark:bg-slate-800/50 text-sm px-3 py-2 rounded-md"
-          >
-            {fonts.map((font) => (
-              <option key={font}>{font}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Primary Colors */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
-          <label className="text-sm font-semibold mb-1 block">
-            Primary Player Colors
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Primary color will be displayed for the controls.
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            {presetColors.map((color) => (
-              <button
-                key={color}
-                onClick={() => setPrimaryColor(color)}
-                className={`w-6 h-6 rounded-full ${
-                  primaryColor === color
-                    ? "ring-2 ring-indigo-500"
-                    : "ring-1 ring-gray-300"
-                }`}
-                style={{ backgroundColor: color }}
-                aria-label={`Select ${color}`}
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Primary Color */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Primary Brand Color
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Accent color for the progress bar, volume slider, and interactive buttons.
+            </p>
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer border border-gray-300 dark:border-gray-700"
               />
-            ))}
+              <input
+                type="text"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2 rounded-md font-mono w-32 border border-slate-300 dark:border-slate-700"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {presetColors.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setPrimaryColor(color)}
+                  style={{ backgroundColor: color }}
+                  className={`w-6 h-6 rounded-full border transition-transform ${
+                    primaryColor === color ? "scale-125 border-white shadow-md ring-2 ring-blue-500" : "border-transparent"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
-          <div className="flex mt-2 items-center gap-2">
-            {/* Custom trigger */}
-            <label
-              htmlFor="color-input"
-              className="w-8 h-8 rounded-full cursor-pointer border-2 border-slate-400"
-              style={{ backgroundColor: primaryColor }}
-            />
 
-            {/* Hidden native color input */}
-            <input
-              id="color-input"
-              type="color"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="sr-only"
-            />
-
-            {/* HEX code input */}
+          {/* Control Bar Background */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Control Bar Background
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Hex or rgba background style for the player control bar.
+            </p>
             <input
               type="text"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="w-24 text-sm px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600"
+              value={controlBarBg}
+              onChange={(e) => setControlBarBg(e.target.value)}
+              placeholder="rgba(0, 0, 0, 0.7)"
+              className="w-full bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2 rounded-md font-mono border border-slate-300 dark:border-slate-700"
             />
-          </div>
-        </div>
-
-        {/* Captions Appearance */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
-          <label className="text-sm font-semibold mb-1 block">
-            Captions Appearance
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Configure the captions appearance.
-          </p>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm">Font Color</label>
-              <input
-                type="color"
-                value={fontColor}
-                onChange={(e) => setFontColor(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm">Background Color</label>
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm">Font Size</label>
-              <input
-                type="number"
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-20 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-700"
-              />
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setControlBarBg("rgba(0, 0, 0, 0.7)")}
+                className="text-xs px-2.5 py-1 bg-slate-200 dark:bg-slate-800 rounded hover:bg-slate-300 transition"
+              >
+                Dark Glass (Default)
+              </button>
+              <button
+                type="button"
+                onClick={() => setControlBarBg("#000000")}
+                className="text-xs px-2.5 py-1 bg-slate-200 dark:bg-slate-800 rounded hover:bg-slate-300 transition"
+              >
+                Solid Black
+              </button>
+              <button
+                type="button"
+                onClick={() => setControlBarBg("transparent")}
+                className="text-xs px-2.5 py-1 bg-slate-200 dark:bg-slate-800 rounded hover:bg-slate-300 transition"
+              >
+                Transparent
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="md:flex w-full justify-between flex-wrap">
-        <div className="md:w-[49%] md:h-52.5 bg-white dark:bg-slate-900/50 rounded-md p-5 border border-slate-200 dark:border-slate-900 mt-10">
-          <h3 className="text-sm font-semibold mb-2">Play Button Icon</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-            Personalize your video player&apos;s play button. Use a preset or
-            upload your own SVG/logo.
-          </p>
-
-          {/* Toggle Preset vs Upload */}
-          <div className="inline-flex rounded-md bg-slate-100 dark:bg-slate-900 p-1 mb-4">
-            <button
-              onClick={() => setUseCustomIcon(false)}
-              className={`text-sm px-4 py-1.5 rounded-md transition-all ${
-                !useCustomIcon
-                  ? "bg-white dark:bg-slate-800 dark:shadow dark:text-gray-200 text-slate-800 font-semibold"
-                  : "text-gray-500 dark:text-gray-300 hover:text-indigo-500"
-              }`}
-            >
-              Preset Icons
-            </button>
-            <button
-              onClick={() => setUseCustomIcon(true)}
-              className={`text-sm px-4 py-1.5 rounded-md transition-all ${
-                useCustomIcon
-                  ? "bg-white dark:bg-slate-700 dark:shadow dark:text-gray-200 text-slate-800 font-semibold"
-                  : "text-gray-500 dark:text-gray-300 hover:text-indigo-500"
-              }`}
-            >
-              Upload SVG/Image
-            </button>
-          </div>
-
-          {/* Preset Options */}
-          {!useCustomIcon && (
+          {/* Play Icon Style */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Play Button Icon Style
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Choose the centerpiece play button visual aesthetic.
+            </p>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Classic", icon: <PlayCircle size={20} /> },
-                { label: "Minimal", icon: <Play size={20} /> },
-                { label: "Block", icon: <PlaySquare size={20} /> },
-              ].map(({ label, icon }) => (
+                { label: "Default", id: "default", icon: <PlayCircle size={20} /> },
+                { label: "Minimal", id: "minimal", icon: <Play size={20} /> },
+                { label: "Glow", id: "glow", icon: <PlaySquare size={20} /> },
+              ].map(({ label, id, icon }) => (
                 <button
-                  key={label}
-                  onClick={() => setSelectedPlayIcon(label)}
-                  className={`flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-md border transition-all ${
-                    selectedPlayIcon === label
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "bg-slate-100 dark:bg-slate-800/50 border-slate-300 dark:border-slate-800 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                  key={id}
+                  onClick={() => setSelectedPlayIcon(id)}
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-md border transition-all ${
+                    selectedPlayIcon === id
+                      ? "bg-blue-600 text-white border-blue-600 shadow"
+                      : "bg-slate-100 dark:bg-slate-800/50 border-slate-300 dark:border-slate-800 text-gray-700 dark:text-gray-300 hover:bg-slate-200"
                   }`}
                 >
                   {icon}
@@ -276,78 +260,111 @@ export default function PlayerSettingsPage() {
                 </button>
               ))}
             </div>
-          )}
+          </div>
 
-          {/* Upload */}
-          {useCustomIcon && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-1">
-                <UploadCloud size={16} />
-                Upload SVG or transparent PNG
-              </label>
-              <input
-                type="file"
-                accept="image/svg+xml,image/png"
-                onChange={(e) => setCustomIconFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-500 dark:text-gray-400"
-              />
-              {customIconFile && (
-                <div className="mt-3 flex items-center gap-3">
-                  <ImageIcon
-                    size={20}
-                    className="text-gray-400 dark:text-gray-500"
-                  />
-                  <img
-                    src={URL.createObjectURL(customIconFile)}
-                    alt="Custom Play Icon"
-                    className="w-10 h-10 object-contain border border-gray-300 dark:border-gray-600 rounded"
-                  />
-                </div>
-              )}
+          {/* Watermark Branding Settings */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Custom Watermark (Starter & Higher Plans)
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Free plans feature the verified Vedora badge. Paid plans display your custom watermark image.
+            </p>
+            <input
+              type="url"
+              value={watermarkUrl}
+              onChange={(e) => setWatermarkUrl(e.target.value)}
+              placeholder="https://example.com/logo.png"
+              className="w-full bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 mb-3"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold block mb-1">Position</label>
+                <select
+                  value={watermarkPosition}
+                  onChange={(e) => setWatermarkPosition(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 text-sm px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700"
+                >
+                  <option value="top-right">Top Right</option>
+                  <option value="top-left">Top Left</option>
+                  <option value="bottom-right">Bottom Right</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1">Opacity ({watermarkOpacity}%)</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={watermarkOpacity}
+                  onChange={(e) => setWatermarkOpacity(Number(e.target.value))}
+                  className="w-full cursor-pointer accent-blue-600 mt-1"
+                />
+              </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Player Controls */}
-        <div className="md:w-[49%] mt-10 bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
-          <label className="text-sm font-semibold mb-1 block">
-            Player Controls
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-            Select the UI controls that will be displayed on the player.
-          </p>
-          <div className="flex items-center gap-4 flex-wrap">
-            {controls.map((control) => (
-              <button
-                key={control}
-                onClick={() => toggleControl(control)}
-                className={`px-3 flex items-center gap-1.5 py-2 text-sm rounded-md border transition-all ${
-                  enabledControls.includes(control)
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "bg-slate-100 dark:bg-slate-600 text-gray-600 dark:text-gray-300 border-slate-300 dark:border-slate-700"
-                }`}
-              >
-                {enabledControls.includes(control) ? (
-                  <Check size={14} className="shrink-0 text-green-500" />
-                ) : (
-                  <X size={14} className="shrink-0 text-red-500" />
-                )}
-                {control}
-              </button>
-            ))}
+          {/* Subtitles & Captions */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Subtitles & Closed Captions
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Automatically render subtitles track button when generated or provided.
+            </p>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableSubtitles}
+                onChange={(e) => setEnableSubtitles(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+              />
+              <span className="text-sm font-medium">Enable subtitles support in player</span>
+            </label>
+          </div>
+
+          {/* UI Controls Selection */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
+            <label className="text-sm font-semibold mb-1 block">
+              Enabled UI Controls
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Configure which control buttons appear on the player bar.
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {controls.map((control) => (
+                <button
+                  key={control}
+                  type="button"
+                  onClick={() => toggleControl(control)}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-all flex items-center gap-1 ${
+                    enabledControls.includes(control)
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-slate-100 dark:bg-slate-800 text-gray-500 border-slate-300 dark:border-slate-700"
+                  }`}
+                >
+                  {enabledControls.includes(control) ? (
+                    <Check size={12} className="text-green-400" />
+                  ) : (
+                    <X size={12} className="text-red-400" />
+                  )}
+                  {control}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Save Button */}
       <div className="w-full flex justify-end mt-8">
         <button
-          onClick={() => {
-            console.log("Settings saved!");
-          }}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 transition text-white rounded-md text-sm font-semibold shadow-md"
+          onClick={() => updateMutation.mutate()}
+          disabled={updateMutation.isPending || isLoading}
+          className="cursor-pointer inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition text-white rounded-md text-sm font-semibold shadow-md"
         >
-          Save Changes
+          {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+          {updateMutation.isPending ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </div>

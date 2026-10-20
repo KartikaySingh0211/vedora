@@ -124,6 +124,8 @@ const Sidebar = () => {
 	const { isLoaded, user } = useUser();
 	const { signOut } = useClerk();
 
+	if (path?.startsWith('/embed')) return null;
+
 	// resolvedTheme is undefined during SSR — default to "dark" to match defaultTheme
 	const isDark = resolvedTheme ? resolvedTheme === "dark" : true;
 	const toggleTheme = (): void => {

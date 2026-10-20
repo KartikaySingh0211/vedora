@@ -79,6 +79,7 @@ export const videos = pgTable(
     generate_subtitles: boolean('generate_subtitles').default(false).notNull(),
     include_watermark: boolean('include_watermark').default(false).notNull(),
     master_m3u8_key: text('master_m3u8_key'),
+    transcoded_size: bigint('transcoded_size', { mode: 'bigint' }),
     created_at: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -92,3 +93,90 @@ export const videos = pgTable(
     index('videos_status_idx').on(table.status),
   ],
 );
+
+export const player_settings = pgTable(
+  'player_settings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    user_id: text('user_id').notNull().unique(),
+    primary_color: text('primary_color').default('#2563eb').notNull(),
+    control_bar_bg: text('control_bar_bg')
+      .default('rgba(0, 0, 0, 0.7)')
+      .notNull(),
+    play_icon_style: text('play_icon_style').default('default').notNull(),
+    watermark_url: text('watermark_url'),
+    watermark_position: text('watermark_position')
+      .default('top-right')
+      .notNull(),
+    watermark_opacity: integer('watermark_opacity').default(80).notNull(),
+    enable_subtitles: boolean('enable_subtitles').default(true).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('player_settings_user_id_idx').on(table.user_id)],
+);
+
+export const video_views = pgTable(
+  'video_views',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    video_id: uuid('video_id')
+      .references(() => videos.id, { onDelete: 'cascade' })
+      .notNull(),
+    user_id: text('user_id').notNull(),
+    viewer_session_id: text('viewer_session_id').notNull(),
+    watch_duration_seconds: integer('watch_duration_seconds')
+      .default(0)
+      .notNull(),
+    total_segments_requested: integer('total_segments_requested')
+      .default(0)
+      .notNull(),
+    country: text('country').default('Unknown').notNull(),
+    browser: text('browser').default('Unknown').notNull(),
+    device: text('device').default('desktop').notNull(),
+    referrer: text('referrer').default('direct').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('video_views_video_id_idx').on(table.video_id),
+    index('video_views_user_id_idx').on(table.user_id),
+    index('video_views_created_at_idx').on(table.created_at),
+  ],
+);
+
+export const subscriptions = pgTable(
+  'subscriptions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    user_id: text('user_id').notNull().unique(),
+    stripe_customer_id: text('stripe_customer_id').unique(),
+    stripe_subscription_id: text('stripe_subscription_id'),
+    plan: text('plan').default('free').notNull(),
+    status: text('status').default('active').notNull(),
+    allocated_minutes: integer('allocated_minutes').default(1000).notNull(),
+    used_minutes: integer('used_minutes').default(0).notNull(),
+    current_period_start: timestamp('current_period_start', {
+      withTimezone: true,
+    }),
+    current_period_end: timestamp('current_period_end', {
+      withTimezone: true,
+    }),
+    updated_at: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('subscriptions_user_id_idx').on(table.user_id)],
+);
+
+export type PlayerSettings = typeof player_settings.$inferSelect;
+export type InsertPlayerSettings = typeof player_settings.$inferInsert;
+export type VideoView = typeof video_views.$inferSelect;
+export type InsertVideoView = typeof video_views.$inferInsert;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

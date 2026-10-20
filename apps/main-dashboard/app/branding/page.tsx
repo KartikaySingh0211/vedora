@@ -90,6 +90,11 @@ const Page = () => {
 							onChange={(e) => setFile(e.target.files?.[0] || null)}
 							className="block text-sm text-gray-600 dark:text-gray-400"
 						/>
+						{file && (
+							<p className="text-xs text-green-500 mt-1">
+								Selected: {file.name}
+							</p>
+						)}
 					</div>
 
 					{/* Position */}

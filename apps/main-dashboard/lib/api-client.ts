@@ -56,6 +56,42 @@ export interface VideoItem {
   updatedAt: string;
 }
 
+export interface PlayerSettingsItem {
+  id: string;
+  user_id: string;
+  primary_color: string;
+  control_bar_bg: string;
+  play_icon_style: string;
+  watermark_url: string | null;
+  watermark_position: string;
+  watermark_opacity: number;
+  enable_subtitles: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnalyticsMetricsResponse {
+  totalViews: number;
+  totalWatchTimeSeconds: number;
+  totalWatchTimeMinutes: number;
+  uniqueViewers: number;
+  avgDurationSeconds: number;
+  deviceBreakdown: { name: string; value: number; color?: string }[];
+  browserBreakdown: { browser: string; share: number }[];
+  viewsOverTime: { date: string; views: number }[];
+}
+
+export interface SubscriptionItem {
+  id: string;
+  userId: string;
+  plan: string;
+  status: string;
+  allocatedMinutes: number;
+  usedMinutes: number;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+}
+
 export async function fetchWithAuth<T>(
   endpoint: string,
   token: string | null,

@@ -163,4 +163,74 @@ export class StorageService {
 
     return { success: true, key };
   }
+
+  /**
+   * Directly upload a buffer (e.g. HLS manifest m3u8 or segment) to storage
+   */
+  async uploadDirectBuffer(
+    key: string,
+    buffer: Buffer,
+    contentType = 'application/octet-stream',
+  ): Promise<{ success: boolean; key: string }> {
+    try {
+      if (this.apiKey && !this.apiKey.includes('placeholder')) {
+        await fetch(
+          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects/direct`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': contentType,
+              'x-api-key': this.apiKey,
+              'x-object-key': key,
+            },
+            body: new Uint8Array(buffer),
+          },
+        );
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Cloud direct upload fallback for ${key}: ${(err as Error).message}`,
+      );
+    }
+
+    return { success: true, key };
+  }
+
+  /**
+   * Resolve public or signed CDN URL for HLS manifest playback
+   */
+  getPublicUrl(key: string): string {
+    const customCdn = this.configService.get<string>('storage.cdnUrl');
+    if (customCdn) {
+      return `${customCdn.replace(/\/$/, '')}/${key}`;
+    }
+    return `https://storage.oneminutecloud.com/${this.defaultBucketId}/${key}`;
+  }
+
+  /**
+   * Delete an object from cloud storage
+   */
+  async deleteObject(key: string): Promise<boolean> {
+    try {
+      if (this.apiKey && !this.apiKey.includes('placeholder')) {
+        await fetch(
+          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': this.apiKey,
+            },
+            body: JSON.stringify({ key }),
+          },
+        );
+      }
+      return true;
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Cloud storage delete failed for ${key}: ${(err as Error).message}`,
+      );
+      return false;
+    }
+  }
 }

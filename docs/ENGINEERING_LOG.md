@@ -518,3 +518,159 @@ GET  /api/v1/videos             ➔ 401 Unauthorized (Missing credentials)
 POST /api/v1/videos/init        ➔ 401 Unauthorized (Missing credentials)
 POST /api/v1/videos/init (VDR_) ➔ 401 Unauthorized (Invalid or revoked API key)
 ```
+
+---
+
+## Run 3: Cycle 3 Implementation — Transcoding, HLS Player, Analytics & Billing
+
+**Execution Date**: 2026-10-20  
+**Phase Target**: Video Transcoding, Rendition Ladders, Standalone Embeddable Player, Segment-Level Analytics Telemetry, Custom Player Settings, and Subscription Billing Engine.
+
+---
+
+### 1. Architectural Decisions & Scope
+
+Cycle 3 completes the Vedora video infrastructure platform by connecting video uploads to an asynchronous transcoding pipeline, adaptive-bitrate playback, privacy-first telemetry aggregation, and billing synchronization.
+
+Key architectural deliverables:
+1. **Drizzle Schema Finalization & Neon Migration**:
+   - `player_settings`: User-scoped playback customization (theme colors, control bar styling, watermark image, position, opacity, subtitle toggles).
+   - `subscriptions`: Stripe billing lifecycle state, customer mappings, plan tiers (`free`, `starter`, `pro`, `business`), allocated vs. used playback minutes, and billing period tracking.
+   - `video_views`: High-performance session-level playback telemetry records with country, browser, device, duration, and segment counts.
+   - `videos.transcoded_size`: Discrete tracking of transcoded storage size to preserve raw upload size (`size_bytes`) and prevent quota skew.
+2. **Asynchronous Transcoding Pipeline (`TranscoderModule`)**:
+   - Multi-rendition adaptive bitrate ladder (360p, 480p, 720p, 1080p).
+   - Non-blocking job processing via Redis worker queue (`vedora:queue:transcode`).
+   - Generation of standard HLS RFC 8216 master playlists (`master.m3u8`) and variant media playlists (`index.m3u8`).
+   - Direct binary buffer streaming to cloud storage buckets.
+   - Cryptographic HMAC-SHA256 signature verification on completion webhook callbacks (`POST /api/v1/transcoder/webhook`).
+   - Automatic video status progression (`uploaded` ➔ `processing` ➔ `ready`).
+3. **Embeddable Standalone Player (`apps/main-dashboard/app/embed/[videoid]`)**:
+   - Native Safari HLS and `hls.js` adaptive bitrate streaming.
+   - Complete custom theme styling, manual and automatic resolution selector, fullscreen controls, and error states.
+   - Enforced server-derived branding: Mandatory "Powered by Vedora" watermark on Free tier; custom owner watermarks on paid tiers.
+   - Isolated full-viewport shell decoupled from dashboard navigation for clean `<iframe>` embedding.
+4. **Segment-Level Analytics Telemetry (`AnalyticsModule`)**:
+   - Public ingestion endpoint (`POST /api/v1/analytics/segment-ping`).
+   - Cryptographic HMAC pseudonymous viewer session token generation (zero raw IP addresses stored).
+   - Redis high-throughput buffer (`vedora:analytics:buffer`) flushed periodically into batched PostgreSQL inserts.
+   - Multi-window metrics API (`7d`, `30d`, `90d`) returning total views, watch duration, unique viewers, average view duration, device breakdown, browser share, and time-series charts.
+   - Connected `apps/main-dashboard/app/analytics` page with TanStack Query and Recharts.
+5. **Player Settings API & UI (`PlayerSettingsModule`)**:
+   - Authenticated user settings CRUD (`GET`/`PUT` `/api/v1/player-settings`) and public embed config resolution (`GET /api/v1/player-settings/public/:videoId`).
+   - Connected `apps/main-dashboard/app/player` page with real-time color pickers, opacity sliders, position toggles, and toast feedback.
+6. **Subscription Management & Billing Engine (`BillingModule`)**:
+   - Stripe webhook synchronization (`customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`).
+   - Centralized plan entitlements: Free (1,000 mins / 5 GiB), Starter (10,000 mins / 250 GiB), Pro (22,000 mins / 600 GiB), Business (50,000 mins / 2 TiB).
+   - Playback-minute accounting attributed to video owners.
+   - UTC-synchronized monthly reset cron (`@Cron('0 0 1 * *', { timeZone: 'UTC' })`) that archives and resets playback minutes while permanently preserving accrued storage.
+   - Connected `apps/main-dashboard/app/billing` page with live usage percentages and plan cards.
+
+---
+
+### 2. Implementation Log by Phase
+
+#### Phase 1: Database Finalization
+- Modified `services/src/database/schema.ts`:
+  - Added `player_settings`, `subscriptions`, and `video_views` tables with indexes on `(user_id, created_at)` and `(video_id, created_at)`.
+  - Added `transcoded_size` column to `videos` table.
+- Generated migration `0003_tan_aaron_stack.sql` via `drizzle-kit generate`.
+- Applied migration safely to Neon PostgreSQL (`drizzle-kit migrate`). Verified all 6 tables: `api_key`, `playlist`, `player_settings`, `subscriptions`, `videos`, `video_views`.
+
+#### Phase 2: Asynchronous Transcoding Pipeline
+- Implemented `services/src/modules/transcoder/transcoder.service.ts`:
+  - Enqueueing transcoding jobs upon upload completion in `VideoService.completeVideo`.
+  - Rendition specifications (360p, 480p, 720p, 1080p) conforming to standard resolutions and bitrates.
+  - Generating master manifest and variant media playlists.
+  - Uploading generated HLS artifacts to cloud storage via `StorageService`.
+  - HMAC webhook validation and atomic transition of video status to `ready`.
+- Implemented `transcoder.processor.ts` for queue consumption.
+- Implemented `transcoder.controller.ts` exposing `POST /api/v1/transcoder/webhook`.
+- Added list/queue operations (`rpush`, `lpop`, `lrange`, `ltrim`, `llen`) to `RedisService`.
+- Authored 9 unit tests in `transcoder.service.spec.ts`.
+
+#### Phase 3: Standalone Embeddable Player
+- Installed `hls.js` in `apps/main-dashboard`.
+- Created `apps/main-dashboard/components/dashboard-shell.tsx` to conditionally bypass sidebar and margins for `/embed` routes.
+- Created `apps/main-dashboard/app/embed/[videoid]/page.tsx`:
+  - Loads public player configuration from `/api/v1/player-settings/public/:videoId`.
+  - Initializes HLS stream with adaptive bitrate and manual quality selector.
+  - Renders custom primary color, control bar glassmorphism, and custom/free-tier watermarks.
+  - Sends 10-second playback telemetry pings to `/api/v1/analytics/segment-ping`.
+
+#### Phase 4: Segment-Level Analytics Telemetry
+- Implemented `services/src/modules/analytics/analytics.service.ts`:
+  - Public telemetry ingestion with rate bounding (max 30s per ping).
+  - HMAC-SHA256 pseudonymous session hashing.
+  - Redis list buffering (`vedora:analytics:buffer`).
+  - Batched persistence into PostgreSQL `video_views`.
+  - Authenticated query engine for `7d`, `30d`, and `90d` time windows.
+- Implemented `analytics.processor.ts` running scheduled 5-second buffer flushes.
+- Implemented `analytics.controller.ts` with dual auth guards.
+- Connected `apps/main-dashboard/app/analytics/page.tsx` with TanStack Query and Recharts.
+- Authored 6 unit tests in `analytics.service.spec.ts`.
+
+#### Phase 5: Player Settings API and Dashboard
+- Implemented `services/src/modules/player-settings/player-settings.service.ts`:
+  - Automatic creation of default settings.
+  - Color, opacity, play icon, and position validation.
+  - Public endpoint exposing only non-sensitive playback configuration.
+- Implemented `player-settings.controller.ts`.
+- Connected `apps/main-dashboard/app/player/page.tsx` with real-time form bindings, query cache invalidation, and toast feedback.
+- Authored 6 unit tests in `player-settings.service.spec.ts`.
+
+#### Phase 6: Subscription Management & Billing Integration
+- Installed `stripe` in `services`.
+- Updated `plans.config.ts` with playback-minute allocations across Free, Starter, Pro, and Business plans.
+- Implemented `services/src/modules/billing/billing.service.ts`:
+  - Fetching user subscription and default Free tier initialization.
+  - Stripe webhook handling (`customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`).
+  - Playback-minute accounting and usage tracking.
+  - Playback-minute reset logic preserving storage counters.
+- Implemented `billing-cycle.cron.ts` running `@Cron('0 0 1 * *', { timeZone: 'UTC' })`.
+- Implemented `billing.controller.ts`.
+- Connected `apps/main-dashboard/app/billing/page.tsx` to live API.
+- Authored 8 unit tests in `billing.service.spec.ts`.
+
+---
+
+### 3. Verification & Monorepo Test Summary
+
+```text
+=== Services Test Suite ===
+PASS src/guards/upload-video.guard.spec.ts (7 tests)
+PASS src/app.controller.spec.ts (2 tests)
+PASS src/modules/playlist/playlist.service.spec.ts (10 tests)
+PASS src/utils/api-key.util.spec.ts (5 tests)
+PASS src/modules/transcoder/transcoder.service.spec.ts (9 tests)
+PASS src/modules/videos/video.service.spec.ts (14 tests)
+PASS src/guards/dual-auth.guard.spec.ts (5 tests)
+PASS src/modules/player-settings/player-settings.service.spec.ts (6 tests)
+PASS src/modules/analytics/analytics.service.spec.ts (6 tests)
+PASS src/modules/billing/billing.service.spec.ts (8 tests)
+PASS src/modules/api-key/api-key.service.spec.ts (7 tests)
+
+Test Suites: 11 passed, 11 total
+Tests:       79 passed, 79 total
+Snapshots:   0 total
+Time:        9.674 s
+
+=== SDK Test Suite ===
+▶ Vedora SDK
+  ✔ should initialize VedoraClient with default config
+  ✔ should accept custom baseUrl and apiKey
+  ✔ should reject empty or zero-byte file in client.videos.upload
+✔ Vedora SDK (3 tests passed)
+
+=== Static Analysis & Linters ===
+services:            0 errors, 0 warnings
+apps/main-dashboard: 0 errors, 0 warnings
+apps/landing-page:   0 errors, 0 warnings
+
+=== Production Builds ===
+services:            Compiled successfully (dist/main.js)
+sdks/vedora-sdk:     Compiled successfully (dist/index.d.ts, dist/index.js)
+apps/main-dashboard: Compiled successfully via Turbopack (18 static & dynamic routes)
+apps/landing-page:   Compiled successfully via Turbopack (5 routes)
+```
+

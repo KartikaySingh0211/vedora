@@ -18,6 +18,9 @@ Detailed, industry-standard architectural specifications, threat assessments, an
   - [ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-005-video-storage-token-proxy.md)
   - [ADR-006: Plan-Based Storage Quotas, Concurrency-Safe Reservations, and Direct Cloud Storage Ingestion](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-006-plan-based-quotas-and-direct-uploads.md)
   - [ADR-007: Custom TypeScript SDK Architecture (@vedora/sdk) and Direct-to-Cloud Upload Pipeline](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-007-vedora-upload-sdk-architecture.md)
+  - [ADR-008: Asynchronous HLS Transcoding Pipeline and Rendition Ladder](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md)
+  - [ADR-009: Segment-Level Playback Analytics and Pseudonymous Telemetry](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-009-segment-level-analytics-and-pseudonymous-telemetry.md)
+  - [ADR-010: Subscription Billing Engine, Playback-Minute Accounting, and Quota Resets](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)
 
 ---
 
@@ -27,7 +30,7 @@ Detailed, industry-standard architectural specifications, threat assessments, an
                                ┌────────────────────────────────────────┐
                                │             Next.js Apps               │
                                │  • Landing Page (port 3000)            │
-                               │  • Main Dashboard (port 3001)          │
+                               │  • Main Dashboard & Player (port 3001) │
                                └───────────────────┬────────────────────┘
                                                    │
                                      HTTP Requests │ Authorization (Clerk / API Key)
@@ -44,7 +47,7 @@ Detailed, industry-standard architectural specifications, threat assessments, an
                                │   LRU Cache   │   │   │  (Drizzle ORM)    │
                                └───────────────┘   │   └───────────────────┘
                                                    │
-                                     Level 2 Cache │ Activity Buffering
+                                     Level 2 Cache │ Telemetry / Transcode Queues
                                                    ▼
                                        ┌───────────────────────┐
                                        │    Redis 7 (Docker)   │
@@ -55,25 +58,26 @@ Detailed, industry-standard architectural specifications, threat assessments, an
 ### Components
 1. **`services/`**: NestJS backend providing `/api/v1` routes:
    - **Authentication**: Dual-auth Guard supporting Clerk user JWTs and Vedora API keys (`VDR_<32hex>_<secret>`).
-   - **Key Caching**: 3-tier verification order:
-     - **Level 1**: Local LRU cache (`v1:<keyId>`, 5m soft TTL, max 100k items).
-     - **Level 2**: Redis distributed cache (`vedora:api_key:v1:<keyId>`, 10m hard TTL).
-     - **Level 3**: Neon PostgreSQL with Argon2id hash verification.
-   - **Debounced Activity Tracking**: 60s atomic Redis lock with scheduled 5-minute batch persistence to Neon.
-   - **Playlists Module**: User-scoped playlist management with atomic transaction advisory locks enforcing server-side quotas (max 10 playlists/user).
+   - **Key Caching**: 3-tier verification order (L1: Local LRU, L2: Redis, L3: Neon PostgreSQL with Argon2id hash).
+   - **Playlists Module**: User-scoped playlist management with atomic transaction advisory locks enforcing server-side quotas.
    - **Videos Module & Quotas**: Direct-to-cloud upload authorization (`/api/v1/videos/init`), upload verification & completion (`/api/v1/videos/complete`), video listing (`GET /api/v1/videos`), details, and cascade deletion.
-   - **Plan-Based Storage Quotas**: Binary storage caps (Free: 5 GiB & 1080p prohibited, Starter: 250 GiB, Pro: 600 GiB, Business: 2 TiB). Transactional advisory locking (`pg_advisory_xact_lock(hashtext('vedora_storage_quota_' || userId))`) prevents concurrent quota bypass.
-   - **Resilience**: Graceful, non-blocking fallback to PostgreSQL when Redis is offline.
+   - **Transcoder Module**: Asynchronous HLS adaptive bitrate transcoding worker (`vedora:queue:transcode`), multi-rendition ladders (360p, 480p, 720p, 1080p), master playlist generation (`master.m3u8`), and authenticated HMAC webhook processing (`POST /api/v1/transcoder/webhook`).
+   - **Analytics Module**: Public playback telemetry ingestion (`POST /api/v1/analytics/segment-ping`), HMAC-SHA256 pseudonymous session hashing, Redis high-throughput buffer (`vedora:analytics:buffer`), scheduled batched PostgreSQL persistence, and multi-window aggregations (`7d`, `30d`, `90d`).
+   - **Player Settings Module**: User-scoped customization (`/api/v1/player-settings`) for theme colors, control bar styling, watermark image, position, opacity, and subtitle toggles. Public config endpoint for embeddable player (`/player-settings/public/:videoId`).
+   - **Billing & Subscriptions Module**: Stripe webhook synchronization (`customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`), playback-minute accounting, plan entitlement mapping, and monthly UTC scheduled reset cron (`@Cron('0 0 1 * *', { timeZone: 'UTC' })`) that archives playback minutes while permanently preserving accrued storage.
 2. **`sdks/vedora-sdk/`**: Custom TypeScript SDK (`@vedora/sdk`):
    - **Direct-to-Cloud Uploads**: Uploads video chunks directly to OneMinute Cloud Storage without proxying multi-gigabyte video payloads through NestJS.
    - **Telemetry Engine**: Real-time progress percentage, upload transfer speed (Bps / MB/s), and estimated time remaining (ETA).
    - **Fault Tolerance**: Bounded exponential backoff retries with full jitter for transient 5xx/network errors, non-retryable 4xx fast-fails, and full cancellation via standard `AbortSignal`.
 3. **`apps/main-dashboard/`**: Next.js 16 App Router dashboard:
-   - **Developer Access**: Key generation with one-time secret modal, copy-once interaction, regeneration with 5-minute cooldown, and relative timestamps via `timeago.js`.
-   - **Playlist Management**: Reactive playlists dashboard with TanStack Query, optimistic state updates, and quota indicators.
-   - **Video Ingestion & SDK Integration**: Dedicated `/uploads` route driven by `@vedora/sdk`, with multi-resolution selection, live progress bar, transfer speed (MB/s), and estimated remaining time.
-   - **Video Management**: `/my-videos` and `/videos` routes featuring TanStack Query live data, playlist filtering, Grid/Table view toggles, 5 lifecycle status badges (`uploading`, `uploaded`, `processing`, `ready`, `failed`), Copy Video ID, Copy Embed Code template, and atomic deletion with confirmation.
-   - **Token Proxy**: `/api/oneminutecloud/provider` and `[provider]` verifying Clerk session server-side.
+   - **Developer Access**: Key generation with one-time secret modal, copy-once interaction, regeneration with 5-minute cooldown.
+   - **Playlist Management**: Reactive playlists dashboard with TanStack Query and quota indicators.
+   - **Video Ingestion & SDK Integration**: Dedicated `/uploads` route driven by `@vedora/sdk`, with multi-resolution selection, live progress bar, transfer speed (MB/s), and ETA.
+   - **Video Management**: `/my-videos` route featuring TanStack Query live data, playlist filtering, Grid/Table view toggles, 5 lifecycle status badges (`uploading`, `uploaded`, `processing`, `ready`, `failed`), and Copy Embed Code template.
+   - **Embeddable Player (`/embed/[videoid]`)**: Standalone, full-viewport embed player supporting adaptive HLS playback via `hls.js`, quality selector, custom branding, and mandatory "Powered by Vedora" watermark on Free tier.
+   - **Analytics Dashboard (`/analytics`)**: Live metrics dashboard with TanStack Query and Recharts (views, watch time, unique viewers, average duration, device and browser share, time-series charts).
+   - **Player Settings (`/player`)**: Live customization controls with color pickers, opacity sliders, position toggles, and instant preview.
+   - **Billing & Subscriptions (`/billing`)**: Real-time playback-minute usage tracking, renewal dates, and plan tier cards.
 4. **`apps/landing-page/`**: Next.js 16 marketing website with sleek dark theme and responsive UI.
 
 ---
@@ -87,11 +91,14 @@ Detailed, industry-standard architectural specifications, threat assessments, an
 | **ORM & Migrations** | Drizzle ORM, Drizzle Kit, `@neondatabase/serverless` |
 | **User Authentication** | Clerk (`@clerk/backend`, `@clerk/nextjs`) |
 | **API Key Hashing** | Argon2id (`argon2`) |
-| **API Key Digest Indexing** | Node.js `crypto` (HMAC-SHA256) |
+| **Cryptographic Digest** | Node.js `crypto` (HMAC-SHA256) |
 | **Local Caching** | `lru-cache` |
-| **Distributed Caching** | Redis 7 Alpine (`ioredis`), Docker Compose |
+| **Distributed Caching & Queues** | Redis 7 Alpine (`ioredis`), Docker Compose |
+| **Media Player & Streaming** | `hls.js`, RFC 8216 HLS Master/Variant manifests |
+| **Payments & Subscriptions** | Stripe SDK (`stripe`) |
 | **Scheduler** | `@nestjs/schedule` |
 | **Frontend Dashboard** | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
+| **Data Visualization** | `recharts` |
 | **Server-State Management**| TanStack Query v5 |
 | **Relative Time** | `timeago.js` |
 | **Video Storage** | OneMinute Cloud Storage (`@oneminutecloud/storage-bucket-next`) |
@@ -118,6 +125,7 @@ cp .env.example apps/main-dashboard/.env
 - `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk authentication keys.
 - `NEXT_PUBLIC_API_URL`: Backend URL (default: `http://localhost:8080/api/v1`).
 - `ONEMINUTECLOUD_API_KEY`: OneMinute Cloud Storage provider key.
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: Stripe billing keys.
 
 ### 2. Infrastructure Setup (Redis)
 
@@ -166,7 +174,7 @@ npm run dev -- -p 3000
 Run tests, typechecks, and builds across the repository:
 
 ```bash
-# Backend unit & integration tests
+# Backend unit & integration tests (79 tests across 11 suites)
 cd services
 npm test
 
@@ -174,12 +182,16 @@ npm test
 npm run lint
 npm run build
 
-# Dashboard linter & build
+# SDK tests (3 tests)
+cd ../sdks/vedora-sdk
+npm test
+
+# Dashboard linter & build (18 static and dynamic routes)
 cd ../apps/main-dashboard
 npm run lint
 npm run build
 
-# Landing page linter & build
+# Landing page linter & build (5 routes)
 cd ../apps/landing-page
 npm run lint
 npm run build
@@ -193,12 +205,8 @@ npm run build
 2. **Dedicated HMAC Digest Cache Keys**: Plaintext keys are never stored in Redis. Only HMAC-SHA256 digests derived with server-side secrets are used for cache validation.
 3. **Prompt Cache Invalidation**: Revoking or regenerating an API key invalidates both Level 1 (LRU) and Level 2 (Redis) cache entries immediately and guards against concurrent rehydration.
 4. **Server-Side Quotas**: Playlist limit (10 per user) is enforced in PostgreSQL transactions using advisory locks, preventing quota bypasses from concurrent race conditions.
-5. **No Secret Leaking**: Centralized exception filters sanitize URLs, query params, tokens, and database stack traces before logging or returning error responses.
-6. **Token Proxy**: Video upload provider credentials remain server-side in `/api/oneminutecloud/provider`.
+5. **Privacy-Preserving Telemetry**: Raw IP addresses are never persisted in analytics records; pseudonymized HMAC hashes are generated with server-side secrets.
+6. **Cryptographic Webhook Signatures**: Transcoding completion and Stripe billing webhooks require verified HMAC signatures before executing state transitions.
+7. **Server-Authoritative Plan Entitlements**: Client applications cannot override watermarks, resolution caps, or subscription tiers; all playback and quota logic is verified server-side.
+8. **Permanent Storage Accounting**: Monthly billing resets refresh playback minutes while preserving accrued storage size to guarantee accurate quota enforcement across billing cycles.
 
----
-
-## 📋 Known Limitations & Subsequent Phases
-
-- **Media Processing / HLS**: Current phase delivers cloud object key ingestion and storage staging. Asynchronous video transcoding, HLS packaging, and thumbnail generation will be connected in subsequent media pipeline phases.
-- **Docker in Non-Elevated Environments**: In restricted Windows environments where Docker Desktop daemon requires administrator elevation, the system seamlessly uses the tested PostgreSQL fallback mode.

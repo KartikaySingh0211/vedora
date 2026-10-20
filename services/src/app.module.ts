@@ -9,6 +9,10 @@ import { ApiKeyModule } from './modules/api-key/api-key.module';
 import { PlaylistModule } from './modules/playlist/playlist.module';
 import { StorageModule } from './infra/storage/storage.module';
 import { VideosModule } from './modules/videos/videos.module';
+import { TranscoderModule } from './modules/transcoder/transcoder.module';
+import { PlayerSettingsModule } from './modules/player-settings/player-settings.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -24,6 +28,10 @@ import { VideosModule } from './modules/videos/videos.module';
     ApiKeyModule,
     PlaylistModule,
     VideosModule,
+    TranscoderModule,
+    PlayerSettingsModule,
+    AnalyticsModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

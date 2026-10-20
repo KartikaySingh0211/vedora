@@ -4,6 +4,7 @@ export interface PlanLimit {
   storageCapBytes: bigint;
   allow1080p: boolean;
   displayName: string;
+  allocatedPlaybackMinutes: number;
 }
 
 export const GIB_BYTES = 1_073_741_824n;
@@ -14,21 +15,25 @@ export const PLAN_LIMITS: Record<UserPlan, PlanLimit> = {
     storageCapBytes: 5n * GIB_BYTES, // 5,368,709,120 bytes (5 GiB)
     allow1080p: false,
     displayName: 'Free',
+    allocatedPlaybackMinutes: 1000,
   },
   starter: {
     storageCapBytes: 250n * GIB_BYTES, // 268,435,456,000 bytes (250 GiB)
     allow1080p: true,
     displayName: 'Starter',
+    allocatedPlaybackMinutes: 10000,
   },
   pro: {
     storageCapBytes: 600n * GIB_BYTES, // 644,245,094,400 bytes (600 GiB)
     allow1080p: true,
     displayName: 'Pro',
+    allocatedPlaybackMinutes: 22000,
   },
   business: {
     storageCapBytes: 2n * TIB_BYTES, // 2,199,023,255,552 bytes (2 TiB)
     allow1080p: true,
     displayName: 'Business',
+    allocatedPlaybackMinutes: 50000,
   },
 };
 
