@@ -7,17 +7,18 @@ import {
   X,
   Loader2,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { storage } from "@oneminutecloud/storage-bucket-next";
+import { VedoraClient, UploadProgress, VideoRecord } from "@/lib/sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,13 +27,15 @@ import { fetchWithAuth, PlaylistItem } from "@/lib/api-client";
 
 const uploadSchema = z.object({
   title: z.string().min(1, "Video title is required"),
-  slug: z.string().min(1, "Slug is required"),
+  slug: z
+    .string()
+    .min(1, "Slug is required")
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Slug must contain only lowercase alphanumeric characters and hyphens",
+    ),
   description: z.string().optional(),
   tags: z.string().optional(),
-  thumbnail: z
-    .any()
-    .optional(),
-  timestamps: z.string().optional(),
   playlist: z.string().optional(),
   generateSubtitles: z.string().optional(),
   includeWatermark: z.string().optional(),
@@ -53,29 +56,34 @@ export default function UploadPage() {
   } = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
-      generateSubtitles: "yes",
-      includeWatermark: "yes",
+      generateSubtitles: "no",
+      includeWatermark: "no",
     },
   });
 
   const [isDragging, setIsDragging] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
 
-  // Upload progress and transfer speed metrics
+  // Selected resolutions (720p default, 1080p optional for paid tiers)
+  const [resolutions, setResolutions] = useState<string[]>(["720p"]);
+
+  // Upload progress, speed & state telemetry
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [transferSpeed, setTransferSpeed] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
-  const [uploadedObjectKey, setUploadedObjectKey] = useState<string | null>(null);
+  const [completedVideo, setCompletedVideo] = useState<VideoRecord | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const startTimeRef = useRef<number | null>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isLoaded, user } = useUser();
   const { getToken } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Dynamically load user playlists for the dropdown
+  // Load playlists for selector
   const { data: playlists } = useQuery<PlaylistItem[]>({
     queryKey: ["playlists"],
     queryFn: async () => {
@@ -85,65 +93,133 @@ export default function UploadPage() {
     enabled: isLoaded && !!user,
   });
 
-  const onSubmit = async (_data: UploadFormValues) => {
+  const toggleResolution = (res: string) => {
+    if (resolutions.includes(res)) {
+      if (resolutions.length === 1) {
+        toast.error("At least one resolution must be selected");
+        return;
+      }
+      setResolutions(resolutions.filter((r) => r !== res));
+    } else {
+      setResolutions([...resolutions, res]);
+    }
+  };
+
+  const calculateDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(Math.round(video.duration || 0));
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(0);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("video/")) {
+      toast.error("Please select a valid video file (MP4, WebM, etc.)");
+      return;
+    }
+
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setVideoPreview(url);
+    setValue("video", [file], { shouldValidate: true });
+
+    // Derive duration
+    const dur = await calculateDuration(file);
+    setVideoDuration(dur);
+
+    // Auto-generate slug if title already entered or from filename
+    const currentTitle = watch("title");
+    if (!currentTitle) {
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+      setValue("title", nameWithoutExt, { shouldValidate: true });
+      const baseSlug = nameWithoutExt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "");
+      const suffix = Math.random().toString(36).substring(2, 6);
+      setValue("slug", `${baseSlug}-${suffix}`, { shouldValidate: true });
+    }
+  };
+
+  const onSubmit = async (data: UploadFormValues) => {
     if (!selectedFile) {
-      toast.error("Please select a valid video file to upload");
+      toast.error("Please select a video file to upload");
       return;
     }
 
     setIsUploading(true);
     setUploadProgress(0);
     setTransferSpeed(null);
-    setEstimatedTime("Calculating...");
-    setUploadedObjectKey(null);
-    startTimeRef.current = Date.now();
-
-    // Default bucket ID format (UUID) or configured bucket
-    const bucketId =
-      process.env.NEXT_PUBLIC_ONEMINUTECLOUD_BUCKET_ID ||
-      "00000000-0000-0000-0000-000000000001";
+    setEstimatedTime("Initializing upload...");
+    setUploadError(null);
+    setCompletedVideo(null);
 
     try {
-      const uploadResult = await storage.upload(selectedFile, bucketId, {
-        onProgress: (p: { percent: number; loaded?: number; total?: number }) => {
-          const percent = Math.min(100, Math.max(0, Math.round(p.percent || 0)));
-          setUploadProgress(percent);
-
-          // Calculate speed & estimated remaining time safely
-          if (startTimeRef.current && percent > 0 && percent < 100) {
-            const elapsedSeconds = Math.max(0.1, (Date.now() - startTimeRef.current) / 1000);
-            const totalBytes = p.total || selectedFile.size;
-            const loadedBytes = p.loaded || (totalBytes * (percent / 100));
-
-            const bytesPerSec = loadedBytes / elapsedSeconds;
-            if (bytesPerSec > 0 && isFinite(bytesPerSec)) {
-              const mbps = (bytesPerSec / (1024 * 1024)).toFixed(1);
-              setTransferSpeed(`${mbps} MB/s`);
-
-              const remainingBytes = Math.max(0, totalBytes - loadedBytes);
-              const remainingSec = Math.ceil(remainingBytes / bytesPerSec);
-
-              if (remainingSec < 60) {
-                setEstimatedTime(`~${remainingSec}s remaining`);
-              } else {
-                const mins = Math.floor(remainingSec / 60);
-                const secs = remainingSec % 60;
-                setEstimatedTime(`~${mins}m ${secs}s remaining`);
-              }
-            }
-          } else if (percent >= 100) {
-            setEstimatedTime("Finalizing multipart upload...");
-          }
+      const client = new VedoraClient({
+        baseUrl:
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
+        bearerToken: async () => {
+          return await getToken();
         },
       });
 
-      const objectKey = uploadResult.key;
-      setUploadedObjectKey(objectKey);
+      const tags = data.tags
+        ? data.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+
+      const result = await client.videos.upload(
+        selectedFile,
+        {
+          title: data.title,
+          slug: data.slug,
+          description: data.description,
+          tags,
+          playlistId: data.playlist || undefined,
+          resolutions: resolutions as ("720p" | "1080p")[],
+          generateSubtitles: data.generateSubtitles === "yes",
+          includeWatermark: data.includeWatermark === "yes",
+        },
+        {
+          duration: videoDuration,
+          onProgress: (p: UploadProgress) => {
+            setUploadProgress(p.percent);
+            const mbps = (p.speedBps / (1024 * 1024)).toFixed(1);
+            setTransferSpeed(`${mbps} MB/s`);
+
+            if (p.percent >= 100) {
+              setEstimatedTime("Finalizing registration...");
+            } else if (p.etaSeconds < 60) {
+              setEstimatedTime(`~${p.etaSeconds}s remaining`);
+            } else {
+              const mins = Math.floor(p.etaSeconds / 60);
+              const secs = p.etaSeconds % 60;
+              setEstimatedTime(`~${mins}m ${secs}s remaining`);
+            }
+          },
+        },
+      );
+
+      setCompletedVideo(result);
       setUploadProgress(100);
-      toast.success("Video uploaded successfully to cloud storage!");
+      toast.success("Video successfully uploaded and registered!");
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Upload error: ${msg}`);
+      setUploadError(msg);
+      toast.error(msg);
     } finally {
       setIsUploading(false);
     }
@@ -167,39 +243,19 @@ export default function UploadPage() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("video/")) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setVideoPreview(url);
-      setValue("video", [file], { shouldValidate: true });
-    } else {
-      toast.error("Please drop a valid video file (MP4, WebM, etc.)");
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
+    if (file) handleFile(file);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setVideoPreview(url);
-      setValue("video", e.target.files, { shouldValidate: true });
-    }
+    if (file) handleFile(file);
   };
 
   const removeVideo = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedFile(null);
     setVideoPreview(null);
+    setVideoDuration(0);
     setValue("video", null, { shouldValidate: true });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -211,7 +267,7 @@ export default function UploadPage() {
           <Loader2 size={32} className="animate-spin text-blue-500" />
         </div>
       ) : (
-        <div className="text-slate-900 dark:text-slate-50 relative min-h-screen max-w-6xl">
+        <div className="text-slate-900 dark:text-slate-50 relative min-h-screen max-w-6xl pb-16">
           {/* Breadcrumb */}
           <nav className="flex items-center text-sm text-slate-500 dark:text-slate-400 mb-6">
             <Link
@@ -219,6 +275,13 @@ export default function UploadPage() {
               className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
             >
               Dashboard
+            </Link>
+            <ChevronRight size={16} className="mx-2" />
+            <Link
+              href="/my-videos"
+              className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+            >
+              My Videos
             </Link>
             <ChevronRight size={16} className="mx-2" />
             <span className="text-slate-900 dark:text-slate-200 font-medium">
@@ -230,24 +293,60 @@ export default function UploadPage() {
           <div className="space-y-1 mb-8">
             <h1 className="text-2xl font-bold tracking-tight">Upload Video</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Ingest video content via OneMinute Cloud multipart storage.
+              Upload video directly to cloud storage using the Vedora SDK with plan quota checks.
             </p>
           </div>
 
-          {/* Success Banner if Object Key returned */}
-          {uploadedObjectKey && (
-            <div className="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-start gap-3">
-              <CheckCircle2 size={22} className="text-green-500 mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <h4 className="text-sm font-semibold text-green-500">
-                  Upload Complete & Object Key Saved
-                </h4>
-                <p className="text-xs text-gray-300">
-                  Object Key: <code className="font-mono text-green-400 bg-slate-900/80 px-2 py-0.5 rounded">{uploadedObjectKey}</code>
-                </p>
-                <p className="text-xs text-gray-400">
-                  Media file is securely staged in cloud storage for downstream transcoding and HLS packaging.
-                </p>
+          {/* Success Card */}
+          {completedVideo && (
+            <div className="mb-8 p-5 rounded-2xl bg-green-500/10 border border-green-500/30 space-y-3">
+              <div className="flex items-center gap-2.5 text-green-500">
+                <CheckCircle2 size={20} />
+                <h4 className="text-sm font-semibold">Video Upload Complete</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-400 font-mono bg-slate-900/60 p-3 rounded-lg">
+                <div>
+                  <span className="text-slate-500">Video ID: </span>
+                  <span className="text-white">{completedVideo.id}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Status: </span>
+                  <span className="text-green-400 uppercase font-semibold">{completedVideo.status}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Storage Key: </span>
+                  <span className="text-slate-300 truncate">{completedVideo.storageKey}</span>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Link href="/my-videos">
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs cursor-pointer">
+                    View in My Videos
+                  </Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-slate-700 hover:bg-slate-800"
+                  onClick={() => {
+                    setCompletedVideo(null);
+                    setSelectedFile(null);
+                    setVideoPreview(null);
+                  }}
+                >
+                  Upload Another Video
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Error Banner */}
+          {uploadError && (
+            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
+              <AlertTriangle size={20} className="text-red-500 mt-0.5 shrink-0" />
+              <div className="space-y-1 text-xs">
+                <h4 className="font-semibold text-red-500 text-sm">Upload Rejected</h4>
+                <p className="text-slate-300">{uploadError}</p>
               </div>
             </div>
           )}
@@ -282,7 +381,7 @@ export default function UploadPage() {
                       id="slug"
                       {...register("slug")}
                       placeholder="e.g. distributed-video-pipeline"
-                      className="bg-slate-50 border dark:border-gray-800/50 dark:bg-slate-900/50"
+                      className="bg-slate-50 border dark:border-gray-800/50 dark:bg-slate-900/50 font-mono text-xs"
                     />
                     <Button
                       type="button"
@@ -308,7 +407,7 @@ export default function UploadPage() {
                     id="description"
                     {...register("description")}
                     rows={4}
-                    placeholder="Enter details, timestamps, or summary of the video"
+                    placeholder="Enter details, summary, or chapters"
                     className="bg-slate-50 border dark:border-gray-800/50 dark:bg-slate-900/50 resize-none text-sm"
                   />
                 </div>
@@ -331,7 +430,7 @@ export default function UploadPage() {
                     <Label htmlFor="playlist">Playlist</Label>
                     <select
                       {...register("playlist")}
-                      className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
+                      className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50"
                     >
                       <option value="">No Playlist</option>
                       {playlists?.map((pl) => (
@@ -350,9 +449,43 @@ export default function UploadPage() {
                       {...register("generateSubtitles")}
                       className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50"
                     >
-                      <option value="yes">Yes (Whisper AI)</option>
                       <option value="no">No</option>
+                      <option value="yes">Yes (Whisper AI)</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Resolution Selector */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Encoding Resolutions</Label>
+                    <span className="text-[11px] text-slate-500">1080p requires Starter+</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleResolution("720p")}
+                      className={`flex items-center justify-between p-3 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                        resolutions.includes("720p")
+                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <span>720p (HD)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleResolution("1080p")}
+                      className={`flex items-center justify-between p-3 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                        resolutions.includes("1080p")
+                          ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/30 text-purple-400"
+                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <span>1080p (Full HD)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">Paid Plan</span>
+                    </button>
                   </div>
                 </div>
 
@@ -364,20 +497,9 @@ export default function UploadPage() {
                     {...register("includeWatermark")}
                     className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50"
                   >
-                    <option value="yes">Yes</option>
                     <option value="no">No</option>
+                    <option value="yes">Yes</option>
                   </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="timestamps">Timestamps (optional)</Label>
-                  <Textarea
-                    id="timestamps"
-                    {...register("timestamps")}
-                    rows={4}
-                    placeholder={"00:00 Introduction\n01:30 Ingestion\n05:00 Streaming"}
-                    className="bg-slate-50 border dark:border-gray-800/50 dark:bg-slate-900/50 resize-none font-mono text-xs"
-                  />
                 </div>
               </div>
             </div>
@@ -391,8 +513,11 @@ export default function UploadPage() {
               </Label>
               <div
                 onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
                 onClick={triggerBrowse}
                 className={`
                   relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all duration-200
@@ -423,9 +548,12 @@ export default function UploadPage() {
                       <X size={16} />
                     </Button>
                     {selectedFile && (
-                      <div className="p-2 text-xs text-gray-300 bg-slate-900/90 flex justify-between">
-                        <span>{selectedFile.name}</span>
-                        <span>{(selectedFile.size / (1024 * 1024)).toFixed(1)} MB</span>
+                      <div className="p-2.5 text-xs text-gray-300 bg-slate-900/90 flex justify-between font-mono">
+                        <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                        <span>
+                          {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                          {videoDuration > 0 && ` • ${videoDuration}s`}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -439,7 +567,7 @@ export default function UploadPage() {
                         Click to browse or drag and drop video
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Supports MP4, WebM, MOV (Multipart chunked uploads)
+                        Direct-to-cloud upload via Vedora SDK (MP4, WebM, MOV)
                       </p>
                     </div>
                   </div>
@@ -476,7 +604,7 @@ export default function UploadPage() {
               <Button
                 type="submit"
                 disabled={isUploading || !selectedFile}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-32 cursor-pointer disabled:opacity-50"
+                className="bg-blue-600 hover:bg-blue-700 text-white min-w-36 cursor-pointer disabled:opacity-50"
               >
                 {isUploading ? (
                   <span className="flex items-center gap-2">
@@ -491,15 +619,15 @@ export default function UploadPage() {
 
             {/* Upload Overlay with Progress, Speed & Time */}
             {isUploading && (
-              <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-[#0E1525] rounded-2xl shadow-2xl p-8 max-w-md w-full space-y-6 border border-slate-200 dark:border-slate-800">
                   <div className="space-y-2 text-center">
                     <h3 className="text-lg font-semibold flex items-center justify-center gap-2">
                       <Loader2 size={20} className="animate-spin text-blue-500" />
-                      Uploading Video...
+                      Uploading via Vedora SDK...
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Sending chunks to OneMinute Cloud Storage. Please keep this tab open.
+                      Transferring chunks directly to OneMinute Cloud Storage.
                     </p>
                   </div>
 
@@ -511,7 +639,7 @@ export default function UploadPage() {
                       />
                     </div>
                     <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-mono">
-                      <span className="font-semibold text-blue-500">{uploadProgress}% Complete</span>
+                      <span className="font-semibold text-blue-500">{uploadProgress}%</span>
                       {transferSpeed && <span>{transferSpeed}</span>}
                       <span>{estimatedTime || "Calculating..."}</span>
                     </div>

@@ -1,263 +1,552 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
   Trash2,
-  Eye,
   VideoIcon,
   FolderOpen,
   Copy,
   Check,
-  MoveUpRight,
+  Code,
+  LayoutGrid,
+  List,
+  Loader2,
+  Upload,
+  AlertCircle,
+  HardDrive,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { fetchWithAuth, VideoItem, PlaylistItem, VideoStatus } from "@/lib/api-client";
 
-const videos = [
-  {
-    id: "vid123",
-    title: "React Basics",
-    description: "This is a testing description!",
-    playlist: "Frontend Development",
-    views: 1245,
-    thumbnail:
-      "https://ik.imagekit.io/sjbr5usgh/Banners/WhatsApp%20Image%202025-04-08%20at%203.51.12%20PM.jpeg?updatedAt=1744410635917",
-  },
-  {
-    id: "vid124",
-    title: "Node.js Crash Course",
-    description: "This is a testing description!",
-    playlist: "Backend Tips",
-    views: 980,
-    thumbnail:
-      "https://ik.imagekit.io/sjbr5usgh/Banners/WhatsApp%20Image%202025-04-08%20at%203.51.12%20PM.jpeg?updatedAt=1744410635917",
-  },
-  {
-    id: "vid125",
-    title: "Intro to AI Agents",
-    description:
-      "This is a testing description! This is a testing description!",
-    playlist: "AI & Machine Learning",
-    views: 2210,
-    thumbnail:
-      "https://ik.imagekit.io/sjbr5usgh/Banners/WhatsApp%20Image%202025-04-08%20at%203.51.12%20PM.jpeg?updatedAt=1744410635917",
-  },
-];
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
 
-const Page = () => {
+function formatDuration(seconds: number): string {
+  if (!seconds || seconds <= 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function getStatusBadge(status: VideoStatus) {
+  switch (status) {
+    case "ready":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          Ready
+        </span>
+      );
+    case "uploaded":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          Uploaded
+        </span>
+      );
+    case "processing":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+          Processing
+        </span>
+      );
+    case "uploading":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+          Uploading
+        </span>
+      );
+    case "failed":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+          Failed
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+export default function MyVideosPage() {
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const { isLoaded } = useUser();
+  const [copiedEmbedId, setCopiedEmbedId] = useState<string | null>(null);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("all");
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
-  const openDeleteModal = (id: string) => {
-    setSelectedVideoId(id);
+  const { isLoaded, user } = useUser();
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  // 1. Fetch real video records
+  const {
+    data: videoList,
+    isLoading: isVideosLoading,
+    error: videosError,
+  } = useQuery<VideoItem[]>({
+    queryKey: ["videos", selectedPlaylistId],
+    queryFn: async () => {
+      const token = await getToken();
+      const endpoint =
+        selectedPlaylistId && selectedPlaylistId !== "all"
+          ? `/videos?playlistId=${encodeURIComponent(selectedPlaylistId)}`
+          : "/videos";
+      return fetchWithAuth<VideoItem[]>(endpoint, token);
+    },
+    enabled: isLoaded && !!user,
+  });
+
+  // 2. Fetch playlists for filtering & name mapping
+  const { data: playlists } = useQuery<PlaylistItem[]>({
+    queryKey: ["playlists"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchWithAuth<PlaylistItem[]>("/playlists", token);
+    },
+    enabled: isLoaded && !!user,
+  });
+
+  const playlistMap = new Map(playlists?.map((p) => [p.id, p.name]));
+
+  // 3. Delete mutation with quota & playlist invalidation
+  const deleteMutation = useMutation({
+    mutationFn: async (videoId: string) => {
+      const token = await getToken();
+      return fetchWithAuth<{ success: boolean; id: string }>(
+        `/videos/${videoId}`,
+        token,
+        { method: "DELETE" },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
+      toast.success("Video deleted and storage quota released");
+      setShowDeleteModal(false);
+      setSelectedVideo(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Delete failed: ${msg}`);
+    },
+  });
+
+  const openDeleteModal = (video: VideoItem) => {
+    setSelectedVideo(video);
     setShowDeleteModal(true);
   };
 
-  const closeDeleteModal = () => {
-    setShowDeleteModal(false);
-    setSelectedVideoId(null);
-  };
-
-  const handleConfirmDelete = () => {
-    console.log("Delete video:", selectedVideoId);
-    closeDeleteModal();
-  };
-
-  const handleCopy = (id: string) => {
+  const handleCopyId = (id: string) => {
     navigator.clipboard.writeText(id);
     setCopiedId(id);
+    toast.success("Video ID copied to clipboard");
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  return (
-    <>
-      {!isLoaded ? (
-        <div></div>
-      ) : (
-        <div className="text-black dark:text-white">
-          {/* Breadcrumb */}
-          <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-            <Link href="/" className="hover:underline">
-              Dashboard
-            </Link>
-            <ChevronRight size={16} className="mx-2" />
-            <span className="text-gray-700 dark:text-gray-300 font-medium">
-              My Videos
-            </span>
-          </nav>
+  const handleCopyEmbed = (video: VideoItem) => {
+    const embedCode = `<iframe src="https://player.vedora.com/embed/${video.id}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
+    navigator.clipboard.writeText(embedCode);
+    setCopiedEmbedId(video.id);
+    toast.info("Embed code copied (video player will be active in Part 3)");
+    setTimeout(() => setCopiedEmbedId(null), 1500);
+  };
 
-          {/* Title & Subtitle */}
-          <div className="space-y-1 mb-8">
-            <h1 className="text-2xl font-semibold">My Videos</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-100">
-              View and manage your published videos
-            </p>
+  if (!isLoaded || isVideosLoading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center gap-3">
+        <Loader2 size={32} className="animate-spin text-blue-500" />
+        <p className="text-xs text-slate-400">Loading your video library...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-slate-900 dark:text-slate-50 relative min-h-screen max-w-7xl pb-16">
+      {/* Breadcrumb */}
+      <nav className="flex items-center text-sm text-slate-500 dark:text-slate-400 mb-6">
+        <Link href="/" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">
+          Dashboard
+        </Link>
+        <ChevronRight size={16} className="mx-2" />
+        <span className="text-slate-900 dark:text-slate-200 font-medium">My Videos</span>
+      </nav>
+
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">My Videos</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Manage your uploaded videos, resolution presets, and cloud storage assets.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Playlist filter */}
+          <select
+            value={selectedPlaylistId}
+            onChange={(e) => setSelectedPlaylistId(e.target.value)}
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs dark:border-slate-800 dark:bg-slate-900/50"
+          >
+            <option value="all">All Playlists</option>
+            {playlists?.map((pl) => (
+              <option key={pl.id} value={pl.id}>
+                {pl.name}
+              </option>
+            ))}
+          </select>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded-md p-0.5 bg-slate-100 dark:bg-slate-900">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-white dark:bg-slate-800 shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Table View"
+            >
+              <List size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-1.5 rounded cursor-pointer ${
+                viewMode === "grid"
+                  ? "bg-white dark:bg-slate-800 shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid size={16} />
+            </button>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-left">
-              <thead>
-                <tr className="text-xs uppercase text-gray-400 border-b dark:border-[#2a2a2a]">
-                  <th className="px-4 py-3">Video</th>
-                  <th className="px-4 py-3">Video ID</th>
-                  <th className="px-4 py-3">Playlist</th>
-                  <th className="px-4 py-3">Views</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {videos.map((video) => (
-                  <tr
-                    key={video.id}
-                    className="border-b border-slate-200 dark:border-[#1f1f1f] hover:bg-gray-50 dark:hover:bg-[#1a1b1f]"
-                  >
-                    {/* Thumbnail + Title */}
-                    <td className="px-4 py-4 flex items-center gap-3">
-                      <Image
-                        src={video.thumbnail}
-                        alt={video.title}
-                        width={48}
-                        height={32}
-                        className="w-12 h-8 rounded-sm object-cover border border-gray-300 dark:border-gray-700"
-                      />
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2 font-medium text-gray-800 dark:text-white">
-                          <VideoIcon size={14} />
+          <Link href="/uploads">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
+              <Upload size={14} />
+              Upload Video
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {videosError && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 flex items-center gap-2 text-sm">
+          <AlertCircle size={18} />
+          <span>Failed to load video library: {videosError.message}</span>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {(!videoList || videoList.length === 0) && (
+        <div className="text-center py-20 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 space-y-4">
+          <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center mx-auto text-slate-400">
+            <VideoIcon size={28} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold">No videos in your library</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Get started by uploading your first video via the Vedora direct-to-cloud upload pipeline.
+            </p>
+          </div>
+          <Link href="/uploads">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
+              <Upload size={14} />
+              Upload Video
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Table View */}
+      {videoList && videoList.length > 0 && viewMode === "table" && (
+        <div className="overflow-x-auto border border-slate-200 dark:border-slate-800/60 rounded-xl bg-white dark:bg-[#0E1525]/40 backdrop-blur-xs">
+          <table className="min-w-full text-sm text-left">
+            <thead>
+              <tr className="text-xs uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50">
+                <th className="px-4 py-3.5">Video Details</th>
+                <th className="px-4 py-3.5">Status</th>
+                <th className="px-4 py-3.5">Resolutions</th>
+                <th className="px-4 py-3.5">Playlist</th>
+                <th className="px-4 py-3.5">Size / Duration</th>
+                <th className="px-4 py-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {videoList.map((video) => (
+                <tr
+                  key={video.id}
+                  className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20 transition-colors"
+                >
+                  {/* Thumbnail & Title */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-9 rounded bg-slate-800 shrink-0 flex items-center justify-center overflow-hidden border border-slate-700">
+                        {video.thumbnailUrl ? (
+                          <Image
+                            src={video.thumbnailUrl}
+                            alt={video.title}
+                            width={56}
+                            height={36}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <VideoIcon size={18} className="text-slate-400" />
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-xs">
                           {video.title}
-                        </div>
-                        <p
-                          className="text-xs line-clamp-1 text-gray-500 dark:text-gray-400 max-w-40"
-                          title={video?.description}
-                        >
-                          {video.description}
-                        </p>
-                      </div>
-                    </td>
-
-                    {/* ID */}
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                        <span>{video.id}</span>
-                        <button
-                          onClick={() => handleCopy(video.id)}
-                          className="text-gray-400 hover:text-blue-500 transition"
-                          title={
-                            copiedId === video.id ? "Copied!" : "Copy Video ID"
-                          }
-                        >
-                          {copiedId === video.id ? (
-                            <Check
-                              size={14}
-                              className="text-green-500 scale-110"
-                            />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-
-                    {/* Playlist */}
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs px-2 py-1 rounded-md font-medium">
-                        <FolderOpen size={12} />
-                        {video.playlist}
-                      </span>
-                    </td>
-
-                    {/* Views */}
-                    <td className="px-4 py-4 font-medium text-indigo-500 dark:text-blue-400 flex items-center gap-1">
-                      <Eye size={14} />
-                      {video.views.toLocaleString()}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <Link href={`/video/${video.id}`}>
-                          <button
-                            className="text-gray-400 cursor-pointer hover:text-blue-500"
-                            title="Analytics"
-                          >
-                            <MoveUpRight size={16} />
-                          </button>
-                        </Link>
-                        <button
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => openDeleteModal(video.id)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {videos.length === 0 && (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No videos found.
-              </div>
-            )}
-
-            {showDeleteModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                <div className="w-full max-w-md bg-slate-800 text-white rounded-md shadow-2xl border border-slate-700">
-                  {/* Title */}
-                  <div className="px-6 pt-5 pb-3 border-b border-slate-700">
-                    <h2 className="text-base font-semibold tracking-wide">
-                      Confirm Video Deletion
-                    </h2>
-                  </div>
-
-                  {/* Body */}
-                  <div className="px-6 py-4 text-sm text-gray-300 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <span className="text-yellow-400 text-lg mt-0.5">⚠️</span>
-                      <p className="leading-relaxed">
-                        This action will move the video to a deleted state. It
-                        will be
-                        <span className="text-red-400 font-medium">
-                          {" "}
-                          permanently deleted after 31 days
                         </span>
-                        . You will not be able to recover it once the grace
-                        period ends.
-                      </p>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                          <span>{video.slug}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </td>
 
-                  {/* Footer */}
-                  <div className="flex justify-end items-center gap-3 px-6 pb-5">
-                    <button
-                      onClick={closeDeleteModal}
-                      className="px-4 cursor-pointer py-1.5 text-sm rounded-md border border-slate-600 text-gray-300 hover:bg-slate-700 transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleConfirmDelete}
-                      className="px-4 cursor-pointer py-1.5 text-sm rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold transition"
-                    >
-                      Confirm Delete
-                    </button>
+                  {/* Status */}
+                  <td className="px-4 py-4">{getStatusBadge(video.status)}</td>
+
+                  {/* Resolutions */}
+                  <td className="px-4 py-4">
+                    <div className="flex gap-1 flex-wrap">
+                      {(video.resolutions || ["720p"]).map((r) => (
+                        <span
+                          key={r}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+
+                  {/* Playlist */}
+                  <td className="px-4 py-4 text-xs">
+                    {video.playlistId && playlistMap.has(video.playlistId) ? (
+                      <span className="inline-flex items-center gap-1 text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md font-medium">
+                        <FolderOpen size={12} />
+                        {playlistMap.get(video.playlistId)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+
+                  {/* Size & Duration */}
+                  <td className="px-4 py-4 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    <div className="flex flex-col">
+                      <span>{formatBytes(video.size)}</span>
+                      <span>{formatDuration(video.duration)}</span>
+                    </div>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                        title={copiedId === video.id ? "Copied!" : "Copy Video ID"}
+                        onClick={() => handleCopyId(video.id)}
+                      >
+                        {copiedId === video.id ? (
+                          <Check size={14} className="text-green-500" />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </Button>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-slate-400 hover:text-blue-400 hover:bg-slate-800 cursor-pointer"
+                        title="Copy Embed Template"
+                        onClick={() => handleCopyEmbed(video)}
+                      >
+                        {copiedEmbedId === video.id ? (
+                          <Check size={14} className="text-green-500" />
+                        ) : (
+                          <Code size={14} />
+                        )}
+                      </Button>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                        title="Delete Video"
+                        onClick={() => openDeleteModal(video)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Grid View */}
+      {videoList && videoList.length > 0 && viewMode === "grid" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {videoList.map((video) => (
+            <div
+              key={video.id}
+              className="group border border-slate-200 dark:border-slate-800/80 rounded-xl bg-white dark:bg-[#0E1525]/40 backdrop-blur-xs overflow-hidden hover:border-slate-400 dark:hover:border-slate-700 transition-all duration-200 flex flex-col justify-between"
+            >
+              <div>
+                <div className="aspect-video bg-slate-900 relative flex items-center justify-center overflow-hidden border-b border-slate-800">
+                  {video.thumbnailUrl ? (
+                    <Image
+                      src={video.thumbnailUrl}
+                      alt={video.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <VideoIcon size={32} className="text-slate-600" />
+                  )}
+                  <div className="absolute top-2.5 left-2.5">
+                    {getStatusBadge(video.status)}
+                  </div>
+                  <div className="absolute bottom-2.5 right-2.5 bg-black/80 px-2 py-0.5 rounded text-[11px] font-mono text-white">
+                    {formatDuration(video.duration)}
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-2">
+                  <h3 className="font-semibold text-sm line-clamp-1" title={video.title}>
+                    {video.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono truncate">{video.slug}</p>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/60 font-mono">
+                    <span className="flex items-center gap-1">
+                      <HardDrive size={12} />
+                      {formatBytes(video.size)}
+                    </span>
+                    <div className="flex gap-1">
+                      {(video.resolutions || ["720p"]).map((r) => (
+                        <span key={r} className="px-1 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
+
+              <div className="px-4 pb-3.5 pt-1 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/40">
+                <span className="text-[11px] text-slate-500">
+                  {new Date(video.createdAt).toLocaleDateString()}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-white"
+                    title="Copy Video ID"
+                    onClick={() => handleCopyId(video.id)}
+                  >
+                    {copiedId === video.id ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-blue-400"
+                    title="Copy Embed Code"
+                    onClick={() => handleCopyEmbed(video)}
+                  >
+                    {copiedEmbedId === video.id ? <Check size={12} className="text-green-500" /> : <Code size={12} />}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-red-500"
+                    title="Delete Video"
+                    onClick={() => openDeleteModal(video)}
+                  >
+                    <Trash2 size={12} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#0E1525] text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 pt-6 pb-3">
+              <h3 className="text-base font-semibold">Delete Video</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Are you sure you want to delete <span className="font-semibold text-white">&quot;{selectedVideo.title}&quot;</span>?
+              </p>
+            </div>
+
+            <div className="px-6 py-3 text-xs text-slate-300 bg-red-500/10 border-y border-red-500/20 space-y-1">
+              <p className="font-medium text-red-400">This action cannot be undone.</p>
+              <p className="text-slate-400">
+                The storage reservation of {formatBytes(selectedVideo.size)} will be released back to your plan quota, and playlist counts will be updated.
+              </p>
+            </div>
+
+            <div className="flex justify-end items-center gap-3 px-6 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedVideo(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="cursor-pointer border-slate-700 hover:bg-slate-800 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => deleteMutation.mutate(selectedVideo.id)}
+                disabled={deleteMutation.isPending}
+                className="cursor-pointer text-xs bg-red-600 hover:bg-red-700"
+              >
+                {deleteMutation.isPending ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 size={14} className="animate-spin" />
+                    Deleting...
+                  </span>
+                ) : (
+                  "Delete Video"
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
-};
-
-export default Page;
+}

@@ -359,3 +359,162 @@ Prepare the codebase for remote publication to `https://github.com/KartikaySingh
 #### Why (Rationale & Security Modeling)
 - **Zero-Exposure Credential Policy**: In modern SaaS environments, credential exposure via accidental git pushes accounts for over 70% of cloud security incidents. Hardening `.gitignore` at the root and inspecting git status with `--ignored` guarantees that active Neon connection strings and Clerk API secrets remain strictly local.
 - **Reproducible Monorepo Builds**: Build caches (`.next/`, `dist/`) and OS artifacts create build friction and non-deterministic behavior across development machines and CI/CD runners. Ignoring them ensures clean builds from source.
+
+---
+
+## Run 2: Video Infrastructure, Direct-to-Cloud Ingestion, Plan Quotas & TypeScript SDK (Part 2)
+
+- **Date**: 2026-10-20
+- **Author**: Antigravity IDE (Gemini 3.8 Flash)
+- **Scope**: Video metadata management, direct-to-cloud ingestion with OneMinute Cloud Storage, plan-based storage quotas and resolution restrictions, custom `@vedora/sdk` package, and dashboard upload/listing integration.
+
+---
+
+### 1. Phase 1: Database & Quota Foundations
+
+#### Context & Objective
+Extend the database schema to support video entities with 20 distinct metadata fields, lifecycle states (`uploading`, `uploaded`, `processing`, `ready`, `failed`), and referential integrity to playlists. Define centralized subscription tier caps (Free: 5 GiB, Starter: 250 GiB, Pro: 600 GiB, Business: 2 TiB), resolution rules (1080p prohibited on Free), and concurrency-safe transactional reservation mechanisms.
+
+#### What Was Done
+1. **Schema Extension (`services/src/database/schema.ts`)**:
+   - Added `videos` table containing `id` (UUID default random), `user_id` (indexed), `playlist_id` (foreign key to `playlist.id` with `ON DELETE SET NULL`, indexed), `title`, `slug`, `description`, `tags` (JSONB default `[]`), `storage_key`, `bucket_id`, `size` (Bigint), `estimated_transcoded_size` (Bigint), `duration` (integer), `status` (text with union type default `'uploading'`, indexed), `resolutions` (JSONB default `['720p']`), `thumbnail_url`, `generate_subtitles` (boolean), `include_watermark` (boolean), `master_m3u8_key`, and timezone-aware timestamps `created_at` and `updated_at`.
+2. **Drizzle Migration**:
+   - Generated `drizzle/0002_uneven_cardiac.sql` and applied it to the active Neon PostgreSQL database.
+   - Verified that all 3 tables (`api_key`, `playlist`, `videos`) and migration journals are tracked and healthy.
+3. **Plan Configuration & Safe Math (`services/src/config/plans.config.ts`)**:
+   - Established binary unit constants (`GIB_BYTES = 1073741824n`, `TIB_BYTES = 1099511627776n`).
+   - Configured exact plan limits and resolution gates:
+     - `free`: 5 GiB cap, 1080p prohibited.
+     - `starter`: 250 GiB cap, 1080p permitted.
+     - `pro`: 600 GiB cap, 1080p permitted.
+     - `business`: 2 TiB cap, 1080p permitted.
+   - Implemented `calculateEstimatedTranscodedSize` using native BigInt arithmetic: 720p at `(rawSize * 70n) / 100n` (0.7x), multi-resolution including 1080p at `(rawSize * 175n) / 100n` (1.75x).
+   - Incoming reservation = `rawSize + estimatedTranscodedSize`.
+
+#### Why (Rationale & Threat Modeling)
+- **Zero Floating-Point Imprecision**: File sizes in gigabytes exceed JavaScript's 32-bit bitwise limit. Using native BigInt integer arithmetic ensures that byte accounting never suffers from IEEE 754 floating-point rounding drifts.
+- **Transactional Advisory Lock Concurrency Defense**: Querying table sums without locks exposes applications to race conditions where simultaneous concurrent uploads bypass plan limits. Acquiring `pg_advisory_xact_lock(hashtext('vedora_storage_quota_' || userId))` inside the database transaction serializes reservation evaluations per user without table-level locking.
+- **Active Reservation Counting**: Marking newly initialized uploads as `status: 'uploading'` immediately accounts for incoming bytes in active quota sums, preventing users from initiating multiple simultaneous uploads that exceed their tier limits.
+
+---
+
+### 2. Phase 2: Backend Video Module
+
+#### Context & Objective
+Implement enterprise RESTful endpoints under `/api/v1/videos` supporting upload initialization, completion confirmation, user-scoped listing, detail fetching, and deletion with quota and playlist reconciliation.
+
+#### What Was Done
+1. **Validated DTOs**:
+   - `CreateVideoInitDto`: Validates `title`, alphanumeric kebab-case `slug`, positive integer `size`, optional `resolutions` (`720p`, `1080p`), optional `playlistId` (UUID v4), optional description, tags, subtitle, and watermark flags.
+   - `CompleteVideoUploadDto`: Validates `videoId` (UUID v4), `storageKey`, and non-negative integer `duration`.
+2. **Upload Video Guard (`services/src/guards/upload-video.guard.ts`)**:
+   - Enforces user authentication, validates body, rejects negative or zero byte sizes, checks requested resolutions, resolves user plan from server-side metadata, forbids 1080p on Free tier with HTTP 403, and rejects requests exceeding total plan capacity.
+3. **OneMinute Cloud Storage Integration (`services/src/infra/storage/storage.service.ts`)**:
+   - Communicates directly with OneMinute Cloud Storage (`https://api.oneminutecloud.com/api/v1`) using server-side `ONEMINUTECLOUD_API_KEY`.
+   - `initiateMultipartUpload`: Generates presigned chunk PUT endpoints and object metadata.
+   - `completeMultipartUpload`: Confirms completion with the storage provider.
+4. **Video Service & Controller (`services/src/modules/videos/`)**:
+   - `POST /api/v1/videos/init`: Transactional advisory lock, quota verification, playlist validation, storage authorization, and `uploading` record persistence.
+   - `POST /api/v1/videos/complete`: Idempotent state transition (`uploading` -> `uploaded`), storage key match verification, duration recording, and atomic playlist `total_videos` increment.
+   - `GET /api/v1/videos`: Scoped video listing with optional `playlistId` filter and stable descending sort.
+   - `GET /api/v1/videos/:id`: Video detail verification.
+   - `DELETE /api/v1/videos/:id`: Atomic playlist counter decrement (`GREATEST(0, total_videos - 1)`), video removal, and quota release.
+5. **Unit Tests**:
+   - Added comprehensive test suites: `upload-video.guard.spec.ts` (7 tests) and `video.service.spec.ts` (14 tests). All 50 tests pass across 7 suites.
+
+---
+
+### 3. Phase 3: Custom TypeScript SDK (`@vedora/sdk`)
+
+#### Context & Objective
+Build an independent, reusable TypeScript SDK located at `sdks/vedora-sdk` for browser and Node.js runtimes.
+
+#### What Was Done
+1. **Scaffolded Package**: `package.json` (`@vedora/sdk` v1.0.0), `tsconfig.json` with bundler resolution.
+2. **Types (`src/types.ts`)**: Defined `UploadProgress` (`percent`, `uploadedBytes`, `totalBytes`, `speedBps`, `etaSeconds`), `VideoMetadataInput`, `VideoRecord`, and `VedoraError` hierarchy with phase tags (`init`, `upload`, `complete`, `general`).
+3. **Direct-to-Cloud Uploader (`src/uploader.ts`)**:
+   - Slices files into chunks via `file.slice(start, end)`.
+   - Transfers chunks directly to presigned storage URLs via HTTP PUT.
+   - Extracts ETags and tracks loaded bytes.
+   - Implements bounded exponential backoff with jitter on transient 5xx errors (up to 3 retries, capped at 8s).
+   - Rejects 4xx client errors immediately without wasteful retries.
+   - Supports `AbortSignal` for user upload cancellation.
+   - Enforces safe progress math (bounds between 0% and 100%, safe division by zero, non-negative numbers).
+4. **VedoraClient (`src/client.ts`)**:
+   - Supports configurable `baseUrl`, `apiKey`, and dynamic `bearerToken` (accepting async Clerk token provider).
+   - Orchestrates the full 3-step upload pipeline in `client.videos.upload`.
+   - Provides CRUD methods: `init`, `complete`, `list`, `get`, `delete`.
+5. **Verified Build & Tests**:
+   - Compiled `.d.ts` and `.js` via `tsc`.
+   - Passed test suite via Node.js test runner (`node --test`).
+
+---
+
+### 4. Phase 4: Dashboard Integrations
+
+#### Context & Objective
+Connect the Next.js dashboard to the `@vedora/sdk` package, live playlist selector, resolution picker, real-time upload telemetry, and reactive video library listing.
+
+#### What Was Done
+1. **Monorepo Workspace Link**:
+   - Added `"@vedora/sdk": "file:../../sdks/vedora-sdk"` to `apps/main-dashboard/package.json`.
+   - Configured `turbopack: { root: path.resolve(process.cwd(), "../../") }` and `transpilePackages: ["@vedora/sdk"]` in `next.config.ts`.
+2. **Enhanced Upload Page (`apps/main-dashboard/app/uploads/page.tsx` & `/upload`)**:
+   - Integrated `VedoraClient` with Clerk `getToken()` bearer authentication.
+   - Added resolution selection toggles: `720p` (standard) and `1080p` (gated with plan notice).
+   - HTML5 video metadata duration derivation.
+   - Real-time progress overlay displaying percentage, MB/s speed, and estimated time remaining.
+   - Success banner detailing created video ID and storage key with quick navigation to My Videos.
+   - Error banner displaying structured server rejection messages (quota exceeded, prohibited resolution).
+3. **Reactive Video Library (`apps/main-dashboard/app/my-videos/page.tsx` & `/videos`)**:
+   - Integrated TanStack Query hooks fetching real data from `GET /api/v1/videos`.
+   - Connected playlist filter mapping raw IDs to playlist names.
+   - Built Table and Grid view toggle.
+   - Created status badges for all 5 lifecycle states: `uploading` (amber ping), `uploaded` (blue), `processing` (purple pulse), `ready` (green), `failed` (red).
+   - Displayed resolution tags, formatted duration (`mm:ss`), and humanized file sizes (`MB`/`GB`).
+   - Implemented Copy Video ID action with visual checkmark feedback.
+   - Implemented Copy Embed Template action with modal/toast disclaimer noting player integration in Part 3.
+   - Implemented Delete Video modal with confirmation and query cache invalidation.
+
+---
+
+### 5. Phase 5: Verification & Monorepo Test Summary
+
+```text
+=== Services Test Suite ===
+PASS src/guards/upload-video.guard.spec.ts (7 tests)
+PASS src/modules/videos/video.service.spec.ts (14 tests)
+PASS src/modules/playlist/playlist.service.spec.ts (10 tests)
+PASS src/modules/api-key/api-key.service.spec.ts (7 tests)
+PASS src/guards/dual-auth.guard.spec.ts (5 tests)
+PASS src/utils/api-key.util.spec.ts (5 tests)
+PASS src/app.controller.spec.ts (2 tests)
+
+Test Suites: 7 passed, 7 total
+Tests:       50 passed, 50 total
+Snapshots:   0 total
+
+=== SDK Test Suite ===
+▶ Vedora SDK
+  ✔ should initialize VedoraClient with default config
+  ✔ should accept custom baseUrl and apiKey
+  ✔ should reject empty or zero-byte file in client.videos.upload
+✔ Vedora SDK (3 tests passed)
+
+=== Static Analysis & Linters ===
+services:            0 errors, 0 warnings
+apps/main-dashboard: 0 errors
+apps/landing-page:   0 errors
+
+=== Production Builds ===
+services:            Compiled successfully (dist/main.js)
+sdks/vedora-sdk:     Compiled successfully (dist/index.d.ts, dist/index.js)
+apps/main-dashboard: Compiled successfully via Turbopack (17 static & dynamic routes)
+apps/landing-page:   Compiled successfully via Turbopack (5 routes)
+
+=== Live Endpoints Verified ===
+GET  /api/v1/health             ➔ 200 OK (DB up, Redis fallback active)
+GET  /api/v1/videos             ➔ 401 Unauthorized (Missing credentials)
+POST /api/v1/videos/init        ➔ 401 Unauthorized (Missing credentials)
+POST /api/v1/videos/init (VDR_) ➔ 401 Unauthorized (Invalid or revoked API key)
+```

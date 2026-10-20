@@ -1,0 +1,27 @@
+{
+  "name": "@vedora/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript SDK for Vedora Video Infrastructure Platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "keywords": [
+    "vedora",
+    "video",
+    "infrastructure",
+    "upload",
+    "sdk"
+  ],
+  "author": "Vedora",
+  "license": "MIT"
+}

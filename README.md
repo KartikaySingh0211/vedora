@@ -16,6 +16,8 @@ Detailed, industry-standard architectural specifications, threat assessments, an
   - [ADR-003: Debounced Last-Used Activity Tracking with Fault-Tolerant Batching](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-003-debounced-last-used-tracking.md)
   - [ADR-004: Atomic Quota Enforcement via PostgreSQL Advisory Locks](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-004-database-quota-concurrency.md)
   - [ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-005-video-storage-token-proxy.md)
+  - [ADR-006: Plan-Based Storage Quotas, Concurrency-Safe Reservations, and Direct Cloud Storage Ingestion](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-006-plan-based-quotas-and-direct-uploads.md)
+  - [ADR-007: Custom TypeScript SDK Architecture (@vedora/sdk) and Direct-to-Cloud Upload Pipeline](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-007-vedora-upload-sdk-architecture.md)
 
 ---
 
@@ -59,13 +61,20 @@ Detailed, industry-standard architectural specifications, threat assessments, an
      - **Level 3**: Neon PostgreSQL with Argon2id hash verification.
    - **Debounced Activity Tracking**: 60s atomic Redis lock with scheduled 5-minute batch persistence to Neon.
    - **Playlists Module**: User-scoped playlist management with atomic transaction advisory locks enforcing server-side quotas (max 10 playlists/user).
+   - **Videos Module & Quotas**: Direct-to-cloud upload authorization (`/api/v1/videos/init`), upload verification & completion (`/api/v1/videos/complete`), video listing (`GET /api/v1/videos`), details, and cascade deletion.
+   - **Plan-Based Storage Quotas**: Binary storage caps (Free: 5 GiB & 1080p prohibited, Starter: 250 GiB, Pro: 600 GiB, Business: 2 TiB). Transactional advisory locking (`pg_advisory_xact_lock(hashtext('vedora_storage_quota_' || userId))`) prevents concurrent quota bypass.
    - **Resilience**: Graceful, non-blocking fallback to PostgreSQL when Redis is offline.
-2. **`apps/main-dashboard/`**: Next.js 16 App Router dashboard:
+2. **`sdks/vedora-sdk/`**: Custom TypeScript SDK (`@vedora/sdk`):
+   - **Direct-to-Cloud Uploads**: Uploads video chunks directly to OneMinute Cloud Storage without proxying multi-gigabyte video payloads through NestJS.
+   - **Telemetry Engine**: Real-time progress percentage, upload transfer speed (Bps / MB/s), and estimated time remaining (ETA).
+   - **Fault Tolerance**: Bounded exponential backoff retries with full jitter for transient 5xx/network errors, non-retryable 4xx fast-fails, and full cancellation via standard `AbortSignal`.
+3. **`apps/main-dashboard/`**: Next.js 16 App Router dashboard:
    - **Developer Access**: Key generation with one-time secret modal, copy-once interaction, regeneration with 5-minute cooldown, and relative timestamps via `timeago.js`.
    - **Playlist Management**: Reactive playlists dashboard with TanStack Query, optimistic state updates, and quota indicators.
-   - **Video Upload**: Multipart upload flow with `@oneminutecloud/storage-bucket-next`, live progress bar, transfer speed (MB/s), and estimated remaining time (ETA).
+   - **Video Ingestion & SDK Integration**: Dedicated `/uploads` route driven by `@vedora/sdk`, with multi-resolution selection, live progress bar, transfer speed (MB/s), and estimated remaining time.
+   - **Video Management**: `/my-videos` and `/videos` routes featuring TanStack Query live data, playlist filtering, Grid/Table view toggles, 5 lifecycle status badges (`uploading`, `uploaded`, `processing`, `ready`, `failed`), Copy Video ID, Copy Embed Code template, and atomic deletion with confirmation.
    - **Token Proxy**: `/api/oneminutecloud/provider` and `[provider]` verifying Clerk session server-side.
-3. **`apps/landing-page/`**: Next.js 16 marketing website with sleek dark theme and responsive UI.
+4. **`apps/landing-page/`**: Next.js 16 marketing website with sleek dark theme and responsive UI.
 
 ---
 
@@ -86,6 +95,7 @@ Detailed, industry-standard architectural specifications, threat assessments, an
 | **Server-State Management**| TanStack Query v5 |
 | **Relative Time** | `timeago.js` |
 | **Video Storage** | OneMinute Cloud Storage (`@oneminutecloud/storage-bucket-next`) |
+| **Video Upload SDK** | Custom TypeScript SDK (`@vedora/sdk`) |
 
 ---
 

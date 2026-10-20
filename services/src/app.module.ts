@@ -7,6 +7,8 @@ import { RedisModule } from './infra/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
 import { ApiKeyModule } from './modules/api-key/api-key.module';
 import { PlaylistModule } from './modules/playlist/playlist.module';
+import { StorageModule } from './infra/storage/storage.module';
+import { VideosModule } from './modules/videos/videos.module';
 
 @Module({
   imports: [
@@ -17,9 +19,11 @@ import { PlaylistModule } from './modules/playlist/playlist.module';
     ScheduleModule.forRoot(),
     DatabaseModule,
     RedisModule,
+    StorageModule,
     HealthModule,
     ApiKeyModule,
     PlaylistModule,
+    VideosModule,
   ],
 })
 export class AppModule {}

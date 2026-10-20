@@ -11,6 +11,11 @@ export interface AppConfig {
     secretKey?: string;
     publishableKey?: string;
   };
+  storage: {
+    apiKey: string;
+    bucketId: string;
+    baseUrl: string;
+  };
   corsOrigins: string[];
 }
 
@@ -28,6 +33,15 @@ export default (): AppConfig => ({
   clerk: {
     secretKey: process.env.CLERK_SECRET_KEY,
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  },
+  storage: {
+    apiKey: process.env.ONEMINUTECLOUD_API_KEY || 'omc_live_placeholder_key',
+    bucketId:
+      process.env.ONEMINUTECLOUD_BUCKET_ID ||
+      '00000000-0000-0000-0000-000000000001',
+    baseUrl:
+      process.env.ONEMINUTECLOUD_BASE_URL ||
+      'https://api.oneminutecloud.com/api/v1',
   },
   corsOrigins: [
     'http://localhost:3000',

@@ -26,6 +26,36 @@ export interface PlaylistItem {
   createdAt: string;
 }
 
+export type VideoStatus =
+  | 'uploading'
+  | 'uploaded'
+  | 'processing'
+  | 'ready'
+  | 'failed';
+
+export interface VideoItem {
+  id: string;
+  userId: string;
+  playlistId: string | null;
+  title: string;
+  slug: string;
+  description: string | null;
+  tags: string[];
+  storageKey: string | null;
+  bucketId: string | null;
+  size: number;
+  estimatedTranscodedSize: number;
+  duration: number;
+  status: VideoStatus;
+  resolutions: string[];
+  thumbnailUrl: string | null;
+  generateSubtitles: boolean;
+  includeWatermark: boolean;
+  masterM3u8Key: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function fetchWithAuth<T>(
   endpoint: string,
   token: string | null,

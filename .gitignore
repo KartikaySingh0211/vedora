@@ -10,6 +10,7 @@ node_modules/
 
 # Compiled & Build outputs
 dist/
+!sdks/vedora-sdk/dist/
 build/
 .next/
 out/

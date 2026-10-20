@@ -33,6 +33,7 @@
     "styled-components": "^6.3.9",
     "tailwind-merge": "^3.4.0",
     "timeago.js": "^4.0.2",
+    "@vedora/sdk": "file:../../sdks/vedora-sdk",
     "zod": "^4.3.6"
   },
   "devDependencies": {
