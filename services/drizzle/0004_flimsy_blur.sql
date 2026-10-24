@@ -1,0 +1,1 @@
+ALTER TABLE "player_settings" ADD COLUMN "enabled_controls" jsonb DEFAULT '["Play / Pause","10s Backward","10s Forward","Full Screen","Captions","Volume","Mute"]'::jsonb NOT NULL;

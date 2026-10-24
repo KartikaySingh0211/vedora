@@ -23,6 +23,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fetchWithAuth, VideoItem, PlaylistItem, VideoStatus } from "@/lib/api-client";
+import { EmbedVideoModal } from "@/components/modals/embed-video-modal";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -89,6 +90,7 @@ export default function MyVideosPage() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [embedModalVideo, setEmbedModalVideo] = useState<VideoItem | null>(null);
 
   const { isLoaded, user } = useUser();
   const { getToken } = useAuth();
@@ -159,12 +161,8 @@ export default function MyVideosPage() {
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  const handleCopyEmbed = (video: VideoItem) => {
-    const embedCode = `<iframe src="https://player.vedora.com/embed/${video.id}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
-    navigator.clipboard.writeText(embedCode);
-    setCopiedEmbedId(video.id);
-    toast.info("Embed code copied (video player will be active in Part 3)");
-    setTimeout(() => setCopiedEmbedId(null), 1500);
+  const handleOpenEmbed = (video: VideoItem) => {
+    setEmbedModalVideo(video);
   };
 
   if (!isLoaded || isVideosLoading) {
@@ -379,14 +377,10 @@ export default function MyVideosPage() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-slate-400 hover:text-blue-400 hover:bg-slate-800 cursor-pointer"
-                        title="Copy Embed Template"
-                        onClick={() => handleCopyEmbed(video)}
+                        title="Embed Video Player"
+                        onClick={() => handleOpenEmbed(video)}
                       >
-                        {copiedEmbedId === video.id ? (
-                          <Check size={14} className="text-green-500" />
-                        ) : (
-                          <Code size={14} />
-                        )}
+                        <Code size={14} />
                       </Button>
 
                       <Button
@@ -475,10 +469,10 @@ export default function MyVideosPage() {
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 text-slate-400 hover:text-blue-400"
-                    title="Copy Embed Code"
-                    onClick={() => handleCopyEmbed(video)}
+                    title="Embed Video Player"
+                    onClick={() => handleOpenEmbed(video)}
                   >
-                    {copiedEmbedId === video.id ? <Check size={12} className="text-green-500" /> : <Code size={12} />}
+                    <Code size={12} />
                   </Button>
                   <Button
                     size="icon"
@@ -546,6 +540,16 @@ export default function MyVideosPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Embed Player Modal */}
+      {embedModalVideo && (
+        <EmbedVideoModal
+          isOpen={!!embedModalVideo}
+          onClose={() => setEmbedModalVideo(null)}
+          videoId={embedModalVideo.id}
+          videoTitle={embedModalVideo.title}
+        />
       )}
     </div>
   );

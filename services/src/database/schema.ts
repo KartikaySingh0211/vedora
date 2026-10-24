@@ -110,6 +110,18 @@ export const player_settings = pgTable(
       .notNull(),
     watermark_opacity: integer('watermark_opacity').default(80).notNull(),
     enable_subtitles: boolean('enable_subtitles').default(true).notNull(),
+    enabled_controls: jsonb('enabled_controls')
+      .$type<string[]>()
+      .default([
+        'Play / Pause',
+        '10s Backward',
+        '10s Forward',
+        'Full Screen',
+        'Captions',
+        'Volume',
+        'Mute',
+      ])
+      .notNull(),
     created_at: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),

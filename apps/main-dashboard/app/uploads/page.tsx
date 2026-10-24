@@ -8,6 +8,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
+  Copy,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -76,6 +78,14 @@ export default function UploadPage() {
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
   const [completedVideo, setCompletedVideo] = useState<VideoRecord | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<boolean>(false);
+
+  const handleCopyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    setCopiedKey(true);
+    toast.success("Storage key copied to clipboard");
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -190,6 +200,7 @@ export default function UploadPage() {
           resolutions: resolutions as ("720p" | "1080p")[],
           generateSubtitles: data.generateSubtitles === "yes",
           includeWatermark: data.includeWatermark === "yes",
+          duration: videoDuration,
         },
         {
           duration: videoDuration,
@@ -304,18 +315,42 @@ export default function UploadPage() {
                 <CheckCircle2 size={20} />
                 <h4 className="text-sm font-semibold">Video Upload Complete</h4>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-400 font-mono bg-slate-900/60 p-3 rounded-lg">
-                <div>
-                  <span className="text-slate-500">Video ID: </span>
-                  <span className="text-white">{completedVideo.id}</span>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-400 font-mono bg-slate-900/70 p-3.5 rounded-xl border border-slate-800/80">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500">Video ID:</span>
+                    <span className="text-white font-medium select-all">{completedVideo.id}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500">Status:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-green-500/10 text-green-400 border border-green-500/20 uppercase tracking-wider">
+                      {completedVideo.status}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-500">Status: </span>
-                  <span className="text-green-400 uppercase font-semibold">{completedVideo.status}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Storage Key: </span>
-                  <span className="text-slate-300 truncate">{completedVideo.storageKey}</span>
+
+                <div className="min-w-0 flex items-center gap-2 bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/70 max-w-full md:max-w-md">
+                  <span className="text-slate-500 shrink-0">Storage Key:</span>
+                  <span
+                    className="text-slate-300 truncate select-all"
+                    title={completedVideo.storageKey || ""}
+                  >
+                    {completedVideo.storageKey}
+                  </span>
+                  {completedVideo.storageKey && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyKey(completedVideo.storageKey || "")}
+                      className="text-slate-400 hover:text-white p-1 rounded transition shrink-0 hover:bg-slate-800 cursor-pointer"
+                      title="Copy Storage Key"
+                    >
+                      {copiedKey ? (
+                        <Check size={13} className="text-green-400" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 pt-1">

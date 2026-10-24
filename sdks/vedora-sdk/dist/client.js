@@ -122,19 +122,22 @@ class VedoraClient {
             if (!file || file.size <= 0) {
                 throw new types_1.VedoraError('A valid non-empty File or Blob is required for upload', 'init');
             }
-            // 1. Initialize upload with file size
+            // 1. Initialize upload with file size and duration
             const initPayload = {
                 ...metadata,
                 size: file.size,
+                duration: metadata.duration ?? options?.duration,
             };
             const initResult = await this.videos.init(initPayload);
             // 2. Direct upload to cloud storage
-            const { storageKey } = await (0, uploader_1.uploadFileDirectly)(file, initResult.uploadData, options);
+            const { storageKey, completedParts } = await (0, uploader_1.uploadFileDirectly)(file, initResult.uploadData, options);
             // 3. Complete upload registration
             const completedRecord = await this.videos.complete({
                 videoId: initResult.video.id,
                 storageKey,
                 duration: options?.duration || 0,
+                uploadId: initResult.uploadData?.uploadId,
+                parts: completedParts,
             });
             return completedRecord;
         },

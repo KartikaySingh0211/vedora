@@ -64,6 +64,8 @@ Thumbs.db
 .vercel/
 /.clerk/
 
-# Temp
+# Temp & local storage
 .tmp
 .temp
+storage_local/
+services/storage_local/

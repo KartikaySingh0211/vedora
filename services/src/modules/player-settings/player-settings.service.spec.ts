@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PlayerSettingsService } from './player-settings.service';
 import { DRIZZLE_DB } from '../../database/database.module';
 import { StorageService } from '../../infra/storage/storage.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('PlayerSettingsService', () => {
   let service: PlayerSettingsService;
@@ -19,6 +20,7 @@ describe('PlayerSettingsService', () => {
     watermark_position: 'top-right',
     watermark_opacity: 80,
     enable_subtitles: true,
+    enabled_controls: ['Play / Pause', 'Full Screen'],
   };
 
   beforeEach(async () => {
@@ -43,6 +45,14 @@ describe('PlayerSettingsService', () => {
         PlayerSettingsService,
         { provide: DRIZZLE_DB, useValue: mockDb },
         { provide: StorageService, useValue: mockStorageService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((k: string) =>
+              k === 'storage.cdnUrl' ? 'https://cdn.vedora.com' : undefined,
+            ),
+          },
+        },
       ],
     }).compile();
 
@@ -132,6 +142,27 @@ describe('PlayerSettingsService', () => {
       expect(config.isFreeTier).toBe(false);
       expect(config.watermarkText).toBeNull();
       expect(config.watermarkUrl).toBe('https://cdn.example.com/logo.png');
+    });
+
+    it('should fallback to storage_key when master_m3u8_key is null', async () => {
+      const video = {
+        id: '00000000-0000-0000-0000-000000000003',
+        user_id: 'user_free',
+        title: 'Raw Uploaded Video',
+        duration: 60,
+        status: 'uploaded',
+        master_m3u8_key: null,
+        storage_key: 'videos/vid-3/raw.mp4',
+      };
+
+      mockDb.limit
+        .mockResolvedValueOnce([video])
+        .mockResolvedValueOnce([mockSettings])
+        .mockResolvedValueOnce([{ plan: 'free' }]);
+
+      const config = await service.getPublicPlayerConfig(video.id);
+
+      expect(config.streamUrl).toBe('https://cdn.vedora.com/videos/vid-3/raw.mp4');
     });
   });
 });

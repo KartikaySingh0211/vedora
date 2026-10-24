@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ApiKeyController } from './api-key.controller';
 import { ApiKeyService } from './api-key.service';
 import { ApiKeyCacheService } from './api-key-cache.service';
 import { ApiKeyActivityService } from './api-key-activity.service';
 import { DualAuthGuard } from '../../guards/dual-auth.guard';
 
+@Global()
 @Module({
   controllers: [ApiKeyController],
   providers: [

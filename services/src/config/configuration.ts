@@ -15,6 +15,14 @@ export interface AppConfig {
     apiKey: string;
     bucketId: string;
     baseUrl: string;
+    cdnUrl?: string;
+  };
+  billing: {
+    stripeSecretKey?: string;
+    stripeWebhookSecret?: string;
+  };
+  transcoder: {
+    webhookSecret?: string;
   };
   corsOrigins: string[];
 }
@@ -25,7 +33,7 @@ export default (): AppConfig => ({
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    password: process.env.REDIS_PASSWORD || undefined,
+    password: process.env.REDIS_PASSWORD || 'vedorasecret',
   },
   apiKeyDigestSecret:
     process.env.API_KEY_DIGEST_SECRET ||
@@ -42,6 +50,14 @@ export default (): AppConfig => ({
     baseUrl:
       process.env.ONEMINUTECLOUD_BASE_URL ||
       'https://api.oneminutecloud.com/api/v1',
+    cdnUrl: process.env.STORAGE_CDN_URL,
+  },
+  billing: {
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  },
+  transcoder: {
+    webhookSecret: process.env.TRANSCODER_WEBHOOK_SECRET,
   },
   corsOrigins: [
     'http://localhost:3000',

@@ -34,6 +34,12 @@ export class CreateVideoInitDto {
   size: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  duration?: number;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @IsIn(['720p', '1080p'], {

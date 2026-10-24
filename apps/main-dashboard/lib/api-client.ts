@@ -66,6 +66,7 @@ export interface PlayerSettingsItem {
   watermark_position: string;
   watermark_opacity: number;
   enable_subtitles: boolean;
+  enabled_controls?: string[];
   created_at: string;
   updated_at: string;
 }

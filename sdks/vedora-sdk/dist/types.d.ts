@@ -16,11 +16,14 @@ export interface VideoMetadataInput {
     tags?: string[];
     generateSubtitles?: boolean;
     includeWatermark?: boolean;
+    duration?: number;
 }
 export interface CompleteUploadInput {
     videoId: string;
     storageKey: string;
     duration?: number;
+    uploadId?: string;
+    parts?: CompletedPart[];
 }
 export interface VideoRecord {
     id: string;

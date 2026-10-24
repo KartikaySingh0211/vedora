@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { DrizzleDb } from '../../database/database.module';
@@ -20,6 +21,7 @@ export interface PublicPlayerConfig {
   watermarkPosition: string;
   watermarkOpacity: number;
   enableSubtitles: boolean;
+  enabledControls: string[];
   isFreeTier: boolean;
 }
 
@@ -31,6 +33,7 @@ export class PlayerSettingsService {
     @Inject(DRIZZLE_DB)
     private readonly db: DrizzleDb,
     private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -58,6 +61,15 @@ export class PlayerSettingsService {
         watermark_position: 'top-right',
         watermark_opacity: 80,
         enable_subtitles: true,
+        enabled_controls: [
+          'Play / Pause',
+          '10s Backward',
+          '10s Forward',
+          'Full Screen',
+          'Captions',
+          'Volume',
+          'Mute',
+        ],
       })
       .returning();
 
@@ -92,6 +104,8 @@ export class PlayerSettingsService {
       updateData.watermark_opacity = dto.watermarkOpacity;
     if (dto.enableSubtitles !== undefined)
       updateData.enable_subtitles = dto.enableSubtitles;
+    if (dto.enabledControls !== undefined)
+      updateData.enabled_controls = dto.enabledControls;
 
     const [updated] = await this.db
       .update(schema.player_settings)
@@ -140,9 +154,21 @@ export class PlayerSettingsService {
       watermarkUrl = settings.watermark_url;
     }
 
-    // Resolve stream URL for master HLS manifest
+    // Resolve stream URL for playback:
+    // If an external CDN is configured (production with cloud transcoding), use the master HLS manifest.
+    // In local development / direct storage mode, prioritize storage_key so direct MP4 playback works cleanly.
     let streamUrl: string | null = null;
-    if (video.master_m3u8_key) {
+    const customCdn = this.configService.get<string>('storage.cdnUrl');
+    const hasCdn =
+      customCdn &&
+      !customCdn.includes('storage.oneminutecloud.com') &&
+      !customCdn.includes('placeholder');
+
+    if (hasCdn && video.master_m3u8_key) {
+      streamUrl = this.storageService.getPublicUrl(video.master_m3u8_key);
+    } else if (video.storage_key) {
+      streamUrl = this.storageService.getPublicUrl(video.storage_key);
+    } else if (video.master_m3u8_key) {
       streamUrl = this.storageService.getPublicUrl(video.master_m3u8_key);
     }
 
@@ -160,6 +186,15 @@ export class PlayerSettingsService {
       watermarkPosition: settings.watermark_position,
       watermarkOpacity: settings.watermark_opacity,
       enableSubtitles: settings.enable_subtitles,
+      enabledControls: settings.enabled_controls || [
+        'Play / Pause',
+        '10s Backward',
+        '10s Forward',
+        'Full Screen',
+        'Captions',
+        'Volume',
+        'Mute',
+      ],
       isFreeTier,
     };
   }

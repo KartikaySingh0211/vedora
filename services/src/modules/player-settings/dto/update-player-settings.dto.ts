@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -52,4 +53,9 @@ export class UpdatePlayerSettingsDto {
   @IsBoolean()
   @IsOptional()
   enableSubtitles?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  enabledControls?: string[];
 }

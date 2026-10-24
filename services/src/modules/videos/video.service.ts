@@ -187,10 +187,16 @@ export class VideoService {
       // 4. Request multipart upload credentials from OneMinute Cloud Storage
       const bucketId = this.storageService.getDefaultBucketId();
       const filename = `${dto.slug}.mp4`;
+      const duration =
+        dto.duration && dto.duration > 0
+          ? dto.duration
+          : Math.max(10, Math.round(dto.size / ((1.5 * 1024 * 1024) / 8)));
+
       const uploadData = await this.storageService.initiateMultipartUpload(
         bucketId,
         filename,
         dto.size,
+        duration,
       );
 
       // 5. Create video record with status 'uploading'
@@ -207,7 +213,7 @@ export class VideoService {
           bucket_id: bucketId,
           size: rawSizeBytes,
           estimated_transcoded_size: estimatedTranscodedSize,
-          duration: 0,
+          duration: dto.duration || 0,
           status: 'uploading',
           resolutions,
           generate_subtitles: dto.generateSubtitles ?? false,
@@ -279,8 +285,9 @@ export class VideoService {
         await this.storageService.completeMultipartUpload(
           videoRecord.bucket_id,
           'omc_obj_verified',
-          'omc_upl_verified',
+          dto.uploadId || 'omc_upl_verified',
           dto.storageKey,
+          dto.parts || [],
         );
       }
 

@@ -15,6 +15,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchWithAuth, PlayerSettingsItem } from "../../lib/api-client";
+import { VedoraPlayer } from "@/components/player/vedora-player";
 
 const controls = [
   "Play / Pause",
@@ -89,6 +90,8 @@ export default function PlayerSettingsPage() {
         if (settings.enable_subtitles !== undefined)
           setEnableSubtitles(settings.enable_subtitles);
         if (settings.watermark_url) setWatermarkUrl(settings.watermark_url);
+        if (settings.enabled_controls && Array.isArray(settings.enabled_controls))
+          setEnabledControls(settings.enabled_controls);
       }, 0);
       return () => clearTimeout(timer);
     }
@@ -109,6 +112,7 @@ export default function PlayerSettingsPage() {
           watermarkOpacity,
           enableSubtitles,
           watermarkUrl: watermarkUrl.trim() || null,
+          enabledControls,
         }),
       });
     },
@@ -156,6 +160,37 @@ export default function PlayerSettingsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Interactive Player Live Preview */}
+          <div className="col-span-1 md:col-span-2 bg-white dark:bg-slate-900/50 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold">Live Player Preview</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Real-time preview of how your embedded video player will look with the current styling.
+                </p>
+              </div>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+                Live Preview
+              </span>
+            </div>
+            <div className="aspect-video max-w-2xl mx-auto rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black shadow-lg">
+              <VedoraPlayer
+                streamUrl="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                title="Player Settings Live Preview"
+                primaryColor={primaryColor}
+                controlBarBg={controlBarBg}
+                playIconStyle={selectedPlayIcon}
+                watermarkUrl={watermarkUrl.trim() || null}
+                watermarkPosition={watermarkPosition}
+                watermarkOpacity={watermarkOpacity}
+                enabledControls={enabledControls}
+                isFreeTier={!watermarkUrl.trim()}
+                autoFetchConfig={false}
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+
           {/* Primary Color */}
           <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
             <label className="text-sm font-semibold mb-1 block">

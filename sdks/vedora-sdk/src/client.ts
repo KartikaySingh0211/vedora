@@ -183,16 +183,17 @@ export class VedoraClient {
         );
       }
 
-      // 1. Initialize upload with file size
+      // 1. Initialize upload with file size and duration
       const initPayload: VideoMetadataInput = {
         ...metadata,
         size: file.size,
+        duration: metadata.duration ?? options?.duration,
       };
 
       const initResult = await this.videos.init(initPayload);
 
       // 2. Direct upload to cloud storage
-      const { storageKey } = await uploadFileDirectly(
+      const { storageKey, completedParts } = await uploadFileDirectly(
         file,
         initResult.uploadData,
         options,
@@ -203,6 +204,8 @@ export class VedoraClient {
         videoId: initResult.video.id,
         storageKey,
         duration: options?.duration || 0,
+        uploadId: initResult.uploadData?.uploadId,
+        parts: completedParts,
       });
 
       return completedRecord;

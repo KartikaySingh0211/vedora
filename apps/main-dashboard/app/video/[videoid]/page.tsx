@@ -20,7 +20,10 @@ import {
 	Code2,
 	Play,
 	FileText,
+	Sliders,
 } from "lucide-react";
+import { VedoraPlayer } from "@/components/player/vedora-player";
+import { EmbedVideoModal } from "@/components/modals/embed-video-modal";
 import {
 	AreaChart,
 	Area,
@@ -130,6 +133,7 @@ export default function VideoDetailsPage() {
 
 	const [copiedEmbed, setCopiedEmbed] = useState(false);
 	const [copiedId, setCopiedId] = useState(false);
+	const [showEmbedModal, setShowEmbedModal] = useState(false);
 
 	const axisColor = isDark ? "#6b7280" : "#9ca3af";
 	const gridColor = isDark ? "#1f2023" : "#e5e7eb";
@@ -137,7 +141,9 @@ export default function VideoDetailsPage() {
 	const tooltipBorder = isDark ? "#1f2023" : "#e5e7eb";
 	const tooltipText = isDark ? "#ffffff" : "#111827";
 
-	const embedCode = `<iframe src="https://player.Vedora.com/embed/${videoId}" width="640" height="360" frameborder="0" allowfullscreen></iframe>`;
+	const origin =
+		typeof window !== "undefined" ? window.location.origin : "https://vedora.com";
+	const embedCode = `<iframe src="${origin}/embed/${videoId}" width="640" height="360" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius: 12px;"></iframe>`;
 
 	const handleCopyEmbed = () => {
 		navigator.clipboard.writeText(embedCode);
@@ -181,26 +187,9 @@ export default function VideoDetailsPage() {
 			{/* Video Preview + Metadata */}
 			<div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 				{/* Video Preview */}
-				<div className="lg:col-span-3 rounded-xl bg-white dark:bg-[#101217] border border-gray-200 dark:border-[#1f2023] shadow-sm overflow-hidden">
-					<div className="relative aspect-video bg-black">
-						<Image
-							src={mockVideo.thumbnail}
-							alt={mockVideo.title}
-							fill
-							className="object-cover"
-						/>
-						<div className="absolute inset-0 flex items-center justify-center bg-black/30">
-							<div className="w-16 h-16 rounded-full bg-white/90 dark:bg-white/80 flex items-center justify-center">
-								<Play
-									size={28}
-									className="text-gray-900 ml-1"
-									fill="currentColor"
-								/>
-							</div>
-						</div>
-						<div className="absolute bottom-3 right-3 px-2 py-1 bg-black/70 rounded text-xs text-white font-medium">
-							{mockVideo.duration}
-						</div>
+				<div className="lg:col-span-3 rounded-xl bg-white dark:bg-[#101217] border border-gray-200 dark:border-[#1f2023] shadow-sm overflow-hidden flex flex-col">
+					<div className="relative aspect-video bg-black w-full overflow-hidden">
+						<VedoraPlayer videoId={videoId} className="w-full h-full" />
 					</div>
 					<div className="p-5">
 						<h2 className="text-lg font-semibold mb-2">{mockVideo.title}</h2>
@@ -340,22 +329,31 @@ export default function VideoDetailsPage() {
 						<Code2 size={16} className="text-gray-500 dark:text-gray-400" />
 						<h3 className="text-sm font-semibold">Embed Code</h3>
 					</div>
-					<button
-						onClick={handleCopyEmbed}
-						className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-					>
-						{copiedEmbed ? (
-							<>
-								<Check size={12} className="text-green-500" />
-								Copied!
-							</>
-						) : (
-							<>
-								<Copy size={12} />
-								Copy Code
-							</>
-						)}
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							onClick={() => setShowEmbedModal(true)}
+							className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+						>
+							<Sliders size={12} className="text-blue-500" />
+							Customize &amp; Preview
+						</button>
+						<button
+							onClick={handleCopyEmbed}
+							className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+						>
+							{copiedEmbed ? (
+								<>
+									<Check size={12} />
+									Copied!
+								</>
+							) : (
+								<>
+									<Copy size={12} />
+									Copy Code
+								</>
+							)}
+						</button>
+					</div>
 				</div>
 				<div className="bg-gray-50 dark:bg-[#0a0c10] rounded-lg p-4 font-mono text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
 					{embedCode}
@@ -507,6 +505,14 @@ export default function VideoDetailsPage() {
 					</BarChart>
 				</ResponsiveContainer>
 			</div>
+
+			{/* Embed Video Modal */}
+			<EmbedVideoModal
+				isOpen={showEmbedModal}
+				onClose={() => setShowEmbedModal(false)}
+				videoId={videoId}
+				videoTitle={mockVideo.title}
+			/>
 		</div>
 	);
 }
