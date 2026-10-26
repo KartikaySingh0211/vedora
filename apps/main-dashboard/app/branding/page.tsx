@@ -1,17 +1,88 @@
 "use client";
 
-import { Eye, EyeOff, Crown, ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { Eye, EyeOff, Crown, ChevronRight, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Logo from "@/components/common/logo";
-import LogoLight from "@/components/common/logolight";
+import Image from "next/image";
+import { useAuth } from "@clerk/nextjs";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { fetchWithAuth, PlayerSettingsItem, SubscriptionItem } from "@/lib/api-client";
 
 const Page = () => {
-	const isProUser = false;
+	const { getToken, isLoaded } = useAuth();
+	const queryClient = useQueryClient();
+
 	const [enabled, setEnabled] = useState(true);
 	const [position, setPosition] = useState("bottom-right");
 	const [opacity, setOpacity] = useState(50);
 	const [file, setFile] = useState<File | null>(null);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+	// Fetch subscription to determine Pro status
+	const { data: subscription } = useQuery<SubscriptionItem>({
+		queryKey: ["billing-subscription"],
+		queryFn: async () => {
+			const token = await getToken();
+			return fetchWithAuth<SubscriptionItem>("/billing/subscription", token);
+		},
+		enabled: isLoaded,
+	});
+
+	const isProUser = Boolean(
+		subscription?.plan && subscription.plan.toLowerCase() !== "free"
+	);
+
+	// Fetch existing player settings
+	const { data: settings } = useQuery<PlayerSettingsItem>({
+		queryKey: ["player-settings"],
+		queryFn: async () => {
+			const token = await getToken();
+			return fetchWithAuth<PlayerSettingsItem>("/player-settings", token);
+		},
+		enabled: isLoaded,
+	});
+
+	useEffect(() => {
+		if (settings) {
+			const timer = setTimeout(() => {
+				if (settings.watermark_position) setPosition(settings.watermark_position);
+				if (settings.watermark_opacity !== undefined) setOpacity(settings.watermark_opacity);
+			}, 0);
+			return () => clearTimeout(timer);
+		}
+	}, [settings]);
+
+	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const selected = e.target.files?.[0] || null;
+		setFile(selected);
+		if (selected) {
+			setPreviewUrl(URL.createObjectURL(selected));
+		} else {
+			setPreviewUrl(null);
+		}
+	};
+
+	// Mutation to save settings for Pro users
+	const saveMutation = useMutation({
+		mutationFn: async () => {
+			const token = await getToken();
+			return fetchWithAuth<PlayerSettingsItem>("/player-settings", token, {
+				method: "PUT",
+				body: JSON.stringify({
+					watermarkPosition: position,
+					watermarkOpacity: opacity,
+				}),
+			});
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["player-settings"] });
+			toast.success("Watermark settings saved successfully!");
+		},
+		onError: (err: Error) => {
+			toast.error(`Failed to save settings: ${err.message}`);
+		},
+	});
 
 	return (
 		<div className="text-black dark:text-white">
@@ -51,7 +122,7 @@ const Page = () => {
 							enabled
 								? "bg-green-600 text-white"
 								: "bg-slate-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300"
-						}`}
+						} ${!isProUser ? "cursor-not-allowed opacity-80" : "cursor-pointer"}`}
 					>
 						{enabled ? <Eye size={16} /> : <EyeOff size={16} />}
 						{enabled ? "On" : "Off"}
@@ -61,15 +132,33 @@ const Page = () => {
 				{/* Preview */}
 				<div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-md flex items-center justify-between">
 					<div className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-						{isProUser
+						{isProUser && previewUrl
+							? "Custom Watermark Preview"
+							: isProUser
 							? "Current Watermark Preview"
 							: "Vedora Watermark (Default)"}
 					</div>
-					<div className="dark:hidden md:w-25 opacity-[.50] inline-block">
-						<LogoLight />
-					</div>
-					<div className="hidden md:w-25 opacity-[.50] dark:inline-block">
-						<Logo />
+					<div
+						className="transition-opacity duration-200 flex items-center"
+						style={{ opacity: enabled ? opacity / 100 : 0.2 }}
+					>
+						{isProUser && previewUrl ? (
+							// eslint-disable-next-line @next/next/no-img-element
+							<img
+								src={previewUrl}
+								alt="Custom Watermark"
+								className="h-8 max-w-[130px] object-contain"
+							/>
+						) : (
+							<Image
+								src="/logo.png"
+								alt="Vedora Logo"
+								width={130}
+								height={40}
+								className="h-8 w-auto object-contain"
+								priority
+							/>
+						)}
 					</div>
 				</div>
 
@@ -87,7 +176,7 @@ const Page = () => {
 						<input
 							type="file"
 							accept="image/png,image/svg+xml"
-							onChange={(e) => setFile(e.target.files?.[0] || null)}
+							onChange={handleFileChange}
 							className="block text-sm text-gray-600 dark:text-gray-400"
 						/>
 						{file && (
@@ -126,7 +215,7 @@ const Page = () => {
 							max={100}
 							value={opacity}
 							onChange={(e) => setOpacity(Number(e.target.value))}
-							className="w-full"
+							className="w-full cursor-pointer accent-blue-600"
 						/>
 					</div>
 				</div>
@@ -138,17 +227,27 @@ const Page = () => {
 							<Crown size={16} />
 							Upgrade to Pro to customize your watermark and branding.
 						</div>
-						<button className="text-sm font-semibold text-blue-500 cursor-pointer hover:underline">
+						<Link
+							href="/billing"
+							className="text-sm font-semibold text-blue-500 cursor-pointer hover:underline"
+						>
 							Upgrade
-						</button>
+						</Link>
 					</div>
 				)}
 
 				{/* Save Button */}
 				{isProUser && (
 					<div className="flex justify-end">
-						<button className="px-5 py-2 text-sm rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition">
-							Save Changes
+						<button
+							onClick={() => saveMutation.mutate()}
+							disabled={saveMutation.isPending}
+							className="cursor-pointer inline-flex items-center gap-2 px-5 py-2 text-sm rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition disabled:opacity-50"
+						>
+							{saveMutation.isPending && (
+								<Loader2 className="w-4 h-4 animate-spin" />
+							)}
+							{saveMutation.isPending ? "Saving..." : "Save Changes"}
 						</button>
 					</div>
 				)}

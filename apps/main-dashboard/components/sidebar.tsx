@@ -4,7 +4,6 @@ import { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import LogoLight from "../components/common/logolight";
 import {
 	HelpCircle,
 	FolderKanban,
@@ -183,13 +182,15 @@ const Sidebar = () => {
 					className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 pt-4 pb-2`}
 				>
 					{!collapsed && (
-						<Link href="/" className="w-28 -mt-2 shrink-0">
-							<div className="hidden dark:block">
-								<Image src="/logo.png" alt="Logo" width={160} height={160} />
-							</div>
-							<div className="block dark:hidden">
-								<LogoLight />
-							</div>
+						<Link href="/" className="w-28 -mt-2 shrink-0 flex items-center">
+							<Image
+								src="/logo.png"
+								alt="Vedora"
+								width={140}
+								height={40}
+								className="h-auto w-28 object-contain"
+								priority
+							/>
 						</Link>
 					)}
 
