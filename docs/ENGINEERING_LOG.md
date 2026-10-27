@@ -269,7 +269,7 @@ Execute comprehensive regression testing, static analysis, type checking, and pr
    - `GET /api/v1/playlists` ➔ 401 Unauthorized with structured error.
    - `GET /api/v1/api-keys` ➔ 401 Unauthorized with structured error.
    - `GET /api/v1/api-keys` (with malformed key) ➔ 401 with `Invalid or revoked API key`.
-5. **Authored Root Documentation**: Created comprehensive [README.md](file:///d:/Dev/Projects/vedora/README.md) detailing architecture, setup steps, security principles, and environment variables.
+5. **Authored Root Documentation**: Created comprehensive [README.md](README.md) detailing architecture, setup steps, security principles, and environment variables.
 
 ---
 
@@ -797,7 +797,7 @@ Prior to this run, the Vedora backend exposed a Swagger UI interface at `/api/do
 ### 2. Architecture & Design Decisions
 
 1. **Enterprise DTO Schema Standardization**:
-   - Created reusable standard response envelopes in [`services/src/common/dto/error-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts): `ErrorResponseDto` (for 401, 403, 404, 413, 500), `ValidationErrorResponseDto` (for 400 with string array message), and `ActionSuccessResponseDto`.
+   - Created reusable standard response envelopes in [`services/src/common/dto/error-response.dto.ts`](services/src/common/dto/error-response.dto.ts): `ErrorResponseDto` (for 401, 403, 404, 413, 500), `ValidationErrorResponseDto` (for 400 with string array message), and `ActionSuccessResponseDto`.
    - Created typed response DTOs for every module:
      - Health: `HealthResponseDto`, `HealthDependenciesDto`
      - API Keys: `ApiKeyResponseDto`, `CreatedApiKeyResponseDto`
@@ -809,20 +809,20 @@ Prior to this run, the Vedora backend exposed a Swagger UI interface at `/api/do
      - Analytics: `MetricsResponseDto`, `DeviceBreakdownDto`, `BrowserBreakdownDto`, `TimeSeriesPointDto`, `TopVideoDto`, `SegmentPingResponseDto`
      - Billing: `SubscriptionResponseDto`, `BillingWebhookResponseDto`
 2. **Dual Security Scheme Integration in DocumentBuilder**:
-   - In [`services/src/main.ts`](file:///d:/Dev/Projects/vedora/services/src/main.ts), configured both `addBearerAuth` (name: `bearer`, scheme: `bearer`, format: `JWT`) and `addApiKey` (name: `x-api-key`, in: `header`).
+   - In [`services/src/main.ts`](services/src/main.ts), configured both `addBearerAuth` (name: `bearer`, scheme: `bearer`, format: `JWT`) and `addApiKey` (name: `x-api-key`, in: `header`).
    - Enabled `persistAuthorization: true` to preserve developer tokens across browser reloads.
 3. **Controller Documentation & Decorator Pass**:
    - Fully decorated all 10 controllers across 19 endpoints with `@ApiTags`, `@ApiOperation`, `@ApiParam`, `@ApiQuery`, `@ApiHeader`, `@ApiBearerAuth('bearer')`, `@ApiSecurity('x-api-key')`, and standard typed responses (`@ApiOkResponse`, `@ApiCreatedResponse`, `@ApiAcceptedResponse`, `@ApiBadRequestResponse`, `@ApiUnauthorizedResponse`, etc.).
    - Explicitly configured media streaming endpoints with `@ApiProduces('video/mp4', 'application/vnd.apple.mpegurl')` and `@ApiResponse({ status: 206, description: 'Partial Content' })`.
 4. **Automated OpenAPI Spec Generation & Testing**:
-   - Created [`services/src/swagger.spec.ts`](file:///d:/Dev/Projects/vedora/services/src/swagger.spec.ts), which compiles `AppModule`, generates the complete OpenAPI 3.0 document, verifies tag taxonomy and security schemes, and automatically exports the 109KB specification to [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json).
+   - Created [`services/src/swagger.spec.ts`](services/src/swagger.spec.ts), which compiles `AppModule`, generates the complete OpenAPI 3.0 document, verifies tag taxonomy and security schemes, and automatically exports the 109KB specification to [`docs/openapi.json`](docs/openapi.json).
 5. **Dedicated API Documentation Hub**:
    - Established `docs/api-docs/` containing:
-     - [`docs/api-docs/README.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/README.md): Master developer documentation with complete 19-endpoint reference, curl examples, and schema overviews.
-     - [`docs/api-docs/SWAGGER_GUIDE.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/SWAGGER_GUIDE.md): Deep-dive into Swagger configuration, UI usage, decorator best practices, CI testing, and client code generation.
-     - [`docs/api-docs/SCHEMAS_AND_MODELS.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/SCHEMAS_AND_MODELS.md): Exhaustive dictionary of all 24 DTOs, field types, constraints, and validation rules.
-     - [`docs/api-docs/AUTHENTICATION.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/AUTHENTICATION.md): DualAuthGuard specification, Clerk Bearer tokens, Argon2id API key hashing, and 3-tier caching (LRU + Redis).
-     - [`docs/api-docs/WEBHOOKS_AND_EVENTS.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/WEBHOOKS_AND_EVENTS.md): Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation.
+     - [`docs/api-docs/README.md`](docs/api-docs/README.md): Master developer documentation with complete 19-endpoint reference, curl examples, and schema overviews.
+     - [`docs/api-docs/SWAGGER_GUIDE.md`](docs/api-docs/SWAGGER_GUIDE.md): Deep-dive into Swagger configuration, UI usage, decorator best practices, CI testing, and client code generation.
+     - [`docs/api-docs/SCHEMAS_AND_MODELS.md`](docs/api-docs/SCHEMAS_AND_MODELS.md): Exhaustive dictionary of all 24 DTOs, field types, constraints, and validation rules.
+     - [`docs/api-docs/AUTHENTICATION.md`](docs/api-docs/AUTHENTICATION.md): DualAuthGuard specification, Clerk Bearer tokens, Argon2id API key hashing, and 3-tier caching (LRU + Redis).
+     - [`docs/api-docs/WEBHOOKS_AND_EVENTS.md`](docs/api-docs/WEBHOOKS_AND_EVENTS.md): Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation.
 
 ### 3. Verification & Monorepo Test Summary
 

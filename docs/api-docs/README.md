@@ -10,11 +10,11 @@ Vedora exposes an enterprise RESTful API served under `/api/v1`, fully documente
 
 | Document | Description |
 | :--- | :--- |
-| 📘 **[Swagger UI & OpenAPI Setup Guide](file:///d:/Dev/Projects/vedora/docs/api-docs/SWAGGER_GUIDE.md)** | Swagger configuration (`main.ts`), interactive UI guide, decorator standards, and automated CI test pipeline. |
-| 📋 **[Schemas & Data Models Reference](file:///d:/Dev/Projects/vedora/docs/api-docs/SCHEMAS_AND_MODELS.md)** | Complete dictionary of all 24 DTOs, request bodies, response models, validation constraints, and examples. |
-| 🔐 **[Authentication & Authorization Guide](file:///d:/Dev/Projects/vedora/docs/api-docs/AUTHENTICATION.md)** | DualAuthGuard internals, Clerk JWTs, Argon2id API key hashing, multi-tier caching (LRU + Redis), and code samples. |
-| ⚡ **[Webhooks & Events Reference](file:///d:/Dev/Projects/vedora/docs/api-docs/WEBHOOKS_AND_EVENTS.md)** | Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation instructions. |
-| 🌐 **[Raw OpenAPI 3.0 Specification](file:///d:/Dev/Projects/vedora/docs/openapi.json)** | Statically exported, version-controlled OpenAPI JSON schema (109 KB). |
+| 📘 **[Swagger UI & OpenAPI Setup Guide](docs/api-docs/SWAGGER_GUIDE.md)** | Swagger configuration (`main.ts`), interactive UI guide, decorator standards, and automated CI test pipeline. |
+| 📋 **[Schemas & Data Models Reference](docs/api-docs/SCHEMAS_AND_MODELS.md)** | Complete dictionary of all 24 DTOs, request bodies, response models, validation constraints, and examples. |
+| 🔐 **[Authentication & Authorization Guide](docs/api-docs/AUTHENTICATION.md)** | DualAuthGuard internals, Clerk JWTs, Argon2id API key hashing, multi-tier caching (LRU + Redis), and code samples. |
+| ⚡ **[Webhooks & Events Reference](docs/api-docs/WEBHOOKS_AND_EVENTS.md)** | Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation instructions. |
+| 🌐 **[Raw OpenAPI 3.0 Specification](docs/openapi.json)** | Statically exported, version-controlled OpenAPI JSON schema (109 KB). |
 
 ---
 
@@ -24,7 +24,7 @@ Vedora exposes an enterprise RESTful API served under `/api/v1`, fully documente
 | :--- | :--- |
 | **Swagger UI URL** | `http://localhost:8080/api/docs` |
 | **API Base URL** | `http://localhost:8080/api/v1` |
-| **Raw OpenAPI Spec** | [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json) (OpenAPI 3.0) |
+| **Raw OpenAPI Spec** | [`docs/openapi.json`](docs/openapi.json) (OpenAPI 3.0) |
 | **Default Server Port** | `8080` (configured via `PORT` in `services/.env`) |
 | **API Versioning** | URI-based: `/api/v1/<controller>` |
 | **Architecture** | NestJS 11, TypeScript, Drizzle ORM, Neon PostgreSQL, Redis 7, BullMQ |
@@ -33,7 +33,7 @@ Vedora exposes an enterprise RESTful API served under `/api/v1`, fully documente
 
 ## 🔐 Authentication & Authorization Guide
 
-Vedora implements a dual-layer authentication guard ([`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts)) supporting browser session JWTs and server-to-server API keys.
+Vedora implements a dual-layer authentication guard ([`DualAuthGuard`](services/src/guards/dual-auth.guard.ts)) supporting browser session JWTs and server-to-server API keys.
 
 ### 1. Clerk Bearer Token (`bearer`)
 - **Use Case**: Used by frontend applications (`apps/main-dashboard`).
@@ -45,7 +45,7 @@ Vedora implements a dual-layer authentication guard ([`DualAuthGuard`](file:///d
   4. Click **Authorize**.
 
 ### 2. Vedora API Key (`x-api-key`)
-- **Use Case**: Used by SDKs ([`@vedora/sdk`](file:///d:/Dev/Projects/vedora/sdks/vedora-sdk)), backend integrations, and CI/CD pipelines.
+- **Use Case**: Used by SDKs ([`@vedora/sdk`](sdks/vedora-sdk)), backend integrations, and CI/CD pipelines.
 - **Header**: `x-api-key: ved_live_<prefix>_<secret>`
 - **Security**: Keys are hashed using **Argon2id** with salt before persistence in PostgreSQL. Fast authentication is accelerated via dual-tier caching (in-memory LRU + Redis HMAC digest verification).
 - **Swagger Authorization**:
@@ -57,7 +57,7 @@ Vedora implements a dual-layer authentication guard ([`DualAuthGuard`](file:///d
 
 ## ⚠️ Error Handling & Response Envelopes
 
-All errors thrown by the backend are formatted by the global [`AllExceptionsFilter`](file:///d:/Dev/Projects/vedora/services/src/utils/all-exceptions.filter.ts). Internal database errors and stack traces are masked from users, and sensitive URL query tokens are sanitized in server logs.
+All errors thrown by the backend are formatted by the global [`AllExceptionsFilter`](services/src/utils/all-exceptions.filter.ts). Internal database errors and stack traces are masked from users, and sensitive URL query tokens are sanitized in server logs.
 
 ### 1. Standard Error Envelope (`ErrorResponseDto`)
 Returned for `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `413 Payload Too Large`, and `500 Internal Server Error`:
@@ -108,7 +108,7 @@ Returned for `400 Bad Request` when DTO constraints fail:
 - **Tag**: `Health`
 - **Auth**: Public
 - **Summary**: System health check and dependency connectivity
-- **Response**: `200 OK` ([`HealthResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/health/dto/health-response.dto.ts))
+- **Response**: `200 OK` ([`HealthResponseDto`](services/src/modules/health/dto/health-response.dto.ts))
   ```json
   {
     "status": "ok",
@@ -129,7 +129,7 @@ All endpoints in this module require authentication via **Bearer token** or **AP
 
 #### `GET /api/v1/api-keys`
 - **Summary**: List all API keys for authenticated caller.
-- **Response**: `200 OK` — Array of [`ApiKeyResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/api-key/dto/api-key-response.dto.ts#L3-L37)
+- **Response**: `200 OK` — Array of [`ApiKeyResponseDto`](services/src/modules/api-key/dto/api-key-response.dto.ts#L3-L37)
   ```json
   [
     {
@@ -145,7 +145,7 @@ All endpoints in this module require authentication via **Bearer token** or **AP
 #### `POST /api/v1/api-keys`
 - **Summary**: Generate a new API key.
 - **Security Note**: Plaintext secret key is returned **only once**.
-- **Response**: `201 Created` — [`CreatedApiKeyResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/api-key/dto/api-key-response.dto.ts#L39-L64)
+- **Response**: `201 Created` — [`CreatedApiKeyResponseDto`](services/src/modules/api-key/dto/api-key-response.dto.ts#L39-L64)
   ```json
   {
     "id": "d84b2591-4cf1-45d6-848e-28c04ec5cba7",
@@ -158,12 +158,12 @@ All endpoints in this module require authentication via **Bearer token** or **AP
 #### `POST /api/v1/api-keys/:id/regenerate`
 - **Summary**: Revoke existing key and return a newly generated replacement.
 - **Path Parameter**: `id` (UUID or key prefix).
-- **Response**: `200 OK` — [`CreatedApiKeyResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/api-key/dto/api-key-response.dto.ts#L39-L64)
+- **Response**: `200 OK` — [`CreatedApiKeyResponseDto`](services/src/modules/api-key/dto/api-key-response.dto.ts#L39-L64)
 
 #### `POST /api/v1/api-keys/:id/revoke` & `DELETE /api/v1/api-keys/:id`
 - **Summary**: Revoke an API key and invalidate Redis and memory caches immediately.
 - **Path Parameter**: `id` (UUID).
-- **Response**: `200 OK` — [`ActionSuccessResponseDto`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts#L76-L92)
+- **Response**: `200 OK` — [`ActionSuccessResponseDto`](services/src/common/dto/error-response.dto.ts#L76-L92)
   ```json
   {
     "success": true,
@@ -174,18 +174,18 @@ All endpoints in this module require authentication via **Bearer token** or **AP
 ---
 
 ### 3. Playlists (`/api/v1/playlists`)
-Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts). Enforces an atomic account quota of **10 playlists maximum** via PostgreSQL transaction advisory locks ([`ADR-004`](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-004-database-quota-concurrency.md)).
+Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts). Enforces an atomic account quota of **10 playlists maximum** via PostgreSQL transaction advisory locks ([`ADR-004`](docs/decisions/ADR-004-database-quota-concurrency.md)).
 
 #### `POST /api/v1/playlists`
 - **Summary**: Create a new playlist.
-- **Request Body**: [`CreatePlaylistDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/create-playlist.dto.ts)
+- **Request Body**: [`CreatePlaylistDto`](services/src/modules/playlist/dto/create-playlist.dto.ts)
   ```json
   {
     "name": "Frontend Architecture Masterclass",
     "description": "Curated deep-dives into modern web development and streaming"
   }
   ```
-- **Response**: `201 Created` — [`PlaylistResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/playlist-response.dto.ts)
+- **Response**: `201 Created` — [`PlaylistResponseDto`](services/src/modules/playlist/dto/playlist-response.dto.ts)
   ```json
   {
     "id": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
@@ -201,32 +201,32 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 
 #### `GET /api/v1/playlists`
 - **Summary**: List all playlists belonging to user, sorted by `created_at DESC`.
-- **Response**: `200 OK` — Array of [`PlaylistResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/playlist-response.dto.ts).
+- **Response**: `200 OK` — Array of [`PlaylistResponseDto`](services/src/modules/playlist/dto/playlist-response.dto.ts).
 
 #### `GET /api/v1/playlists/:id`
 - **Summary**: Get playlist details by UUID.
-- **Response**: `200 OK` — [`PlaylistResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/playlist-response.dto.ts).
+- **Response**: `200 OK` — [`PlaylistResponseDto`](services/src/modules/playlist/dto/playlist-response.dto.ts).
 - **Errors**: `404 Not Found`.
 
 #### `PUT /api/v1/playlists/:id`
 - **Summary**: Update playlist name or description.
-- **Request Body**: [`UpdatePlaylistDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/update-playlist.dto.ts)
+- **Request Body**: [`UpdatePlaylistDto`](services/src/modules/playlist/dto/update-playlist.dto.ts)
   ```json
   {
     "name": "Advanced Frontend Architecture",
     "description": "Updated syllabus and module references"
   }
   ```
-- **Response**: `200 OK` — [`PlaylistResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/playlist-response.dto.ts).
+- **Response**: `200 OK` — [`PlaylistResponseDto`](services/src/modules/playlist/dto/playlist-response.dto.ts).
 
 #### `DELETE /api/v1/playlists/:id`
 - **Summary**: Delete a playlist and unlink videos.
-- **Response**: `200 OK` — [`ActionSuccessResponseDto`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts#L76-L92)
+- **Response**: `200 OK` — [`ActionSuccessResponseDto`](services/src/common/dto/error-response.dto.ts#L76-L92)
 
 ---
 
 ### 4. Video Ingestion & Processing (`/api/v1/videos`)
-Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts) and [`UploadVideoGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/upload-video.guard.ts).
+Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`UploadVideoGuard`](services/src/guards/upload-video.guard.ts).
 
 #### `POST /api/v1/videos/init`
 - **Summary**: Authorize and initialize a direct-to-cloud upload.
@@ -239,7 +239,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
      - **Pro**: 25 GB max file size
      - **Business**: 100 GB max file size
   4. Returns presigned S3-compatible multipart chunk upload URLs.
-- **Request Body**: [`CreateVideoInitDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/create-video-init.dto.ts)
+- **Request Body**: [`CreateVideoInitDto`](services/src/modules/videos/dto/create-video-init.dto.ts)
   ```json
   {
     "title": "Vedora Direct Upload Tutorial",
@@ -254,7 +254,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     "includeWatermark": false
   }
   ```
-- **Response**: `201 Created` — [`VideoInitResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/video-response.dto.ts#L175-L196)
+- **Response**: `201 Created` — [`VideoInitResponseDto`](services/src/modules/videos/dto/video-response.dto.ts#L175-L196)
   ```json
   {
     "video": {
@@ -303,7 +303,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 
 #### `POST /api/v1/videos/complete`
 - **Summary**: Confirm upload completion and trigger background transcoding.
-- **Request Body**: [`CompleteVideoUploadDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/complete-video-upload.dto.ts)
+- **Request Body**: [`CompleteVideoUploadDto`](services/src/modules/videos/dto/complete-video-upload.dto.ts)
   ```json
   {
     "videoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -318,20 +318,20 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     ]
   }
   ```
-- **Response**: `200 OK` — [`VideoResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/video-response.dto.ts#L46-L173) (status transitions to `"uploaded"`, transcode job enqueued).
+- **Response**: `200 OK` — [`VideoResponseDto`](services/src/modules/videos/dto/video-response.dto.ts#L46-L173) (status transitions to `"uploaded"`, transcode job enqueued).
 
 #### `GET /api/v1/videos`
 - **Summary**: List all videos for authenticated caller.
 - **Query Parameter**: `playlistId` (optional UUID filter).
-- **Response**: `200 OK` — Array of [`VideoResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/video-response.dto.ts#L46-L173).
+- **Response**: `200 OK` — Array of [`VideoResponseDto`](services/src/modules/videos/dto/video-response.dto.ts#L46-L173).
 
 #### `GET /api/v1/videos/:id`
 - **Summary**: Fetch video details, master HLS playlist path, and transcoding status.
-- **Response**: `200 OK` — [`VideoResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/video-response.dto.ts#L46-L173).
+- **Response**: `200 OK` — [`VideoResponseDto`](services/src/modules/videos/dto/video-response.dto.ts#L46-L173).
 
 #### `DELETE /api/v1/videos/:id`
 - **Summary**: Delete video, release storage quota, purge storage files, and update playlist count.
-- **Response**: `200 OK` — [`ActionSuccessResponseDto`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts#L76-L92)
+- **Response**: `200 OK` — [`ActionSuccessResponseDto`](services/src/common/dto/error-response.dto.ts#L76-L92)
 
 ---
 
@@ -344,7 +344,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
   - `uploadId`: session upload ID (e.g. `upl_9f83a2bc4e61d852`)
   - `key`: storage key (e.g. `videos/vid-1/raw.mp4`)
 - **Headers Returned**: `ETag: "mock-etag-1-1730000000000"`
-- **Response**: `200 OK` — [`StorageUploadResponseDto`](file:///d:/Dev/Projects/vedora/services/src/infra/storage/dto/storage-upload-response.dto.ts)
+- **Response**: `200 OK` — [`StorageUploadResponseDto`](services/src/infra/storage/dto/storage-upload-response.dto.ts)
   ```json
   {
     "success": true,
@@ -368,9 +368,9 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 ### 6. Transcoding Engine (`/api/v1/transcoder`)
 
 #### `POST /api/v1/transcoder/webhook`
-- **Auth**: Public endpoint authenticated via HMAC-SHA256 signature ([`ADR-008`](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md)).
+- **Auth**: Public endpoint authenticated via HMAC-SHA256 signature ([`ADR-008`](docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md)).
 - **Header**: `x-transcoder-signature: <hmac_hex>`
-- **Request Body**: [`TranscoderWebhookDto`](file:///d:/Dev/Projects/vedora/services/src/modules/transcoder/dto/transcoder-webhook.dto.ts)
+- **Request Body**: [`TranscoderWebhookDto`](services/src/modules/transcoder/dto/transcoder-webhook.dto.ts)
   ```json
   {
     "videoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -381,7 +381,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     "status": "completed"
   }
   ```
-- **Response**: `200 OK` — [`TranscoderWebhookResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/transcoder/dto/transcoder-response.dto.ts#L3-L16)
+- **Response**: `200 OK` — [`TranscoderWebhookResponseDto`](services/src/modules/transcoder/dto/transcoder-response.dto.ts#L3-L16)
   ```json
   {
     "success": true,
@@ -390,9 +390,9 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
   ```
 
 #### `POST /api/v1/transcoder/process/:videoId`
-- **Auth**: Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts).
+- **Auth**: Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts).
 - **Summary**: Enqueue manual background transcode job in BullMQ queue.
-- **Response**: `202 Accepted` — [`TranscoderProcessResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/transcoder/dto/transcoder-response.dto.ts#L18-L31)
+- **Response**: `202 Accepted` — [`TranscoderProcessResponseDto`](services/src/modules/transcoder/dto/transcoder-response.dto.ts#L18-L31)
   ```json
   {
     "status": "enqueued",
@@ -407,12 +407,12 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 #### `GET /api/v1/player-settings`
 - **Auth**: Protected.
 - **Summary**: Get custom player styling, brand accent colors, controls, and watermark settings.
-- **Response**: `200 OK` — [`PlayerSettingsResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/player-settings/dto/player-settings-response.dto.ts#L3-L73)
+- **Response**: `200 OK` — [`PlayerSettingsResponseDto`](services/src/modules/player-settings/dto/player-settings-response.dto.ts#L3-L73)
 
 #### `PUT /api/v1/player-settings`
 - **Auth**: Protected.
 - **Summary**: Update player theme, colors, watermark position, and toolbar controls.
-- **Request Body**: [`UpdatePlayerSettingsDto`](file:///d:/Dev/Projects/vedora/services/src/modules/player-settings/dto/update-player-settings.dto.ts)
+- **Request Body**: [`UpdatePlayerSettingsDto`](services/src/modules/player-settings/dto/update-player-settings.dto.ts)
   ```json
   {
     "primaryColor": "#3b82f6",
@@ -433,12 +433,12 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     ]
   }
   ```
-- **Response**: `200 OK` — [`PlayerSettingsResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/player-settings/dto/player-settings-response.dto.ts#L3-L73).
+- **Response**: `200 OK` — [`PlayerSettingsResponseDto`](services/src/modules/player-settings/dto/player-settings-response.dto.ts#L3-L73).
 
 #### `GET /api/v1/player-settings/public/:videoId`
 - **Auth**: Public (Consumed by iframe player embeds and SDK components).
 - **Summary**: Resolves video stream URL (.m3u8 / MP4) and player watermark configuration without authentication.
-- **Response**: `200 OK` — [`PublicPlayerConfigResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/player-settings/dto/player-settings-response.dto.ts#L75-L157)
+- **Response**: `200 OK` — [`PublicPlayerConfigResponseDto`](services/src/modules/player-settings/dto/player-settings-response.dto.ts#L75-L157)
   ```json
   {
     "videoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -468,7 +468,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
   - `user-agent`: Client browser string for device and browser classification.
   - `referer`: Host page URL.
   - `cf-ipcountry`: Country code from edge CDN.
-- **Request Body**: [`SegmentPingDto`](file:///d:/Dev/Projects/vedora/services/src/modules/analytics/dto/segment-ping.dto.ts)
+- **Request Body**: [`SegmentPingDto`](services/src/modules/analytics/dto/segment-ping.dto.ts)
   ```json
   {
     "videoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -477,7 +477,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     "segmentsRequested": 2
   }
   ```
-- **Response**: `200 OK` — [`SegmentPingResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/analytics/dto/analytics-response.dto.ts#L3-L9)
+- **Response**: `200 OK` — [`SegmentPingResponseDto`](services/src/modules/analytics/dto/analytics-response.dto.ts#L3-L9)
   ```json
   {
     "acknowledged": true
@@ -490,7 +490,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 - **Query Parameters**:
   - `window`: `'7d' | '30d' | '90d'` (default `'30d'`).
   - `videoId`: optional UUID filter.
-- **Response**: `200 OK` — [`MetricsResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/analytics/dto/analytics-response.dto.ts#L79-L131)
+- **Response**: `200 OK` — [`MetricsResponseDto`](services/src/modules/analytics/dto/analytics-response.dto.ts#L79-L131)
   ```json
   {
     "totalViews": 1250,
@@ -531,9 +531,9 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 ### 9. Billing & Subscriptions (`/api/v1/billing`)
 
 #### `POST /api/v1/billing/webhook`
-- **Auth**: Public endpoint verified via Stripe cryptographic signature ([`ADR-010`](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)).
+- **Auth**: Public endpoint verified via Stripe cryptographic signature ([`ADR-010`](docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)).
 - **Header**: `stripe-signature: t=...,v1=...`
-- **Request Body**: [`BillingWebhookDto`](file:///d:/Dev/Projects/vedora/services/src/modules/billing/dto/billing-webhook.dto.ts)
+- **Request Body**: [`BillingWebhookDto`](services/src/modules/billing/dto/billing-webhook.dto.ts)
   ```json
   {
     "type": "customer.subscription.updated",
@@ -549,7 +549,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
     "id": "evt_1Qabcdef123456"
   }
   ```
-- **Response**: `200 OK` — [`BillingWebhookResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/billing/dto/subscription-response.dto.ts#L69-L81)
+- **Response**: `200 OK` — [`BillingWebhookResponseDto`](services/src/modules/billing/dto/subscription-response.dto.ts#L69-L81)
   ```json
   {
     "success": true,
@@ -560,7 +560,7 @@ Protected by [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guard
 #### `GET /api/v1/billing/subscription`
 - **Auth**: Protected.
 - **Summary**: Fetch current plan tier, playback minutes allowance, minutes used, and renewal dates.
-- **Response**: `200 OK` — [`SubscriptionResponseDto`](file:///d:/Dev/Projects/vedora/services/src/modules/billing/dto/subscription-response.dto.ts#L3-L67)
+- **Response**: `200 OK` — [`SubscriptionResponseDto`](services/src/modules/billing/dto/subscription-response.dto.ts#L3-L67)
   ```json
   {
     "id": "sub_rec_1234567890",
@@ -589,8 +589,8 @@ npm --prefix services run test -- src/swagger.spec.ts
 ```
 
 ### Importing into API Clients
-1. **Postman**: Click **Import** -> Select file -> Choose [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json).
-2. **Insomnia**: Click **Create** -> **Import from File** -> Choose [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json).
+1. **Postman**: Click **Import** -> Select file -> Choose [`docs/openapi.json`](docs/openapi.json).
+2. **Insomnia**: Click **Create** -> **Import from File** -> Choose [`docs/openapi.json`](docs/openapi.json).
 3. **TypeScript Client Generation**:
    ```bash
    npx @openapitools/openapi-generator-cli generate \

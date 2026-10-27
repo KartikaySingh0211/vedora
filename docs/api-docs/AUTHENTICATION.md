@@ -18,7 +18,7 @@ This document provides complete implementation specifications for authenticating
 
 ## 1. Dual Authentication Architecture Overview
 
-Vedora serves two distinct consumer profiles through a unified [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts):
+Vedora serves two distinct consumer profiles through a unified [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts):
 
 ```
                                   Incoming Request
@@ -72,7 +72,7 @@ Vedora serves two distinct consumer profiles through a unified [`DualAuthGuard`]
 
 ## 3. Vedora API Key (`x-api-key`)
 
-- **Primary Consumers**: Backend microservices, CI/CD pipelines, and the custom TypeScript SDK ([`@vedora/sdk`](file:///d:/Dev/Projects/vedora/sdks/vedora-sdk)).
+- **Primary Consumers**: Backend microservices, CI/CD pipelines, and the custom TypeScript SDK ([`@vedora/sdk`](sdks/vedora-sdk)).
 - **Header**: `x-api-key: <key>`
 - **Key Structure**:
   ```
@@ -92,7 +92,7 @@ Vedora serves two distinct consumer profiles through a unified [`DualAuthGuard`]
 
 ## 4. DualAuthGuard Internal Workflow
 
-The [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-auth.guard.ts) executes the following verification hierarchy:
+The [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) executes the following verification hierarchy:
 
 1. **Header Inspection**:
    - If `Authorization` header with `Bearer <token>` is present, evaluate Clerk token.
@@ -109,7 +109,7 @@ The [`DualAuthGuard`](file:///d:/Dev/Projects/vedora/services/src/guards/dual-au
 
 ## 5. Configuring Authentication in Swagger UI
 
-To execute authenticated requests directly from [Swagger UI (`http://localhost:8080/api/docs`)](file:///d:/Dev/Projects/vedora/docs/api-docs/SWAGGER_GUIDE.md#3-interactive-swagger-ui-testing-guide):
+To execute authenticated requests directly from [Swagger UI (`http://localhost:8080/api/docs`)](docs/api-docs/SWAGGER_GUIDE.md#3-interactive-swagger-ui-testing-guide):
 
 1. Click **Authorize 🔓** at the top right of the page.
 2. For User authentication:

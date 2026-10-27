@@ -69,3 +69,5 @@ Thumbs.db
 .temp
 storage_local/
 services/storage_local/
+
+.agents/

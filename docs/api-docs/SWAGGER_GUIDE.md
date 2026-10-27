@@ -18,7 +18,7 @@ This guide documents the architecture, configuration, standards, and operational
 
 ## 1. Architecture & Setup
 
-Vedora uses NestJS's native `@nestjs/swagger` module integrated directly into the HTTP application lifecycle. The configuration is defined in [`services/src/main.ts`](file:///d:/Dev/Projects/vedora/services/src/main.ts).
+Vedora uses NestJS's native `@nestjs/swagger` module integrated directly into the HTTP application lifecycle. The configuration is defined in [`services/src/main.ts`](services/src/main.ts).
 
 ### Configuration (`services/src/main.ts`)
 
@@ -95,7 +95,7 @@ When the backend is running (`npm run start:dev` inside `services/`):
 | :--- | :--- | :--- |
 | **`http://localhost:8080/api/docs`** | Interactive Swagger UI web interface | `text/html` |
 | **`http://localhost:8080/api/docs-json`** | Raw OpenAPI 3.0 specification | `application/json` |
-| **[`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json)** | Statically exported, version-controlled OpenAPI JSON spec | `application/json` (109 KB) |
+| **[`docs/openapi.json`](docs/openapi.json)** | Statically exported, version-controlled OpenAPI JSON spec | `application/json` (109 KB) |
 
 ---
 
@@ -259,7 +259,7 @@ export class CreateVideoInitDto {
 
 ## 5. Automated CI Validation & Specification Export
 
-To prevent documentation drift, Vedora includes an automated Jest test suite dedicated to Swagger: [`services/src/swagger.spec.ts`](file:///d:/Dev/Projects/vedora/services/src/swagger.spec.ts).
+To prevent documentation drift, Vedora includes an automated Jest test suite dedicated to Swagger: [`services/src/swagger.spec.ts`](services/src/swagger.spec.ts).
 
 ### What the Test Verifies
 
@@ -268,7 +268,7 @@ To prevent documentation drift, Vedora includes an automated Jest test suite ded
 3. **Tag Taxonomy**: Asserts all 10 core tags (`System`, `Health`, `API Keys`, `Playlists`, `Videos`, `Storage`, `Transcoder`, `Player Settings`, `Analytics`, `Billing`) are registered.
 4. **Endpoint Completeness**: Validates that all 19 endpoints exist in the OpenAPI paths object.
 5. **Security Scheme Registration**: Confirms both `bearer` (JWT) and `x-api-key` (API key) are registered under `components.securitySchemes`.
-6. **Automatic Disk Export**: Serializes the generated document to [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json).
+6. **Automatic Disk Export**: Serializes the generated document to [`docs/openapi.json`](docs/openapi.json).
 
 ### Running the Validation
 
@@ -292,7 +292,7 @@ PASS src/swagger.spec.ts
 
 ## 6. API Client Code Generation
 
-The exported [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json) file can be used to generate strongly-typed API clients in any major programming language.
+The exported [`docs/openapi.json`](docs/openapi.json) file can be used to generate strongly-typed API clients in any major programming language.
 
 ### 1. TypeScript (Axios / Fetch)
 ```bash

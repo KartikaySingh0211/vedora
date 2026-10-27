@@ -21,7 +21,7 @@ This document provides a comprehensive dictionary of all Data Transfer Objects (
 
 ## 1. Standard Envelopes & Error Models
 
-Defined in [`services/src/common/dto/error-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts).
+Defined in [`services/src/common/dto/error-response.dto.ts`](services/src/common/dto/error-response.dto.ts).
 
 ### `ErrorResponseDto`
 Returned for `401`, `403`, `404`, `413`, and `500` HTTP exceptions.
@@ -57,7 +57,7 @@ Generic confirmation response for mutation or deletion operations.
 
 ## 2. Health & Diagnostics Models
 
-Defined in [`services/src/modules/health/dto/health-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/modules/health/dto/health-response.dto.ts).
+Defined in [`services/src/modules/health/dto/health-response.dto.ts`](services/src/modules/health/dto/health-response.dto.ts).
 
 ### `HealthResponseDto`
 Status report returned by `GET /api/v1/health`.
@@ -74,7 +74,7 @@ Status report returned by `GET /api/v1/health`.
 
 ## 3. API Key Management Models
 
-Defined in [`services/src/modules/api-key/dto/api-key-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/modules/api-key/dto/api-key-response.dto.ts).
+Defined in [`services/src/modules/api-key/dto/api-key-response.dto.ts`](services/src/modules/api-key/dto/api-key-response.dto.ts).
 
 ### `ApiKeyResponseDto`
 Safe API key metadata returned in `GET /api/v1/api-keys`. Plaintext secret is never included.
@@ -101,7 +101,7 @@ Returned on key generation (`POST /api/v1/api-keys`) or regeneration.
 
 ## 4. Playlist Models
 
-Defined in [`services/src/modules/playlist/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/playlist/dto/).
+Defined in [`services/src/modules/playlist/dto/`](services/src/modules/playlist/dto/).
 
 ### `CreatePlaylistDto`
 | Field | Type | Required | Constraints | Description |
@@ -124,7 +124,7 @@ Defined in [`services/src/modules/playlist/dto/`](file:///d:/Dev/Projects/vedora
 
 ## 5. Video Ingestion & Catalog Models
 
-Defined in [`services/src/modules/videos/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/videos/dto/).
+Defined in [`services/src/modules/videos/dto/`](services/src/modules/videos/dto/).
 
 ### `CreateVideoInitDto`
 Request body for `POST /api/v1/videos/init`.
@@ -174,7 +174,7 @@ Catalog record for video entity:
 
 ## 6. Storage & Multipart Models
 
-Defined in [`services/src/infra/storage/dto/storage-upload-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/infra/storage/dto/storage-upload-response.dto.ts).
+Defined in [`services/src/infra/storage/dto/storage-upload-response.dto.ts`](services/src/infra/storage/dto/storage-upload-response.dto.ts).
 
 ### `StorageUploadResponseDto`
 Response for multipart chunk uploads (`ALL /api/v1/storage/mock-upload`).
@@ -190,7 +190,7 @@ Response for multipart chunk uploads (`ALL /api/v1/storage/mock-upload`).
 
 ## 7. Transcoding Engine Models
 
-Defined in [`services/src/modules/transcoder/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/transcoder/dto/).
+Defined in [`services/src/modules/transcoder/dto/`](services/src/modules/transcoder/dto/).
 
 ### `TranscoderWebhookDto`
 Signed payload posted to `POST /api/v1/transcoder/webhook`.
@@ -209,7 +209,7 @@ Signed payload posted to `POST /api/v1/transcoder/webhook`.
 
 ## 8. Player Settings & Embed Models
 
-Defined in [`services/src/modules/player-settings/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/player-settings/dto/).
+Defined in [`services/src/modules/player-settings/dto/`](services/src/modules/player-settings/dto/).
 
 ### `UpdatePlayerSettingsDto`
 Request body for customizing player branding:
@@ -233,7 +233,7 @@ Returns the resolved streaming URL and theme settings. On Free tier, `isFreeTier
 
 ## 9. Analytics & Telemetry Models
 
-Defined in [`services/src/modules/analytics/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/analytics/dto/).
+Defined in [`services/src/modules/analytics/dto/`](services/src/modules/analytics/dto/).
 
 ### `SegmentPingDto`
 Payload for 10-second playback heartbeat (`POST /api/v1/analytics/segment-ping`).
@@ -260,7 +260,7 @@ Aggregated reporting model returned by `GET /api/v1/analytics/metrics`:
 
 ## 10. Subscription & Billing Models
 
-Defined in [`services/src/modules/billing/dto/`](file:///d:/Dev/Projects/vedora/services/src/modules/billing/dto/).
+Defined in [`services/src/modules/billing/dto/`](services/src/modules/billing/dto/).
 
 ### `SubscriptionResponseDto`
 Detailed quota and entitlement record for caller:
