@@ -782,4 +782,74 @@ apps/main-dashboard: Compiled successfully via next build Turbopack (17 static &
 apps/landing-page:   Compiled successfully via next build Turbopack (5 static & dynamic routes)
 ```
 
+---
 
+## [2026-10-27] — Run #10: Complete Swagger / OpenAPI 3.0 Documentation & Developer API Docs Hub
+
+### 1. Problem Statement & Audit
+Prior to this run, the Vedora backend exposed a Swagger UI interface at `/api/docs`, but endpoints suffered from severe documentation drift:
+- Request bodies for key mutations (e.g. `POST /api/v1/videos/init`, `POST /api/v1/videos/complete`, `POST /api/v1/analytics/segment-ping`, `PUT /api/v1/player-settings`) rendered as empty `{}` schemas because DTO properties lacked `@ApiProperty()` / `@ApiPropertyOptional()` decorators or used plain interfaces.
+- Response sections frequently displayed only generic status codes (`200`, `201`) without typed schema payloads or realistic JSON examples.
+- Security definitions in Swagger UI were missing or unconfigured for the DualAuthGuard architecture (Clerk JWT `bearer` and `x-api-key`).
+- Standard error responses (`400`, `401`, `403`, `404`, `413`) were completely undocumented, making client integration and error handling unpredictable.
+- No standalone, developer-first documentation existed under `docs/api-docs/` to guide developers, SDK consumers, or external integrators.
+
+### 2. Architecture & Design Decisions
+
+1. **Enterprise DTO Schema Standardization**:
+   - Created reusable standard response envelopes in [`services/src/common/dto/error-response.dto.ts`](file:///d:/Dev/Projects/vedora/services/src/common/dto/error-response.dto.ts): `ErrorResponseDto` (for 401, 403, 404, 413, 500), `ValidationErrorResponseDto` (for 400 with string array message), and `ActionSuccessResponseDto`.
+   - Created typed response DTOs for every module:
+     - Health: `HealthResponseDto`, `HealthDependenciesDto`
+     - API Keys: `ApiKeyResponseDto`, `CreatedApiKeyResponseDto`
+     - Playlists: `PlaylistResponseDto`
+     - Videos: `VideoResponseDto`, `StoragePartDto`, `StorageInitiateResultDto`, `VideoInitResponseDto`
+     - Storage: `StorageUploadResponseDto`
+     - Transcoder: `TranscoderWebhookResponseDto`, `TranscoderProcessResponseDto`
+     - Player Settings: `PlayerSettingsResponseDto`, `PublicPlayerConfigResponseDto`
+     - Analytics: `MetricsResponseDto`, `DeviceBreakdownDto`, `BrowserBreakdownDto`, `TimeSeriesPointDto`, `TopVideoDto`, `SegmentPingResponseDto`
+     - Billing: `SubscriptionResponseDto`, `BillingWebhookResponseDto`
+2. **Dual Security Scheme Integration in DocumentBuilder**:
+   - In [`services/src/main.ts`](file:///d:/Dev/Projects/vedora/services/src/main.ts), configured both `addBearerAuth` (name: `bearer`, scheme: `bearer`, format: `JWT`) and `addApiKey` (name: `x-api-key`, in: `header`).
+   - Enabled `persistAuthorization: true` to preserve developer tokens across browser reloads.
+3. **Controller Documentation & Decorator Pass**:
+   - Fully decorated all 10 controllers across 19 endpoints with `@ApiTags`, `@ApiOperation`, `@ApiParam`, `@ApiQuery`, `@ApiHeader`, `@ApiBearerAuth('bearer')`, `@ApiSecurity('x-api-key')`, and standard typed responses (`@ApiOkResponse`, `@ApiCreatedResponse`, `@ApiAcceptedResponse`, `@ApiBadRequestResponse`, `@ApiUnauthorizedResponse`, etc.).
+   - Explicitly configured media streaming endpoints with `@ApiProduces('video/mp4', 'application/vnd.apple.mpegurl')` and `@ApiResponse({ status: 206, description: 'Partial Content' })`.
+4. **Automated OpenAPI Spec Generation & Testing**:
+   - Created [`services/src/swagger.spec.ts`](file:///d:/Dev/Projects/vedora/services/src/swagger.spec.ts), which compiles `AppModule`, generates the complete OpenAPI 3.0 document, verifies tag taxonomy and security schemes, and automatically exports the 109KB specification to [`docs/openapi.json`](file:///d:/Dev/Projects/vedora/docs/openapi.json).
+5. **Dedicated API Documentation Hub**:
+   - Established `docs/api-docs/` containing:
+     - [`docs/api-docs/README.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/README.md): Master developer documentation with complete 19-endpoint reference, curl examples, and schema overviews.
+     - [`docs/api-docs/SWAGGER_GUIDE.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/SWAGGER_GUIDE.md): Deep-dive into Swagger configuration, UI usage, decorator best practices, CI testing, and client code generation.
+     - [`docs/api-docs/SCHEMAS_AND_MODELS.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/SCHEMAS_AND_MODELS.md): Exhaustive dictionary of all 24 DTOs, field types, constraints, and validation rules.
+     - [`docs/api-docs/AUTHENTICATION.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/AUTHENTICATION.md): DualAuthGuard specification, Clerk Bearer tokens, Argon2id API key hashing, and 3-tier caching (LRU + Redis).
+     - [`docs/api-docs/WEBHOOKS_AND_EVENTS.md`](file:///d:/Dev/Projects/vedora/docs/api-docs/WEBHOOKS_AND_EVENTS.md): Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation.
+
+### 3. Verification & Monorepo Test Summary
+
+```text
+=== Services Test Suite ===
+PASS src/utils/api-key.util.spec.ts (5 tests)
+PASS src/app.controller.spec.ts (2 tests)
+PASS src/utils/user-agent.util.spec.ts (11 tests)
+PASS src/modules/playlist/playlist.service.spec.ts (10 tests)
+PASS src/guards/upload-video.guard.spec.ts (7 tests)
+PASS src/modules/player-settings/player-settings.service.spec.ts (6 tests)
+PASS src/modules/transcoder/transcoder.service.spec.ts (9 tests)
+PASS src/modules/analytics/analytics.service.spec.ts (6 tests)
+PASS src/modules/videos/video.service.spec.ts (14 tests)
+PASS src/guards/dual-auth.guard.spec.ts (5 tests)
+PASS src/modules/billing/billing.service.spec.ts (8 tests)
+PASS src/swagger.spec.ts (5 tests) [NEW]
+PASS src/modules/api-key/api-key.service.spec.ts (7 tests)
+
+Test Suites: 13 passed, 13 total (+1 suite)
+Tests:       96 passed, 96 total (+5 tests)
+Snapshots:   0 total
+Time:        4.074 s
+
+=== Static Analysis & Linters ===
+services:            0 errors, 0 warnings
+
+=== Production Builds ===
+services:            Compiled successfully via nest build (dist/main.js)
+```

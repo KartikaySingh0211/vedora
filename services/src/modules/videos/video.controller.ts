@@ -12,6 +12,21 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiPayloadTooLargeResponse,
+  ApiQuery,
+  ApiSecurity,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { DualAuthGuard } from '../../guards/dual-auth.guard';
 import { CurrentUser } from '../../guards/current-user.decorator';
 import { UploadVideoGuard } from '../../guards/upload-video.guard';
@@ -23,9 +38,21 @@ import {
 } from './video.service';
 import { CreateVideoInitDto } from './dto/create-video-init.dto';
 import { CompleteVideoUploadDto } from './dto/complete-video-upload.dto';
+import {
+  VideoInitResponseDto,
+  VideoResponseDto,
+} from './dto/video-response.dto';
+import {
+  ActionSuccessResponseDto,
+  ErrorResponseDto,
+  ValidationErrorResponseDto,
+} from '../../common/dto/error-response.dto';
 
-@Controller('videos')
+@ApiTags('Videos')
+@ApiBearerAuth()
+@ApiSecurity('x-api-key')
 @UseGuards(DualAuthGuard)
+@Controller('videos')
 export class VideoController {
   constructor(private readonly videoService: VideoService) {}
 
@@ -36,6 +63,34 @@ export class VideoController {
   @Post('init')
   @UseGuards(UploadVideoGuard)
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Initialize direct-to-cloud video upload',
+    description:
+      'Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + 1.5x estimated transcoding overhead), and returns multipart presigned upload URLs. Enforces plan-based file size limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB).',
+  })
+  @ApiCreatedResponse({
+    description:
+      'Video record created and upload session initialized with presigned part URLs',
+    type: VideoInitResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation failed on video parameters or slug format',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Account storage capacity cap exceeded or requested features (e.g. 1080p, watermark) require upgraded subscription plan',
+    type: ErrorResponseDto,
+  })
+  @ApiPayloadTooLargeResponse({
+    description:
+      'Video file size exceeds maximum single file upload limit for active plan',
+    type: ErrorResponseDto,
+  })
   async initVideo(
     @CurrentUser('id') userId: string,
     @Req() req: UploadVideoRequest,
@@ -51,6 +106,27 @@ export class VideoController {
    */
   @Post('complete')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Complete video upload and trigger transcoding',
+    description:
+      'Completes multipart upload session, marks video status as "uploaded", and automatically enqueues BullMQ background HLS transcoding job.',
+  })
+  @ApiOkResponse({
+    description: 'Video upload confirmed and processing job queued',
+    type: VideoResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid upload completion payload or missing parts',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Video not found or not owned by authenticated user',
+    type: ErrorResponseDto,
+  })
   async completeVideo(
     @CurrentUser('id') userId: string,
     @Body() dto: CompleteVideoUploadDto,
@@ -63,6 +139,25 @@ export class VideoController {
    * List videos for authenticated user with optional playlist filtering
    */
   @Get()
+  @ApiOperation({
+    summary: 'List user videos',
+    description:
+      'Retrieves all video assets owned by the caller, optionally filtered by playlistId, sorted by creation date descending.',
+  })
+  @ApiQuery({
+    name: 'playlistId',
+    required: false,
+    description: 'Optional playlist UUID filter',
+    example: 'a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d',
+  })
+  @ApiOkResponse({
+    description: 'Array of video records',
+    type: [VideoResponseDto],
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
   async listVideos(
     @CurrentUser('id') userId: string,
     @Query('playlistId') playlistId?: string,
@@ -75,6 +170,28 @@ export class VideoController {
    * Fetch video details for authenticated owner
    */
   @Get(':id')
+  @ApiOperation({
+    summary: 'Get video details by ID',
+    description:
+      'Fetches complete metadata, transcoding status, HLS master manifest key, and resolution outputs for a specific video.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'UUIDv4 identifier of the video',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+  })
+  @ApiOkResponse({
+    description: 'Video details found',
+    type: VideoResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Video not found or not owned by caller',
+    type: ErrorResponseDto,
+  })
   async getVideo(
     @CurrentUser('id') userId: string,
     @Param('id', new ParseUUIDPipe({ version: '4' })) videoId: string,
@@ -87,6 +204,28 @@ export class VideoController {
    * Delete video, release storage quota, and update playlist counts
    */
   @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete video and release storage quota',
+    description:
+      'Deletes video record, purges raw and transcoded assets from cloud storage, releases reserved storage quota, and updates parent playlist video counter.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'UUIDv4 identifier of the video to delete',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+  })
+  @ApiOkResponse({
+    description: 'Video successfully deleted and storage quota released',
+    type: ActionSuccessResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Video not found or not owned by caller',
+    type: ErrorResponseDto,
+  })
   async deleteVideo(
     @CurrentUser('id') userId: string,
     @Param('id', new ParseUUIDPipe({ version: '4' })) videoId: string,

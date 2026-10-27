@@ -67,10 +67,64 @@ async function bootstrap() {
   // Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Vedora API')
-    .setDescription('Vedora Video Infrastructure Platform API documentation')
+    .setDescription(
+      'Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, BullMQ distributed HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and Stripe billing.',
+    )
     .setVersion('1.0')
-    .addBearerAuth()
-    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'x-api-key')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Clerk Bearer Auth',
+        description:
+          'Clerk user session JWT token for dashboard and browser requests',
+      },
+      'bearer',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'x-api-key',
+        in: 'header',
+        description: 'Server-to-server or SDK API key (e.g. ved_live_...)',
+      },
+      'x-api-key',
+    )
+    .addTag('System', 'Platform root status and greetings')
+    .addTag('Health', 'PostgreSQL and Redis connectivity health monitoring')
+    .addTag(
+      'API Keys',
+      'Programmatic API key generation, listing, regeneration, and revocation',
+    )
+    .addTag(
+      'Playlists',
+      'User video playlist categorization and 10-playlist quota management',
+    )
+    .addTag(
+      'Videos',
+      'Direct-to-cloud upload authorization, completion, listing, and lifecycle management',
+    )
+    .addTag(
+      'Storage',
+      'S3-compatible multipart chunk upload endpoints and video streaming',
+    )
+    .addTag(
+      'Transcoder',
+      'HLS rendition transcoding dispatch and external worker webhooks',
+    )
+    .addTag(
+      'Player Settings',
+      'Video player styling, brand accent colors, watermarking, and public embed config',
+    )
+    .addTag(
+      'Analytics',
+      'Playback heartbeat ping telemetry and aggregated audience metrics',
+    )
+    .addTag(
+      'Billing',
+      'Stripe subscription webhook processing and playback minutes tracking',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

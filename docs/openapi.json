@@ -1,0 +1,3512 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/storage/mock-upload": {
+      "get": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_get",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "post": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_post",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "put": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_put",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "delete": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_delete",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "patch": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_patch",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "options": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_options",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "head": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_head",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      },
+      "search": {
+        "description": "Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.",
+        "operationId": "StorageController_handleMockUpload_search",
+        "parameters": [
+          {
+            "name": "partNumber",
+            "required": false,
+            "in": "query",
+            "description": "1-indexed chunk part number",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "uploadId",
+            "required": false,
+            "in": "query",
+            "description": "Multipart upload session ID",
+            "schema": {
+              "example": "upl_9f83a2bc4e61d852",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "Object storage key path",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk successfully saved and ETag generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/api/v1/storage/stream": {
+      "get": {
+        "description": "Supports HTTP Range requests (206 Partial Content) for seeking through video playback, or delivers master.m3u8 manifests.",
+        "operationId": "StorageController_handleStreamVideo_v1",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "query",
+            "description": "Storage key path of the video or manifest",
+            "schema": {
+              "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4",
+              "type": "string"
+            }
+          },
+          {
+            "name": "range",
+            "in": "header",
+            "description": "HTTP byte range for video seeking (e.g. bytes=0-1048575)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full binary video stream or HLS manifest text"
+          },
+          "206": {
+            "description": "Partial content binary video stream corresponding to requested byte Range"
+          },
+          "307": {
+            "description": "Temporary redirect to demo video if local file is missing"
+          },
+          "400": {
+            "description": "Key query parameter missing",
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              },
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stream video or HLS manifest for playback in local development or provider fallback mode",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.",
+        "operationId": "HealthController_checkHealth[0]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "System health status and dependency connectivity details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "System degraded when database connection fails",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check endpoint",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.",
+        "operationId": "HealthController_checkHealth[1]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "System health status and dependency connectivity details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "System degraded when database connection fails",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check endpoint",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "description": "Retrieves metadata for all API keys created by the caller, including prefixes, creation dates, last-used timestamps, and revocation status.",
+        "operationId": "ApiKeyController_listKeys_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Array of user API key records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Clerk Bearer token or x-api-key header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List current authenticated user's API keys",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "post": {
+        "description": "Creates a new API key with argon2 hashing. Returns the raw plaintext secret key exactly once. It cannot be retrieved again.",
+        "operationId": "ApiKeyController_createKey_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Newly generated API key with plaintext secret",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKeyResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required to generate an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generate a new API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}/regenerate": {
+      "post": {
+        "description": "Revokes the specified existing API key immediately and issues a newly generated key record under the same user account.",
+        "operationId": "ApiKeyController_regenerateKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUID or key identifier of the key to regenerate",
+            "schema": {
+              "example": "d84b2591-4cf1-45d6-848e-28c04ec5cba7",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New API key generated in place of the revoked key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKeyResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "API key not found or not owned by the authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke and regenerate an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}/revoke": {
+      "post": {
+        "description": "Marks the specified API key as revoked and purges it from local and Redis verification caches.",
+        "operationId": "ApiKeyController_revokeKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUID or key identifier of the key to revoke",
+            "schema": {
+              "example": "d84b2591-4cf1-45d6-848e-28c04ec5cba7",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmation that the API key was successfully revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionSuccessResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "API key not found or not owned by the authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "description": "Standard REST DELETE alias for revoking an API key and invalidating cache entries.",
+        "operationId": "ApiKeyController_deleteKey_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUID or key identifier of the key to revoke",
+            "schema": {
+              "example": "d84b2591-4cf1-45d6-848e-28c04ec5cba7",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmation that the API key was successfully revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionSuccessResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "API key not found or not owned by the authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke an API key (DELETE method alias)",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/playlists": {
+      "post": {
+        "description": "Creates a new playlist for the authenticated user. Enforces a maximum quota limit of 10 playlists per account using atomic PostgreSQL advisory locks.",
+        "operationId": "PlaylistController_createPlaylist_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlaylistDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Playlist successfully created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid playlist payload or account quota limit of 10 playlists exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new playlist",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "get": {
+        "description": "Retrieves all playlists belonging to the authenticated user, ordered by creation date descending with aggregated video counts.",
+        "operationId": "PlaylistController_listPlaylists_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Array of playlists owned by the authenticated caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlaylistResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List user playlists",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/v1/playlists/{id}": {
+      "get": {
+        "description": "Fetches metadata and video count for a specific playlist owned by the authenticated caller.",
+        "operationId": "PlaylistController_getPlaylist_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the playlist",
+            "schema": {
+              "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlist record found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Playlist not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get playlist details by ID",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "put": {
+        "description": "Modifies the name or description of an existing playlist owned by the authenticated caller.",
+        "operationId": "PlaylistController_updatePlaylist_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the playlist to update",
+            "schema": {
+              "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlaylistDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated playlist details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed on updated fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Playlist not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update playlist metadata",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "delete": {
+        "description": "Deletes the playlist and unlinks all contained videos (videos themselves are preserved in library).",
+        "operationId": "PlaylistController_deletePlaylist_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the playlist to delete",
+            "schema": {
+              "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmation that the playlist was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionSuccessResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Playlist not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a playlist",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/v1/videos/init": {
+      "post": {
+        "description": "Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + 1.5x estimated transcoding overhead), and returns multipart presigned upload URLs. Enforces plan-based file size limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB).",
+        "operationId": "VideoController_initVideo_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVideoInitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Video record created and upload session initialized with presigned part URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoInitResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed on video parameters or slug format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account storage capacity cap exceeded or requested features (e.g. 1080p, watermark) require upgraded subscription plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Video file size exceeds maximum single file upload limit for active plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Initialize direct-to-cloud video upload",
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
+    "/api/v1/videos/complete": {
+      "post": {
+        "description": "Completes multipart upload session, marks video status as \"uploaded\", and automatically enqueues BullMQ background HLS transcoding job.",
+        "operationId": "VideoController_completeVideo_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteVideoUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Video upload confirmed and processing job queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid upload completion payload or missing parts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video not found or not owned by authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Complete video upload and trigger transcoding",
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
+    "/api/v1/videos": {
+      "get": {
+        "description": "Retrieves all video assets owned by the caller, optionally filtered by playlistId, sorted by creation date descending.",
+        "operationId": "VideoController_listVideos_v1",
+        "parameters": [
+          {
+            "name": "playlistId",
+            "required": false,
+            "in": "query",
+            "description": "Optional playlist UUID filter",
+            "schema": {
+              "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of video records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VideoResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List user videos",
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
+    "/api/v1/videos/{id}": {
+      "get": {
+        "description": "Fetches complete metadata, transcoding status, HLS master manifest key, and resolution outputs for a specific video.",
+        "operationId": "VideoController_getVideo_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the video",
+            "schema": {
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Video details found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get video details by ID",
+        "tags": [
+          "Videos"
+        ]
+      },
+      "delete": {
+        "description": "Deletes video record, purges raw and transcoded assets from cloud storage, releases reserved storage quota, and updates parent playlist video counter.",
+        "operationId": "VideoController_deleteVideo_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the video to delete",
+            "schema": {
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Video successfully deleted and storage quota released",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionSuccessResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete video and release storage quota",
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
+    "/api/v1/transcoder/webhook": {
+      "post": {
+        "description": "Receives job completion or failure callbacks from external transcoding workers. Verifies authenticity using HMAC-SHA256 signature in x-transcoder-signature header.",
+        "operationId": "TranscoderController_handleWebhook_v1",
+        "parameters": [
+          {
+            "name": "x-transcoder-signature",
+            "in": "header",
+            "description": "HMAC-SHA256 signature calculated over raw payload using transcoder secret",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "a6b28f1e948c2...39e"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscoderWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook successfully verified and video status updated to ready or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscoderWebhookResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid webhook payload structure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HMAC signature missing or mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Webhook endpoint for external cloud transcoders",
+        "tags": [
+          "Transcoder"
+        ]
+      }
+    },
+    "/api/v1/transcoder/process/{videoId}": {
+      "post": {
+        "description": "Submits an asynchronous HLS transcoding job to the BullMQ transcode queue for a previously uploaded video.",
+        "operationId": "TranscoderController_triggerProcessing_v1",
+        "parameters": [
+          {
+            "name": "videoId",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the video to transcode",
+            "schema": {
+              "format": "uuid",
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Transcoding job enqueued in background processing queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscoderProcessResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video record not found or not owned by user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Trigger manual transcoding for an uploaded video",
+        "tags": [
+          "Transcoder"
+        ]
+      }
+    },
+    "/api/v1/player-settings": {
+      "get": {
+        "description": "Retrieves the customizable player styling, brand accent colors, controls, and watermark settings for the authenticated user.",
+        "operationId": "PlayerSettingsController_getSettings_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Player settings returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get current user player settings",
+        "tags": [
+          "Player Settings"
+        ]
+      },
+      "put": {
+        "description": "Updates player theme, brand colors, custom watermark preferences, and toolbar control visibility for the user.",
+        "operationId": "PlayerSettingsController_updateSettings_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlayerSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Player settings updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed on styling parameters or color formats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update current user player settings",
+        "tags": [
+          "Player Settings"
+        ]
+      }
+    },
+    "/api/v1/player-settings/public/{videoId}": {
+      "get": {
+        "description": "Public endpoint consumed by iframe player embeds and SDK playback components. Resolves stream playback URLs and merges custom watermark/branding settings without authentication.",
+        "operationId": "PlayerSettingsController_getPublicPlayerConfig_v1",
+        "parameters": [
+          {
+            "name": "videoId",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the video to play",
+            "schema": {
+              "format": "uuid",
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public player configuration and playback stream URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPlayerConfigResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video record not found or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get public player configuration for embed player",
+        "tags": [
+          "Player Settings"
+        ]
+      }
+    },
+    "/api/v1/analytics/segment-ping": {
+      "post": {
+        "description": "Receives lightweight 10-second playback heartbeat pings from embedded video players. Buffers events into Redis for batch pipeline ingestion. Classifies client device, browser, and referrer automatically.",
+        "operationId": "AnalyticsController_ingestPing_v1",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": false,
+            "in": "header",
+            "description": "Client browser user-agent header used for device classification",
+            "schema": {
+              "type": "string",
+              "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36"
+            }
+          },
+          {
+            "name": "cf-ipcountry",
+            "in": "header",
+            "description": "Cloudflare geographic two-letter country code",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "US"
+            }
+          },
+          {
+            "name": "referer",
+            "in": "header",
+            "description": "Originating webpage URL hosting the embedded video player",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "https://example.com/tutorials/intro"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentPingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Playback ping buffered or accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentPingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ping payload structure or duration beyond server bounds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video record not found for videoId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Public playback heartbeat ingestion",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/metrics": {
+      "get": {
+        "description": "Calculates aggregated view counts, watch time minutes, audience device breakdown, browser share, daily view timeseries, and top performing videos.",
+        "operationId": "AnalyticsController_getMetrics_v1",
+        "parameters": [
+          {
+            "name": "window",
+            "required": false,
+            "in": "query",
+            "description": "Time window for aggregated analytics aggregation",
+            "schema": {
+              "default": "30d",
+              "example": "30d",
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ]
+            }
+          },
+          {
+            "name": "videoId",
+            "required": false,
+            "in": "query",
+            "description": "Optional UUIDv4 filter to inspect metrics for an individual video asset",
+            "schema": {
+              "format": "uuid",
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated analytics metrics returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid time window or videoId query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get aggregated analytics metrics for authenticated user",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/billing/webhook": {
+      "post": {
+        "description": "Processes asynchronous Stripe subscription lifecycle events (customer.subscription.updated, customer.subscription.deleted, invoice.paid). Validates stripe-signature header.",
+        "operationId": "BillingController_handleWebhook_v1",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "in": "header",
+            "description": "Stripe webhook signature header generated with webhook secret",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "t=1730000000,v1=5257a869e7eca...,v0=6ffbb59..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stripe webhook processed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingWebhookResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid webhook signature or unrecognized event payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stripe webhook receiver for subscription events",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/api/v1/billing/subscription": {
+      "get": {
+        "description": "Fetches current plan tier (Free, Starter, Pro, Business), allocated playback minutes, used minutes, remaining minutes, usage percent, and storage cap.",
+        "operationId": "BillingController_getSubscription_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Subscription details and playback quota returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get current user subscription and playback minutes",
+        "tags": [
+          "Billing"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Vedora API",
+    "description": "Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, BullMQ distributed HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and Stripe billing.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "Clerk Bearer Auth",
+        "description": "Clerk user session JWT token for dashboard and browser requests"
+      },
+      "x-api-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Server-to-server or SDK API key (e.g. ved_live_...)"
+      }
+    },
+    "schemas": {
+      "StorageUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether chunk write succeeded",
+            "example": true
+          },
+          "partNumber": {
+            "type": "number",
+            "description": "Part number written",
+            "example": 1
+          },
+          "uploadId": {
+            "type": "string",
+            "description": "Upload session identifier",
+            "example": "upl_9f83a2bc4e61d852"
+          },
+          "etag": {
+            "type": "string",
+            "description": "S3-compatible ETag checksum string generated for chunk",
+            "example": "\"mock-etag-1-1730000000000\""
+          }
+        },
+        "required": [
+          "success",
+          "partNumber",
+          "uploadId",
+          "etag"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "description": "HTTP status code",
+            "example": 400
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO-8601 timestamp of when the error occurred",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path where the error was triggered",
+            "example": "/api/v1/videos/init"
+          },
+          "error": {
+            "type": "string",
+            "description": "Standard HTTP error classification name",
+            "example": "BadRequestException"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error description or details",
+            "example": "Storage quota exceeded for current subscription tier"
+          }
+        },
+        "required": [
+          "statusCode",
+          "timestamp",
+          "path",
+          "error",
+          "message"
+        ]
+      },
+      "HealthDependenciesDto": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "PostgreSQL database connection status",
+            "example": "up",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "redis": {
+            "type": "string",
+            "description": "Redis cache and buffer connection status",
+            "example": "up",
+            "enum": [
+              "up",
+              "down (fallback to db active)"
+            ]
+          }
+        },
+        "required": [
+          "database",
+          "redis"
+        ]
+      },
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Overall system health status",
+            "example": "ok",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "service": {
+            "type": "string",
+            "description": "Service identifier",
+            "example": "vedora-services"
+          },
+          "version": {
+            "type": "string",
+            "description": "Service version",
+            "example": "1.0.0"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO-8601 timestamp of health evaluation",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "dependencies": {
+            "description": "Underlying infrastructure dependencies status",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HealthDependenciesDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "version",
+          "timestamp",
+          "dependencies"
+        ]
+      },
+      "ApiKeyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUID identifier of the API key",
+            "example": "d84b2591-4cf1-45d6-848e-28c04ec5cba7"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Human-readable prefix of the API key for identification (e.g. ved_live_abc12345)",
+            "example": "ved_live_d84b2591"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Date and time the API key was created",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "lastUsedAt": {
+            "type": "object",
+            "description": "Timestamp when this API key was last used for authentication, or null if unused",
+            "nullable": true,
+            "example": "2026-10-27T12:30:00.000Z"
+          },
+          "revokedAt": {
+            "type": "object",
+            "description": "Timestamp when this API key was revoked, or null if currently active",
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": [
+          "id",
+          "prefix",
+          "createdAt",
+          "lastUsedAt",
+          "revokedAt"
+        ]
+      },
+      "CreatedApiKeyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUID identifier of the created API key",
+            "example": "d84b2591-4cf1-45d6-848e-28c04ec5cba7"
+          },
+          "key": {
+            "type": "string",
+            "description": "Full plaintext secret API key. WARNING: Returned only once upon creation. Store securely.",
+            "example": "ved_live_d84b25914cf145d6848e28c04ec5cba7_9f83ab2c4e61d85203ef189b"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Key prefix for public reference and logs",
+            "example": "ved_live_d84b2591"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Date and time the API key was created",
+            "example": "2026-10-27T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "prefix",
+          "createdAt"
+        ]
+      },
+      "ActionSuccessResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indicates whether the deletion or revocation succeeded",
+            "example": true
+          },
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the affected resource",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        },
+        "required": [
+          "success",
+          "id"
+        ]
+      },
+      "CreatePlaylistDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the playlist",
+            "example": "Frontend Development"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of the playlist",
+            "example": "Tutorials and guides for modern frontend web development"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PlaylistResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUID identifier of the playlist",
+            "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID of the playlist creator/owner",
+            "example": "user_2NNEqL2Kz9X4abcdef123456"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the playlist",
+            "example": "Frontend Architecture Masterclass"
+          },
+          "description": {
+            "type": "object",
+            "description": "Description or notes for the playlist",
+            "nullable": true,
+            "example": "Curated deep-dives into modern web development and streaming"
+          },
+          "playlistLimit": {
+            "type": "number",
+            "description": "Maximum videos allowed in this playlist (defaults to 100)",
+            "example": 100
+          },
+          "totalVideos": {
+            "type": "number",
+            "description": "Total active videos currently contained in this playlist",
+            "example": 5
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Date and time the playlist was created",
+            "example": "2026-10-27T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "name",
+          "description",
+          "playlistLimit",
+          "totalVideos",
+          "createdAt"
+        ]
+      },
+      "ValidationErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "description": "HTTP status code",
+            "example": 400
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO-8601 timestamp of when the error occurred",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path where the error was triggered",
+            "example": "/api/v1/videos/init"
+          },
+          "error": {
+            "type": "string",
+            "description": "Standard HTTP error classification name",
+            "example": "Bad Request"
+          },
+          "message": {
+            "description": "List of validation constraints that failed",
+            "example": [
+              "title must be a string",
+              "size must be a positive integer greater than 0",
+              "slug must contain only lowercase alphanumeric characters and hyphens (e.g. my-awesome-video)"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "statusCode",
+          "timestamp",
+          "path",
+          "error",
+          "message"
+        ]
+      },
+      "UpdatePlaylistDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Updated name of the playlist",
+            "example": "Advanced Frontend Development"
+          },
+          "description": {
+            "type": "string",
+            "description": "Updated description of the playlist",
+            "example": "Updated playlist notes and documentation"
+          }
+        }
+      },
+      "CreateVideoInitDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Human-readable title of the video",
+            "example": "Vedora Direct Upload Tutorial",
+            "maxLength": 255
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-safe slug identifier containing only lowercase letters, numbers, and hyphens",
+            "example": "vedora-direct-upload-tutorial",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 255
+          },
+          "size": {
+            "type": "number",
+            "description": "Raw source file size in bytes. Must be greater than 0 and within user plan limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB)",
+            "example": 104857600,
+            "minimum": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Estimated or known duration of the video in seconds",
+            "example": 120,
+            "minimum": 0
+          },
+          "resolutions": {
+            "type": "array",
+            "description": "Requested output HLS rendition resolutions. Free plan allows 720p; Pro/Business allows 1080p and 720p",
+            "example": [
+              "720p",
+              "1080p"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "720p",
+                "1080p"
+              ]
+            }
+          },
+          "playlistId": {
+            "type": "string",
+            "description": "Optional UUID of an existing playlist owned by the user to associate this video with",
+            "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description or notes about the video content",
+            "example": "In-depth demonstration of multipart upload pipeline and HLS transcode ladder",
+            "maxLength": 2000
+          },
+          "tags": {
+            "description": "Search and categorization tags",
+            "example": [
+              "tutorial",
+              "streaming",
+              "hls"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "generateSubtitles": {
+            "type": "boolean",
+            "description": "Flag indicating whether automated AI subtitle generation should be initiated",
+            "example": true
+          },
+          "includeWatermark": {
+            "type": "boolean",
+            "description": "Whether the video playback player should display custom branding watermark (Pro/Business tiers)",
+            "example": false
+          }
+        },
+        "required": [
+          "title",
+          "slug",
+          "size"
+        ]
+      },
+      "VideoResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUIDv4 identifier of the video",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID of the video owner",
+            "example": "user_2NNEqL2Kz9X4abcdef123456"
+          },
+          "playlistId": {
+            "type": "object",
+            "description": "UUID of the parent playlist if assigned, otherwise null",
+            "nullable": true,
+            "example": "a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the video",
+            "example": "Vedora Direct Upload Tutorial"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-friendly unique slug",
+            "example": "vedora-direct-upload-tutorial"
+          },
+          "description": {
+            "type": "object",
+            "description": "Description or summary of the video content",
+            "nullable": true,
+            "example": "Step-by-step guide to multipart video ingestion and HLS streaming"
+          },
+          "tags": {
+            "description": "Tags for searching and organizing videos",
+            "example": [
+              "tutorial",
+              "streaming",
+              "hls"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storageKey": {
+            "type": "object",
+            "description": "Storage key path of the raw source file in cloud storage",
+            "nullable": true,
+            "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4"
+          },
+          "bucketId": {
+            "type": "object",
+            "description": "Cloud storage bucket ID where video assets are kept",
+            "nullable": true,
+            "example": "00000000-0000-0000-0000-000000000001"
+          },
+          "size": {
+            "type": "number",
+            "description": "Raw source file size in bytes",
+            "example": 104857600
+          },
+          "estimatedTranscodedSize": {
+            "type": "number",
+            "description": "Reserved storage quota allowance in bytes for transcoding renditions (size * 1.5)",
+            "example": 157286400
+          },
+          "transcodedSize": {
+            "type": "object",
+            "description": "Actual total storage size consumed by transcoded HLS renditions, populated upon transcoding completion",
+            "nullable": true,
+            "example": 142606336
+          },
+          "duration": {
+            "type": "number",
+            "description": "Duration of the video in seconds",
+            "example": 120
+          },
+          "status": {
+            "type": "string",
+            "description": "Current lifecycle ingestion status of the video",
+            "enum": [
+              "uploading",
+              "uploaded",
+              "processing",
+              "ready",
+              "failed"
+            ],
+            "example": "ready"
+          },
+          "resolutions": {
+            "description": "Configured HLS resolution outputs",
+            "example": [
+              "720p",
+              "1080p"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "thumbnailUrl": {
+            "type": "object",
+            "description": "URL of generated thumbnail image",
+            "nullable": true,
+            "example": "https://cdn.vedora.com/thumbnails/3fa85f64-5717-4562-b3fc-2c963f66afa6.jpg"
+          },
+          "generateSubtitles": {
+            "type": "boolean",
+            "description": "Whether subtitles should be automatically generated",
+            "example": true
+          },
+          "includeWatermark": {
+            "type": "boolean",
+            "description": "Whether player watermark overlay is enabled",
+            "example": false
+          },
+          "masterM3u8Key": {
+            "type": "object",
+            "description": "Storage key path for the master HLS .m3u8 playlist file",
+            "nullable": true,
+            "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/master.m3u8"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp when video record was created",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp when video record was last updated",
+            "example": "2026-10-27T12:05:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "playlistId",
+          "title",
+          "slug",
+          "description",
+          "tags",
+          "storageKey",
+          "bucketId",
+          "size",
+          "estimatedTranscodedSize",
+          "transcodedSize",
+          "duration",
+          "status",
+          "resolutions",
+          "thumbnailUrl",
+          "generateSubtitles",
+          "includeWatermark",
+          "masterM3u8Key",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "StoragePartDto": {
+        "type": "object",
+        "properties": {
+          "partNumber": {
+            "type": "number",
+            "description": "1-indexed sequential part number",
+            "example": 1
+          },
+          "url": {
+            "type": "string",
+            "description": "Direct-to-cloud presigned upload URL or local upload endpoint where chunk binary should be PUT/POSTed",
+            "example": "http://localhost:8080/api/v1/storage/mock-upload?partNumber=1&uploadId=upl_9f83a2&key=videos%2Fvid-123%2Fraw.mp4"
+          }
+        },
+        "required": [
+          "partNumber",
+          "url"
+        ]
+      },
+      "StorageInitiateResultDto": {
+        "type": "object",
+        "properties": {
+          "objectId": {
+            "type": "string",
+            "description": "Object identifier in cloud storage",
+            "example": "obj_1234567890abcdef"
+          },
+          "key": {
+            "type": "string",
+            "description": "Storage key path for the uploaded raw source video",
+            "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4"
+          },
+          "uploadId": {
+            "type": "string",
+            "description": "Multipart upload session ID",
+            "example": "upl_9f83a2bc4e61d852"
+          },
+          "partSize": {
+            "type": "number",
+            "description": "Recommended chunk size in bytes (e.g. 5242880 = 5MB)",
+            "example": 5242880
+          },
+          "parts": {
+            "description": "List of pre-allocated upload parts and presigned upload URLs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoragePartDto"
+            }
+          }
+        },
+        "required": [
+          "objectId",
+          "key",
+          "uploadId",
+          "partSize",
+          "parts"
+        ]
+      },
+      "VideoInitResponseDto": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "description": "Created video entity in uploading status",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VideoResponseDto"
+              }
+            ]
+          },
+          "uploadData": {
+            "description": "Direct-to-cloud multipart upload credentials, presigned URLs, and chunk instructions",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageInitiateResultDto"
+              }
+            ]
+          },
+          "bucketId": {
+            "type": "string",
+            "description": "Cloud storage bucket ID allocated for the upload",
+            "example": "00000000-0000-0000-0000-000000000001"
+          }
+        },
+        "required": [
+          "video",
+          "uploadData",
+          "bucketId"
+        ]
+      },
+      "CompletedPartDto": {
+        "type": "object",
+        "properties": {
+          "PartNumber": {
+            "type": "number",
+            "description": "1-indexed sequential part number of the uploaded chunk",
+            "example": 1,
+            "minimum": 1
+          },
+          "ETag": {
+            "type": "string",
+            "description": "ETag identifier returned by storage upon completing this chunk upload",
+            "example": "\"mock-etag-1-1730000000000\""
+          }
+        },
+        "required": [
+          "PartNumber",
+          "ETag"
+        ]
+      },
+      "CompleteVideoUploadDto": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "description": "UUIDv4 identifier of the video returned during initialization",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "format": "uuid"
+          },
+          "storageKey": {
+            "type": "string",
+            "description": "Storage object key assigned during initialization",
+            "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Total video duration in seconds detected by client file reader",
+            "example": 120,
+            "minimum": 0
+          },
+          "uploadId": {
+            "type": "string",
+            "description": "Cloud storage multipart upload ID if using S3/OneMinuteCloud provider",
+            "example": "upload_session_abc123"
+          },
+          "parts": {
+            "description": "List of completed part numbers and corresponding ETags",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletedPartDto"
+            }
+          }
+        },
+        "required": [
+          "videoId",
+          "storageKey",
+          "duration"
+        ]
+      },
+      "TranscoderWebhookDto": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "description": "UUIDv4 identifier of the video being transcoded",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "format": "uuid"
+          },
+          "masterKey": {
+            "type": "string",
+            "description": "Cloud storage key for generated master HLS m3u8 playlist",
+            "example": "videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/master.m3u8"
+          },
+          "totalDuration": {
+            "type": "number",
+            "description": "Total duration of transcoded media in seconds",
+            "example": 120,
+            "minimum": 0
+          },
+          "renditions": {
+            "description": "Array of generated resolution rendition keys or names",
+            "example": [
+              "720p",
+              "1080p"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "transcodedSize": {
+            "type": "number",
+            "description": "Total combined storage size in bytes of all transcoded TS segments and manifests",
+            "example": 142606336,
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "description": "Final status of transcoding job",
+            "enum": [
+              "completed",
+              "failed"
+            ],
+            "example": "completed"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Error diagnostics message if status is failed",
+            "example": "Unsupported codec in source container"
+          }
+        },
+        "required": [
+          "videoId",
+          "masterKey",
+          "totalDuration",
+          "renditions",
+          "transcodedSize",
+          "status"
+        ]
+      },
+      "TranscoderWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether webhook payload was successfully parsed and applied",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive status outcome message",
+            "example": "Webhook processed successfully"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ]
+      },
+      "TranscoderProcessResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Current queueing status of the transcode job",
+            "example": "enqueued",
+            "enum": [
+              "enqueued"
+            ]
+          },
+          "videoId": {
+            "type": "string",
+            "description": "UUIDv4 identifier of the video submitted for transcoding",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        },
+        "required": [
+          "status",
+          "videoId"
+        ]
+      },
+      "PlayerSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUIDv4 identifier of the player settings record",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "User ID of the settings owner",
+            "example": "user_2NNEqL2Kz9X4abcdef123456"
+          },
+          "primary_color": {
+            "type": "string",
+            "description": "Primary brand accent color",
+            "example": "#3b82f6"
+          },
+          "control_bar_bg": {
+            "type": "string",
+            "description": "Control bar background color",
+            "example": "rgba(0, 0, 0, 0.7)"
+          },
+          "play_icon_style": {
+            "type": "string",
+            "description": "Play icon style preset",
+            "example": "default",
+            "enum": [
+              "default",
+              "minimal",
+              "glow"
+            ]
+          },
+          "watermark_url": {
+            "type": "object",
+            "description": "Custom watermark image URL if uploaded",
+            "nullable": true,
+            "example": null
+          },
+          "watermark_position": {
+            "type": "string",
+            "description": "Watermark screen position",
+            "example": "top-right",
+            "enum": [
+              "top-right",
+              "top-left",
+              "bottom-right"
+            ]
+          },
+          "watermark_opacity": {
+            "type": "number",
+            "description": "Watermark opacity percentage (0 to 100)",
+            "example": 80
+          },
+          "enable_subtitles": {
+            "type": "boolean",
+            "description": "Whether closed caption subtitles are enabled by default",
+            "example": true
+          },
+          "enabled_controls": {
+            "description": "List of controls enabled in the player toolbar",
+            "example": [
+              "Play / Pause",
+              "10s Backward",
+              "10s Forward",
+              "Full Screen",
+              "Volume",
+              "Progress",
+              "Settings"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-10-27T12:00:00.000Z"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-10-27T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "primary_color",
+          "control_bar_bg",
+          "play_icon_style",
+          "watermark_url",
+          "watermark_position",
+          "watermark_opacity",
+          "enable_subtitles",
+          "enabled_controls",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "UpdatePlayerSettingsDto": {
+        "type": "object",
+        "properties": {
+          "primaryColor": {
+            "type": "string",
+            "description": "Hex or RGB/RGBA accent brand color for player controls",
+            "example": "#3b82f6"
+          },
+          "controlBarBg": {
+            "type": "string",
+            "description": "Hex or RGB/RGBA background color for bottom control toolbar",
+            "example": "rgba(0, 0, 0, 0.7)"
+          },
+          "playIconStyle": {
+            "type": "string",
+            "description": "Style preset for the center playback button",
+            "enum": [
+              "default",
+              "minimal",
+              "glow"
+            ],
+            "example": "glow"
+          },
+          "watermarkUrl": {
+            "type": "object",
+            "description": "URL of uploaded custom watermark image (Pro/Business tiers)",
+            "nullable": true,
+            "example": "https://cdn.vedora.com/watermarks/user_123.png"
+          },
+          "watermarkPosition": {
+            "type": "string",
+            "description": "Corner position of the player watermark overlay",
+            "enum": [
+              "top-right",
+              "top-left",
+              "bottom-right"
+            ],
+            "example": "bottom-right"
+          },
+          "watermarkOpacity": {
+            "type": "number",
+            "description": "Opacity percentage of the watermark overlay (0 to 100)",
+            "example": 80,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "enableSubtitles": {
+            "type": "boolean",
+            "description": "Whether closed caption subtitles should be enabled by default",
+            "example": true
+          },
+          "enabledControls": {
+            "description": "List of player control elements to render on the toolbar",
+            "example": [
+              "Play / Pause",
+              "10s Backward",
+              "10s Forward",
+              "Full Screen",
+              "Volume",
+              "Progress",
+              "Settings"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PublicPlayerConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "description": "UUIDv4 identifier of the video being played",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the video",
+            "example": "Vedora Direct Upload Tutorial"
+          },
+          "streamUrl": {
+            "type": "object",
+            "description": "HLS master playlist stream URL (.m3u8) or direct fallback MP4 playback URL",
+            "nullable": true,
+            "example": "http://localhost:8080/api/v1/storage/stream?key=videos%2F3fa85f64-5717-4562-b3fc-2c963f66afa6%2Fmaster.m3u8"
+          },
+          "primaryColor": {
+            "type": "string",
+            "description": "Primary accent color for player controls",
+            "example": "#3b82f6"
+          },
+          "controlBarBg": {
+            "type": "string",
+            "description": "Background color styling for control bar",
+            "example": "rgba(0, 0, 0, 0.7)"
+          },
+          "playIconStyle": {
+            "type": "string",
+            "description": "Play button icon style preset",
+            "example": "default",
+            "enum": [
+              "default",
+              "minimal",
+              "glow"
+            ]
+          },
+          "watermarkUrl": {
+            "type": "object",
+            "description": "Watermark asset URL",
+            "nullable": true,
+            "example": "https://cdn.vedora.com/branding/vedora-watermark.png"
+          },
+          "watermarkText": {
+            "type": "object",
+            "description": "Text watermark fallback if image not configured",
+            "nullable": true,
+            "example": "Powered by Vedora"
+          },
+          "watermarkPosition": {
+            "type": "string",
+            "description": "Watermark corner placement",
+            "example": "bottom-right",
+            "enum": [
+              "top-right",
+              "top-left",
+              "bottom-right"
+            ]
+          },
+          "watermarkOpacity": {
+            "type": "number",
+            "description": "Watermark opacity percentage (0 to 100)",
+            "example": 80
+          },
+          "enableSubtitles": {
+            "type": "boolean",
+            "description": "Whether subtitles/captions are enabled",
+            "example": true
+          },
+          "enabledControls": {
+            "description": "Active toolbar control names",
+            "example": [
+              "Play / Pause",
+              "10s Backward",
+              "10s Forward",
+              "Full Screen",
+              "Volume",
+              "Progress"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isFreeTier": {
+            "type": "boolean",
+            "description": "True if video belongs to a Free tier account (mandatory watermark displayed)",
+            "example": true
+          }
+        },
+        "required": [
+          "videoId",
+          "title",
+          "streamUrl",
+          "primaryColor",
+          "controlBarBg",
+          "playIconStyle",
+          "watermarkUrl",
+          "watermarkText",
+          "watermarkPosition",
+          "watermarkOpacity",
+          "enableSubtitles",
+          "enabledControls",
+          "isFreeTier"
+        ]
+      },
+      "SegmentPingDto": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "description": "UUIDv4 identifier of the video being watched",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Pseudonymous playback session identifier generated by player client",
+            "example": "sess_9f83a2bc4e61"
+          },
+          "watchDurationSeconds": {
+            "type": "number",
+            "description": "Increment of active watch time in seconds during this heartbeat interval (bounded between 1 and 60 seconds)",
+            "example": 10,
+            "minimum": 1,
+            "maximum": 60
+          },
+          "segmentsRequested": {
+            "type": "number",
+            "description": "Count of HLS .ts chunks or video fragments downloaded by player in this segment interval",
+            "example": 2,
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "videoId",
+          "sessionId",
+          "watchDurationSeconds",
+          "segmentsRequested"
+        ]
+      },
+      "SegmentPingResponseDto": {
+        "type": "object",
+        "properties": {
+          "acknowledged": {
+            "type": "boolean",
+            "description": "Whether the playback heartbeat was buffered or persisted",
+            "example": true
+          }
+        },
+        "required": [
+          "acknowledged"
+        ]
+      },
+      "DeviceBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Device type classification (desktop, mobile, tablet)",
+            "example": "desktop"
+          },
+          "value": {
+            "type": "number",
+            "description": "Count or percentage of views from this device type",
+            "example": 65
+          },
+          "color": {
+            "type": "string",
+            "description": "UI chart display color",
+            "example": "#3b82f6"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "color"
+        ]
+      },
+      "BrowserBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "browser": {
+            "type": "string",
+            "description": "Detected browser name (Chrome, Safari, Firefox, Edge, Other)",
+            "example": "Chrome"
+          },
+          "share": {
+            "type": "number",
+            "description": "Percentage share of playback sessions",
+            "example": 72.5
+          }
+        },
+        "required": [
+          "browser",
+          "share"
+        ]
+      },
+      "ViewsOverTimeDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "ISO-8601 day date (YYYY-MM-DD)",
+            "example": "2026-10-27"
+          },
+          "views": {
+            "type": "number",
+            "description": "Total video play views recorded on this date",
+            "example": 142
+          }
+        },
+        "required": [
+          "date",
+          "views"
+        ]
+      },
+      "TopVideoMetricDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Video UUID identifier",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "title": {
+            "type": "string",
+            "description": "Video title",
+            "example": "Vedora Direct Upload Tutorial"
+          },
+          "views": {
+            "type": "number",
+            "description": "Total aggregated views for this video in the query window",
+            "example": 850
+          },
+          "watchTimeMinutes": {
+            "type": "number",
+            "description": "Total watch time consumed in minutes",
+            "example": 1250
+          },
+          "avgDurationSeconds": {
+            "type": "number",
+            "description": "Average watch session duration in seconds",
+            "example": 88
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "views",
+          "watchTimeMinutes",
+          "avgDurationSeconds"
+        ]
+      },
+      "MetricsResponseDto": {
+        "type": "object",
+        "properties": {
+          "totalViews": {
+            "type": "number",
+            "description": "Total views across user videos in the requested time window",
+            "example": 1250
+          },
+          "totalWatchTimeSeconds": {
+            "type": "number",
+            "description": "Total seconds watched across all sessions",
+            "example": 110000
+          },
+          "totalWatchTimeMinutes": {
+            "type": "number",
+            "description": "Total minutes watched (billing consumption metric)",
+            "example": 1833
+          },
+          "uniqueViewers": {
+            "type": "number",
+            "description": "Count of unique pseudonymous viewing sessions",
+            "example": 940
+          },
+          "avgDurationSeconds": {
+            "type": "number",
+            "description": "Average watch duration per view in seconds",
+            "example": 88
+          },
+          "deviceBreakdown": {
+            "description": "Audience breakdown by device category",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceBreakdownDto"
+            }
+          },
+          "browserBreakdown": {
+            "description": "Audience breakdown by browser client",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrowserBreakdownDto"
+            }
+          },
+          "viewsOverTime": {
+            "description": "Daily timeseries views over the query window",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewsOverTimeDto"
+            }
+          },
+          "topVideos": {
+            "description": "Top performing videos ranked by view count",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopVideoMetricDto"
+            }
+          }
+        },
+        "required": [
+          "totalViews",
+          "totalWatchTimeSeconds",
+          "totalWatchTimeMinutes",
+          "uniqueViewers",
+          "avgDurationSeconds",
+          "deviceBreakdown",
+          "browserBreakdown",
+          "viewsOverTime",
+          "topVideos"
+        ]
+      },
+      "BillingWebhookDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Stripe webhook event type name",
+            "example": "customer.subscription.updated",
+            "enum": [
+              "customer.subscription.updated",
+              "customer.subscription.deleted",
+              "invoice.paid"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "description": "Stripe event data payload containing event object",
+            "example": {
+              "object": {
+                "id": "sub_1Q123456789",
+                "customer": "cus_123456789",
+                "status": "active",
+                "current_period_start": 1730000000,
+                "current_period_end": 1732678400
+              }
+            }
+          },
+          "id": {
+            "type": "string",
+            "description": "Unique Stripe event identifier",
+            "example": "evt_1Qabcdef123456"
+          }
+        },
+        "required": [
+          "type",
+          "data"
+        ]
+      },
+      "BillingWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether Stripe webhook processing succeeded",
+            "example": true
+          },
+          "event": {
+            "type": "string",
+            "description": "Handled event type or processing action",
+            "example": "customer.subscription.updated"
+          }
+        },
+        "required": [
+          "success",
+          "event"
+        ]
+      },
+      "SubscriptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique UUIDv4 identifier of the subscription record",
+            "example": "sub_rec_1234567890"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID of the subscriber",
+            "example": "user_2NNEqL2Kz9X4abcdef123456"
+          },
+          "plan": {
+            "type": "string",
+            "description": "Subscription tier name",
+            "example": "pro",
+            "enum": [
+              "free",
+              "starter",
+              "pro",
+              "business"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name for the subscription tier",
+            "example": "Pro Plan"
+          },
+          "status": {
+            "type": "string",
+            "description": "Lifecycle status of the subscription",
+            "example": "active",
+            "enum": [
+              "active",
+              "past_due",
+              "canceled",
+              "trialing"
+            ]
+          },
+          "allocatedMinutes": {
+            "type": "number",
+            "description": "Total monthly playback minutes allocated for this tier",
+            "example": 10000
+          },
+          "usedMinutes": {
+            "type": "number",
+            "description": "Total playback minutes consumed by viewers in current billing cycle",
+            "example": 1833
+          },
+          "remainingMinutes": {
+            "type": "number",
+            "description": "Remaining playback minutes available in current billing cycle",
+            "example": 8167
+          },
+          "usagePercent": {
+            "type": "number",
+            "description": "Playback minutes consumption percentage (0 to 100)",
+            "example": 18
+          },
+          "storageCapBytes": {
+            "type": "string",
+            "description": "Storage quota cap in bytes represented as string",
+            "example": "26843545600"
+          },
+          "currentPeriodStart": {
+            "type": "object",
+            "description": "Start date of the current billing cycle period",
+            "nullable": true,
+            "example": "2026-10-01T00:00:00.000Z"
+          },
+          "currentPeriodEnd": {
+            "type": "object",
+            "description": "Renewal or expiration date of current billing period",
+            "nullable": true,
+            "example": "2026-11-01T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "plan",
+          "displayName",
+          "status",
+          "allocatedMinutes",
+          "usedMinutes",
+          "remainingMinutes",
+          "usagePercent",
+          "storageCapBytes",
+          "currentPeriodStart",
+          "currentPeriodEnd"
+        ]
+      }
+    }
+  }
+}

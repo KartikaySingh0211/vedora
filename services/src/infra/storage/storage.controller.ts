@@ -8,7 +8,17 @@ import {
   Logger,
   Inject,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiHeader,
+  ApiOkResponse,
+  ApiResponse,
+  ApiBadRequestResponse,
+  ApiConsumes,
+  ApiProduces,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,6 +26,8 @@ import { eq } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { DrizzleDb } from '../../database/database.module';
 import * as schema from '../../database/schema';
+import { StorageUploadResponseDto } from './dto/storage-upload-response.dto';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Storage')
 @Controller('storage')
@@ -31,6 +43,31 @@ export class StorageController {
   @ApiOperation({
     summary:
       'Resilient storage endpoint for multipart chunk uploads in local development or provider fallback mode',
+    description:
+      'Accepts chunk binary streams, saves parts to local storage_local/chunks, updates upload registry, and returns S3-compliant ETag header.',
+  })
+  @ApiConsumes('application/octet-stream', 'multipart/form-data')
+  @ApiQuery({
+    name: 'partNumber',
+    required: false,
+    description: '1-indexed chunk part number',
+    example: '1',
+  })
+  @ApiQuery({
+    name: 'uploadId',
+    required: false,
+    description: 'Multipart upload session ID',
+    example: 'upl_9f83a2bc4e61d852',
+  })
+  @ApiQuery({
+    name: 'key',
+    required: false,
+    description: 'Object storage key path',
+    example: 'videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4',
+  })
+  @ApiOkResponse({
+    description: 'Chunk successfully saved and ETag generated',
+    type: StorageUploadResponseDto,
   })
   async handleMockUpload(
     @Query('partNumber') partNumber: string,
@@ -100,6 +137,37 @@ export class StorageController {
   @ApiOperation({
     summary:
       'Stream video or HLS manifest for playback in local development or provider fallback mode',
+    description:
+      'Supports HTTP Range requests (206 Partial Content) for seeking through video playback, or delivers master.m3u8 manifests.',
+  })
+  @ApiProduces('video/mp4', 'application/vnd.apple.mpegurl', 'video/webm')
+  @ApiQuery({
+    name: 'key',
+    required: true,
+    description: 'Storage key path of the video or manifest',
+    example: 'videos/3fa85f64-5717-4562-b3fc-2c963f66afa6/raw.mp4',
+  })
+  @ApiHeader({
+    name: 'range',
+    required: false,
+    description: 'HTTP byte range for video seeking (e.g. bytes=0-1048575)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Full binary video stream or HLS manifest text',
+  })
+  @ApiResponse({
+    status: 206,
+    description:
+      'Partial content binary video stream corresponding to requested byte Range',
+  })
+  @ApiResponse({
+    status: 307,
+    description: 'Temporary redirect to demo video if local file is missing',
+  })
+  @ApiBadRequestResponse({
+    description: 'Key query parameter missing',
+    type: ErrorResponseDto,
   })
   async handleStreamVideo(
     @Query('key') key: string,

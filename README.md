@@ -10,6 +10,8 @@ Detailed, industry-standard architectural specifications, threat assessments, an
 
 - 📖 **[Master Engineering Log & Ledger (`docs/ENGINEERING_LOG.md`)](file:///d:/Dev/Projects/vedora/docs/ENGINEERING_LOG.md)**: Full chronological ledger documenting every implementation run, exact changes, design rationale, and test verification results.
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](file:///d:/Dev/Projects/vedora/docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
+- 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](file:///d:/Dev/Projects/vedora/docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
+- 🌐 **[Raw OpenAPI 3.0 JSON Specification (`docs/openapi.json`)](file:///d:/Dev/Projects/vedora/docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
 - 🏛️ **Architecture Decision Records (ADRs)**:
   - [ADR-001: API Key Security, Cryptographic Hashing, and Multi-Tier Caching](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-001-api-key-security-and-caching.md)
   - [ADR-002: Dual-Authentication Guard (Clerk JWT & Vedora API Keys)](file:///d:/Dev/Projects/vedora/docs/decisions/ADR-002-dual-authentication-guard.md)
