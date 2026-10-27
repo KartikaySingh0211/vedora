@@ -26,6 +26,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { API_BASE_URL, PublicPlayerConfig } from "@/lib/api-client";
 
 export interface VedoraPlayerProps {
   videoId?: string;
@@ -56,24 +57,6 @@ export interface VedoraPlayerProps {
   onEnded?: () => void;
 }
 
-interface PublicPlayerConfig {
-  videoId: string;
-  title: string;
-  duration: number;
-  status: string;
-  streamUrl: string | null;
-  primaryColor: string;
-  controlBarBg: string;
-  playIconStyle: string;
-  watermarkUrl: string | null;
-  watermarkText: string | null;
-  watermarkPosition: string;
-  watermarkOpacity: number;
-  enableSubtitles: boolean;
-  enabledControls?: string[];
-  isFreeTier: boolean;
-}
-
 interface QualityLevel {
   index: number;
   height: number;
@@ -81,12 +64,8 @@ interface QualityLevel {
   label: string;
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-const SAMPLE_STREAM_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
 const SAMPLE_STREAM_MP4 =
   "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
@@ -365,7 +344,13 @@ export function VedoraPlayer({
         hlsRef.current = null;
       }
     };
-  }, [effectiveStreamUrl, effectiveStatus, autoplay, startTime]);
+  }, [
+    effectiveStreamUrl,
+    effectiveStatus,
+    autoplay,
+    startTime,
+    handlePlaybackFallback,
+  ]);
 
   // 3. Analytics Heartbeat Ping
   useEffect(() => {
@@ -673,6 +658,7 @@ export function VedoraPlayer({
       {/* Video Element */}
       <video
         ref={videoRef}
+        title={effectiveTitle}
         poster={poster}
         loop={loop}
         playsInline

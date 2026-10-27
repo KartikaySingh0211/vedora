@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadGatewayException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -159,7 +159,10 @@ export class StorageService {
       try {
         const regPath = path.join(chunksDir, 'registry.json');
         if (fs.existsSync(regPath)) {
-          const reg = JSON.parse(fs.readFileSync(regPath, 'utf8'));
+          const reg = JSON.parse(fs.readFileSync(regPath, 'utf8')) as Record<
+            string,
+            string
+          >;
           if (reg[key]) effectiveUploadId = reg[key];
         }
       } catch {
@@ -221,7 +224,9 @@ export class StorageService {
           outStream.write(chunkData);
           try {
             fs.unlinkSync(c.path);
-          } catch {}
+          } catch {
+            // Ignore non-fatal chunk cleanup failures
+          }
         }
         outStream.end();
         this.logger.log(

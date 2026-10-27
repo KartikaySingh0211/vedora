@@ -162,7 +162,9 @@ describe('PlayerSettingsService', () => {
 
       const config = await service.getPublicPlayerConfig(video.id);
 
-      expect(config.streamUrl).toBe('https://cdn.vedora.com/videos/vid-3/raw.mp4');
+      expect(config.streamUrl).toBe(
+        'https://cdn.vedora.com/videos/vid-3/raw.mp4',
+      );
     });
   });
 });

@@ -8,8 +8,14 @@ import * as schema from '../../database/schema';
 import { RedisService } from '../../infra/redis/redis.service';
 import { SegmentPingDto } from './dto/segment-ping.dto';
 import { AnalyticsQueryDto } from './dto/analytics-query.dto';
+import { CACHE_KEYS } from '../../common/cache-keys';
+import {
+  detectBrowser,
+  detectDevice,
+  cleanReferrer,
+} from '../../utils/user-agent.util';
 
-const ANALYTICS_BUFFER_KEY = 'vedora:analytics:buffer';
+const ANALYTICS_BUFFER_KEY = CACHE_KEYS.analyticsBuffer;
 
 export interface BufferedAnalyticsEvent {
   videoId: string;
@@ -88,13 +94,13 @@ export class AnalyticsService {
       .digest('hex');
 
     // 3. Classify browser, device, and referrer
-    const browser = this.detectBrowser(userAgent);
-    const device = this.detectDevice(userAgent);
+    const browser = detectBrowser(userAgent);
+    const device = detectDevice(userAgent);
     const country =
       rawCountry && rawCountry.length <= 5
         ? rawCountry.toUpperCase()
         : 'Unknown';
-    const referrer = this.cleanReferrer(rawReferrer);
+    const referrer = cleanReferrer(rawReferrer);
 
     const event: BufferedAnalyticsEvent = {
       videoId: video.id,
@@ -368,32 +374,5 @@ export class AnalyticsService {
       viewsOverTime: timeSeries,
       topVideos,
     };
-  }
-
-  private detectBrowser(userAgent = ''): string {
-    const ua = userAgent.toLowerCase();
-    if (ua.includes('edg/')) return 'Edge';
-    if (ua.includes('chrome')) return 'Chrome';
-    if (ua.includes('safari') && !ua.includes('chrome')) return 'Safari';
-    if (ua.includes('firefox')) return 'Firefox';
-    return 'Other';
-  }
-
-  private detectDevice(userAgent = ''): string {
-    const ua = userAgent.toLowerCase();
-    if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
-    if (/mobile|iphone|ipod|android|blackberry|iemobile|opera mini/i.test(ua))
-      return 'mobile';
-    return 'desktop';
-  }
-
-  private cleanReferrer(ref?: string): string {
-    if (!ref) return 'direct';
-    try {
-      const url = new URL(ref);
-      return url.hostname.replace(/^www\./, '');
-    } catch {
-      return 'direct';
-    }
   }
 }

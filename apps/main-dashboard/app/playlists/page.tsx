@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronRight, Plus, Edit3, Trash2, Loader2, PlaySquare, AlertCircle } from "lucide-react";
-import Link from "next/link";
+import { Plus, Edit3, Trash2, Loader2, PlaySquare, AlertCircle } from "lucide-react";
 import React, { useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "timeago.js";
 import { toast } from "sonner";
 import { fetchWithAuth, PlaylistItem } from "@/lib/api-client";
+import { PageHeader, LoadingState, ErrorState } from "@/components/common";
 
 export default function PlaylistsPage() {
   const { isLoaded, user } = useUser();
@@ -142,42 +142,28 @@ export default function PlaylistsPage() {
 
   return (
     <div className="text-black dark:text-white max-w-6xl">
-      {/* Breadcrumb */}
-      <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-        <Link href="/" className="hover:underline">
-          Dashboard
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <span className="text-gray-700 dark:text-gray-300 font-medium">
-          Playlists
-        </span>
-      </nav>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <PlaySquare className="text-blue-500" size={24} />
-            My Playlists
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Organize and manage your video collections ({currentCount} / {quotaLimit} used).
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            setFormName("");
-            setFormDescription("");
-            setShowCreateModal(true);
-          }}
-          disabled={isQuotaReached}
-          title={isQuotaReached ? "Playlist quota reached" : "Create a playlist"}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm font-medium transition cursor-pointer"
-        >
-          <Plus size={16} /> Create Playlist
-        </button>
-      </div>
+      <PageHeader
+        title="My Playlists"
+        description={`Organize and manage your video collections (${currentCount} / ${quotaLimit} used).`}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/" },
+          { label: "Playlists" },
+        ]}
+        actions={
+          <button
+            onClick={() => {
+              setFormName("");
+              setFormDescription("");
+              setShowCreateModal(true);
+            }}
+            disabled={isQuotaReached}
+            title={isQuotaReached ? "Playlist quota reached" : "Create a playlist"}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm font-medium transition cursor-pointer"
+          >
+            <Plus size={16} /> Create Playlist
+          </button>
+        }
+      />
 
       {/* Quota Banner */}
       {isQuotaReached && (
@@ -191,21 +177,19 @@ export default function PlaylistsPage() {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="py-20 flex flex-col items-center justify-center text-gray-400 gap-2">
-          <Loader2 size={32} className="animate-spin text-blue-500" />
-          <p className="text-sm">Loading your playlists...</p>
-        </div>
+        <LoadingState
+          message="Loading your playlists..."
+          className="py-20"
+        />
       )}
 
       {/* Error state */}
       {isError && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3">
-          <AlertCircle size={20} className="shrink-0" />
-          <p>
-            Failed to load playlists:{" "}
-            {error instanceof Error ? error.message : "Unexpected error"}
-          </p>
-        </div>
+        <ErrorState
+          title="Failed to load playlists"
+          message={error instanceof Error ? error.message : "Unexpected error"}
+          className="mb-6"
+        />
       )}
 
       {/* Playlist Table */}

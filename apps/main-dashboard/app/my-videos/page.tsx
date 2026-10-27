@@ -3,7 +3,6 @@
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronRight,
   Trash2,
   VideoIcon,
   FolderOpen,
@@ -14,7 +13,6 @@ import {
   List,
   Loader2,
   Upload,
-  AlertCircle,
   HardDrive,
 } from "lucide-react";
 import Image from "next/image";
@@ -22,70 +20,20 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { fetchWithAuth, VideoItem, PlaylistItem, VideoStatus } from "@/lib/api-client";
+import { fetchWithAuth, VideoItem, PlaylistItem } from "@/lib/api-client";
 import { EmbedVideoModal } from "@/components/modals/embed-video-modal";
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function getStatusBadge(status: VideoStatus) {
-  switch (status) {
-    case "ready":
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          Ready
-        </span>
-      );
-    case "uploaded":
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-          Uploaded
-        </span>
-      );
-    case "processing":
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          Processing
-        </span>
-      );
-    case "uploading":
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-          Uploading
-        </span>
-      );
-    case "failed":
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-          Failed
-        </span>
-      );
-    default:
-      return null;
-  }
-}
+import { formatBytes, formatDuration } from "@/lib/formatters";
+import {
+  PageHeader,
+  StatusBadge,
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "@/components/common";
 
 export default function MyVideosPage() {
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [copiedEmbedId, setCopiedEmbedId] = useState<string | null>(null);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("all");
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -167,109 +115,97 @@ export default function MyVideosPage() {
 
   if (!isLoaded || isVideosLoading) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3">
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-        <p className="text-xs text-slate-400">Loading your video library...</p>
-      </div>
+      <LoadingState
+        message="Loading your video library..."
+        className="py-24"
+      />
     );
   }
 
   return (
     <div className="text-slate-900 dark:text-slate-50 relative min-h-screen max-w-7xl pb-16">
-      {/* Breadcrumb */}
-      <nav className="flex items-center text-sm text-slate-500 dark:text-slate-400 mb-6">
-        <Link href="/" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">
-          Dashboard
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <span className="text-slate-900 dark:text-slate-200 font-medium">My Videos</span>
-      </nav>
-
-      {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">My Videos</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage your uploaded videos, resolution presets, and cloud storage assets.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Playlist filter */}
-          <select
-            value={selectedPlaylistId}
-            onChange={(e) => setSelectedPlaylistId(e.target.value)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs dark:border-slate-800 dark:bg-slate-900/50"
-          >
-            <option value="all">All Playlists</option>
-            {playlists?.map((pl) => (
-              <option key={pl.id} value={pl.id}>
-                {pl.name}
-              </option>
-            ))}
-          </select>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded-md p-0.5 bg-slate-100 dark:bg-slate-900">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded cursor-pointer ${
-                viewMode === "table"
-                  ? "bg-white dark:bg-slate-800 shadow-xs"
-                  : "text-slate-400 hover:text-white"
-              }`}
-              title="Table View"
+      <PageHeader
+        title="My Videos"
+        description="Manage your uploaded videos, resolution presets, and cloud storage assets."
+        breadcrumbs={[
+          { label: "Dashboard", href: "/" },
+          { label: "My Videos" },
+        ]}
+        actions={
+          <div className="flex items-center gap-3">
+            {/* Playlist filter */}
+            <select
+              value={selectedPlaylistId}
+              onChange={(e) => setSelectedPlaylistId(e.target.value)}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs dark:border-slate-800 dark:bg-slate-900/50"
             >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-white dark:bg-slate-800 shadow-xs"
-                  : "text-slate-400 hover:text-white"
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid size={16} />
-            </button>
+              <option value="all">All Playlists</option>
+              {playlists?.map((pl) => (
+                <option key={pl.id} value={pl.id}>
+                  {pl.name}
+                </option>
+              ))}
+            </select>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded-md p-0.5 bg-slate-100 dark:bg-slate-900">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white dark:bg-slate-800 shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Table View"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-slate-800 shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid size={16} />
+              </button>
+            </div>
+
+            <Link href="/uploads">
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
+                <Upload size={14} />
+                Upload Video
+              </Button>
+            </Link>
           </div>
-
-          <Link href="/uploads">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
-              <Upload size={14} />
-              Upload Video
-            </Button>
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {videosError && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 flex items-center gap-2 text-sm">
-          <AlertCircle size={18} />
-          <span>Failed to load video library: {videosError.message}</span>
-        </div>
+        <ErrorState
+          title="Failed to load video library"
+          message={videosError.message}
+          className="mb-6"
+        />
       )}
 
       {/* Empty State */}
       {(!videoList || videoList.length === 0) && (
-        <div className="text-center py-20 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 space-y-4">
-          <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center mx-auto text-slate-400">
-            <VideoIcon size={28} />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold">No videos in your library</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              Get started by uploading your first video via the Vedora direct-to-cloud upload pipeline.
-            </p>
-          </div>
-          <Link href="/uploads">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
-              <Upload size={14} />
-              Upload Video
-            </Button>
-          </Link>
-        </div>
+        <EmptyState
+          icon={VideoIcon}
+          title="No videos in your library"
+          description="Get started by uploading your first video via the Vedora direct-to-cloud upload pipeline."
+          action={
+            <Link href="/uploads">
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
+                <Upload size={14} />
+                Upload Video
+              </Button>
+            </Link>
+          }
+        />
       )}
 
       {/* Table View */}
@@ -320,7 +256,9 @@ export default function MyVideosPage() {
                   </td>
 
                   {/* Status */}
-                  <td className="px-4 py-4">{getStatusBadge(video.status)}</td>
+                  <td className="px-4 py-4">
+                    <StatusBadge status={video.status} />
+                  </td>
 
                   {/* Resolutions */}
                   <td className="px-4 py-4">
@@ -422,7 +360,7 @@ export default function MyVideosPage() {
                     <VideoIcon size={32} className="text-slate-600" />
                   )}
                   <div className="absolute top-2.5 left-2.5">
-                    {getStatusBadge(video.status)}
+                    <StatusBadge status={video.status} />
                   </div>
                   <div className="absolute bottom-2.5 right-2.5 bg-black/80 px-2 py-0.5 rounded text-[11px] font-mono text-white">
                     {formatDuration(video.duration)}

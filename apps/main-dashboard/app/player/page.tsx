@@ -2,20 +2,19 @@
 
 import {
   Check,
-  ChevronRight,
   Loader2,
   Play,
   PlayCircle,
   PlaySquare,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchWithAuth, PlayerSettingsItem } from "../../lib/api-client";
 import { VedoraPlayer } from "@/components/player/vedora-player";
+import { PageHeader, LoadingState } from "@/components/common";
 
 const controls = [
   "Play / Pause",
@@ -135,29 +134,17 @@ export default function PlayerSettingsPage() {
 
   return (
     <div className="text-black dark:text-white">
-      {/* Breadcrumb */}
-      <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-        <Link href="/" className="hover:underline">
-          Dashboard
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <span className="text-gray-700 dark:text-gray-300 font-medium">
-          Player Settings
-        </span>
-      </nav>
-
-      {/* Title */}
-      <div className="space-y-1 mb-8">
-        <h1 className="text-2xl font-semibold">Player Settings</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[500px]">
-          Customize your video player’s appearance, brand colors, watermarking, and behavior for a seamless playback experience.
-        </p>
-      </div>
+      <PageHeader
+        title="Player Settings"
+        description="Customize your video player’s appearance, brand colors, watermarking, and behavior for a seamless playback experience."
+        breadcrumbs={[
+          { label: "Dashboard", href: "/" },
+          { label: "Player Settings" },
+        ]}
+      />
 
       {isLoading ? (
-        <div className="flex items-center justify-center p-12 text-gray-400">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
+        <LoadingState message="Loading player settings..." className="p-12" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Interactive Player Live Preview */}

@@ -10,8 +10,10 @@ import { eq, and, desc, count, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { DrizzleDb } from '../../database/database.module';
 import { playlist } from '../../database/schema';
+import type { Playlist } from '../../database/schema';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { CACHE_KEYS } from '../../common/cache-keys';
 
 export interface PlaylistResponse {
   id: string;
@@ -31,6 +33,21 @@ export class PlaylistService {
   constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
 
   /**
+   * Safely serialize Drizzle playlist record to API response
+   */
+  private serializePlaylist(record: Playlist): PlaylistResponse {
+    return {
+      id: record.id,
+      userId: record.user_id,
+      name: record.name,
+      description: record.description,
+      playlistLimit: record.playlist_limit,
+      totalVideos: record.total_videos,
+      createdAt: record.created_at,
+    };
+  }
+
+  /**
    * Create a playlist with strict quota enforcement and concurrent protection
    */
   async createPlaylist(
@@ -44,7 +61,7 @@ export class PlaylistService {
     return await this.db.transaction(async (tx) => {
       // 1. Acquire transaction advisory lock on user's quota key to prevent concurrent bypass
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${`vedora_playlist_quota_${userId}`}))`,
+        sql`SELECT pg_advisory_xact_lock(hashtext(${CACHE_KEYS.playlistQuotaLock(userId)}))`,
       );
 
       // 2. Count current playlists owned by this user
@@ -73,15 +90,7 @@ export class PlaylistService {
         })
         .returning();
 
-      return {
-        id: inserted.id,
-        userId: inserted.user_id,
-        name: inserted.name,
-        description: inserted.description,
-        playlistLimit: inserted.playlist_limit,
-        totalVideos: inserted.total_videos,
-        createdAt: inserted.created_at,
-      };
+      return this.serializePlaylist(inserted);
     });
   }
 
@@ -99,15 +108,7 @@ export class PlaylistService {
       .where(eq(playlist.user_id, userId))
       .orderBy(desc(playlist.created_at));
 
-    return records.map((p) => ({
-      id: p.id,
-      userId: p.user_id,
-      name: p.name,
-      description: p.description,
-      playlistLimit: p.playlist_limit,
-      totalVideos: p.total_videos,
-      createdAt: p.created_at,
-    }));
+    return records.map((p) => this.serializePlaylist(p));
   }
 
   /**
@@ -128,16 +129,7 @@ export class PlaylistService {
       throw new NotFoundException('Playlist not found');
     }
 
-    const p = records[0];
-    return {
-      id: p.id,
-      userId: p.user_id,
-      name: p.name,
-      description: p.description,
-      playlistLimit: p.playlist_limit,
-      totalVideos: p.total_videos,
-      createdAt: p.created_at,
-    };
+    return this.serializePlaylist(records[0]);
   }
 
   /**
@@ -169,15 +161,7 @@ export class PlaylistService {
       .where(and(eq(playlist.id, id), eq(playlist.user_id, userId)))
       .returning();
 
-    return {
-      id: updated.id,
-      userId: updated.user_id,
-      name: updated.name,
-      description: updated.description,
-      playlistLimit: updated.playlist_limit,
-      totalVideos: updated.total_videos,
-      createdAt: updated.created_at,
-    };
+    return this.serializePlaylist(updated);
   }
 
   /**

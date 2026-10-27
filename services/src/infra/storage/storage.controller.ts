@@ -66,7 +66,10 @@ export class StorageController {
           const regPath = path.join(chunksDir, 'registry.json');
           let reg: Record<string, string> = {};
           if (fs.existsSync(regPath)) {
-            reg = JSON.parse(fs.readFileSync(regPath, 'utf8'));
+            reg = JSON.parse(fs.readFileSync(regPath, 'utf8')) as Record<
+              string,
+              string
+            >;
           }
           reg[key] = uplId;
           reg[uplId] = key;
@@ -137,7 +140,9 @@ export class StorageController {
             }
           }
         } catch (dbErr: unknown) {
-          this.logger.warn(`Could not resolve video storage_key: ${(dbErr as Error).message}`);
+          this.logger.warn(
+            `Could not resolve video storage_key: ${(dbErr as Error).message}`,
+          );
         }
       }
 

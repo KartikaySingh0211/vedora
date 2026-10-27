@@ -71,6 +71,24 @@ export interface PlayerSettingsItem {
   updated_at: string;
 }
 
+export interface PublicPlayerConfig {
+  videoId: string;
+  title: string;
+  duration: number;
+  status: string;
+  streamUrl: string | null;
+  primaryColor: string;
+  controlBarBg: string;
+  playIconStyle: string;
+  watermarkUrl: string | null;
+  watermarkText: string | null;
+  watermarkPosition: string;
+  watermarkOpacity: number;
+  enableSubtitles: boolean;
+  enabledControls?: string[];
+  isFreeTier: boolean;
+}
+
 export interface AnalyticsMetricsResponse {
   totalViews: number;
   totalWatchTimeSeconds: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, Crown, ChevronRight, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Crown, Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,6 +8,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchWithAuth, PlayerSettingsItem, SubscriptionItem } from "@/lib/api-client";
+import { PageHeader } from "@/components/common";
 
 const Page = () => {
 	const { getToken, isLoaded } = useAuth();
@@ -86,25 +87,14 @@ const Page = () => {
 
 	return (
 		<div className="text-black dark:text-white">
-			{/* Breadcrumb */}
-			<nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-				<Link href="/" className="hover:underline">
-					Dashboard
-				</Link>
-				<ChevronRight className="mx-2" size={16} />
-				<span className="text-gray-700 dark:text-gray-300 font-medium">
-					Watermark & Branding
-				</span>
-			</nav>
-
-			{/* Header */}
-			<div className="space-y-1 mb-8">
-				<h1 className="text-2xl font-semibold">Watermark & Branding</h1>
-				<p className="text-sm text-gray-500 dark:text-gray-400 max-w-125">
-					Personalize your videos by uploading a custom watermark and
-					configuring its appearance.
-				</p>
-			</div>
+			<PageHeader
+				title="Watermark & Branding"
+				description="Personalize your videos by uploading a custom watermark and configuring its appearance."
+				breadcrumbs={[
+					{ label: "Dashboard", href: "/" },
+					{ label: "Watermark & Branding" },
+				]}
+			/>
 
 			<div className="bg-white dark:bg-slate-900/50 rounded-md p-6 border border-slate-200 dark:border-slate-900 max-w-3xl space-y-6">
 				{/* Enable/Disable */}

@@ -11,8 +11,10 @@ import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { DrizzleDb } from '../../database/database.module';
 import { videos, playlist, VideoStatus } from '../../database/schema';
+import type { Video } from '../../database/schema';
 import { CreateVideoInitDto } from './dto/create-video-init.dto';
 import { CompleteVideoUploadDto } from './dto/complete-video-upload.dto';
+import { CACHE_KEYS } from '../../common/cache-keys';
 import {
   StorageService,
   StorageInitiateResult,
@@ -69,7 +71,7 @@ export class VideoService {
    * Safely serialize database video entity to API JSON response
    * Converts BigInt sizes to safe JavaScript numbers
    */
-  private serializeVideo(row: typeof videos.$inferSelect): VideoResponse {
+  private serializeVideo(row: Video): VideoResponse {
     return {
       id: row.id,
       userId: row.user_id,
@@ -93,6 +95,39 @@ export class VideoService {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+  }
+
+  /**
+   * Compute total active storage reserved/utilized by a user in bytes.
+   * Scoped to non-failed, non-deleted lifecycle states.
+   */
+  private async calculateUserActiveStorageUsage(
+    tx: Parameters<Parameters<DrizzleDb['transaction']>[0]>[0],
+    userId: string,
+  ): Promise<bigint> {
+    const activeVideos = await tx
+      .select({
+        size: videos.size,
+        estimatedTranscodedSize: videos.estimated_transcoded_size,
+      })
+      .from(videos)
+      .where(
+        and(
+          eq(videos.user_id, userId),
+          inArray(videos.status, [
+            'uploading',
+            'uploaded',
+            'processing',
+            'ready',
+          ]),
+        ),
+      );
+
+    let currentUsage = 0n;
+    for (const v of activeVideos) {
+      currentUsage += BigInt(v.size) + BigInt(v.estimatedTranscodedSize);
+    }
+    return currentUsage;
   }
 
   /**
@@ -127,32 +162,14 @@ export class VideoService {
     return await this.db.transaction(async (tx) => {
       // 1. Transaction-level PostgreSQL advisory lock preventing concurrent quota races
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${`vedora_storage_quota_${userId}`}))`,
+        sql`SELECT pg_advisory_xact_lock(hashtext(${CACHE_KEYS.storageQuotaLock(userId)}))`,
       );
 
       // 2. Query active storage for user
-      const activeVideos = await tx
-        .select({
-          size: videos.size,
-          estimatedTranscodedSize: videos.estimated_transcoded_size,
-        })
-        .from(videos)
-        .where(
-          and(
-            eq(videos.user_id, userId),
-            inArray(videos.status, [
-              'uploading',
-              'uploaded',
-              'processing',
-              'ready',
-            ]),
-          ),
-        );
-
-      let currentUsage = 0n;
-      for (const v of activeVideos) {
-        currentUsage += BigInt(v.size) + BigInt(v.estimatedTranscodedSize);
-      }
+      const currentUsage = await this.calculateUserActiveStorageUsage(
+        tx,
+        userId,
+      );
 
       if (currentUsage + incomingReservation > planConfig.storageCapBytes) {
         const currentGb = (Number(currentUsage) / Number(GIB_BYTES)).toFixed(2);

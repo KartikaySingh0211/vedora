@@ -2,17 +2,16 @@
 
 import React, { useState } from "react";
 import {
-  ChevronRight,
   CreditCard,
   ExternalLink,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
 import PaymentCard from "../../components/cards/payment.card";
 import AddOnCard from "../../components/cards/addon.card";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { fetchWithAuth, SubscriptionItem } from "../../lib/api-client";
+import { PageHeader } from "@/components/common";
 
 interface FullSubscriptionItem extends SubscriptionItem {
   displayName?: string;
@@ -58,24 +57,14 @@ export default function BillingPage() {
 
   return (
     <div className="text-black dark:text-white">
-      {/* Breadcrumb */}
-      <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-        <Link href="/" className="hover:underline">
-          Dashboard
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <span className="text-gray-700 dark:text-gray-300 font-medium">
-          Billing
-        </span>
-      </nav>
-
-      {/* Title */}
-      <div className="space-y-1 mb-6">
-        <h1 className="text-2xl font-semibold">Billing & Subscriptions</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-          Track your current subscription plan, playback minutes consumption, and storage allowances.
-        </p>
-      </div>
+      <PageHeader
+        title="Billing & Subscriptions"
+        description="Track your current subscription plan, playback minutes consumption, and storage allowances."
+        breadcrumbs={[
+          { label: "Dashboard", href: "/" },
+          { label: "Billing" },
+        ]}
+      />
 
       {/* Current Active Plan & Playback Minutes Usage Card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

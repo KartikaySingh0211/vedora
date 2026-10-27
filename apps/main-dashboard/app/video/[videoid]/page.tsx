@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import {
 	ChevronRight,
 	Eye,
@@ -18,7 +17,6 @@ import {
 	Tag,
 	Globe,
 	Code2,
-	Play,
 	FileText,
 	Sliders,
 } from "lucide-react";

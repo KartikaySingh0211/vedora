@@ -186,6 +186,12 @@ export const subscriptions = pgTable(
   (table) => [index('subscriptions_user_id_idx').on(table.user_id)],
 );
 
+export type Video = typeof videos.$inferSelect;
+export type InsertVideo = typeof videos.$inferInsert;
+export type Playlist = typeof playlist.$inferSelect;
+export type InsertPlaylist = typeof playlist.$inferInsert;
+export type ApiKey = typeof api_key.$inferSelect;
+export type InsertApiKey = typeof api_key.$inferInsert;
 export type PlayerSettings = typeof player_settings.$inferSelect;
 export type InsertPlayerSettings = typeof player_settings.$inferInsert;
 export type VideoView = typeof video_views.$inferSelect;
