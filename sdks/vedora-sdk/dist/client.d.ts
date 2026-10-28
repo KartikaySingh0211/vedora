@@ -44,7 +44,7 @@ export declare class VedoraClient {
         /**
          * End-to-end direct-to-cloud upload workflow:
          * 1. Request upload authorization from backend (/videos/init)
-         * 2. Upload chunk parts directly to OneMinute Cloud Storage
+         * 2. Upload chunk parts directly to Cloudflare R2 / Storage
          * 3. Confirm completion with backend (/videos/complete)
          */
         upload: (file: File | Blob, metadata: VideoMetadataInput, options?: UploadOptions) => Promise<VideoRecord>;

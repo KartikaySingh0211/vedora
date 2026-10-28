@@ -14,12 +14,12 @@ describe('VideoService', () => {
   const mockStorageService = {
     getDefaultBucketId: jest.fn().mockReturnValue('bucket-uuid-123'),
     initiateMultipartUpload: jest.fn().mockResolvedValue({
-      objectId: 'omc_obj_1',
+      objectId: 'vdr_obj_1',
       key: 'raw/bucket/test.mp4',
-      uploadId: 'omc_upl_1',
+      uploadId: 'vdr_upl_1',
       partSize: 5242880,
       parts: [
-        { partNumber: 1, url: 'https://storage.oneminutecloud.com/part1' },
+        { partNumber: 1, url: 'https://storage.vedora.test/part1' },
       ],
     }),
     completeMultipartUpload: jest.fn().mockResolvedValue({
@@ -148,7 +148,7 @@ describe('VideoService', () => {
 
       expect(result.video.id).toBe('vid-uuid-1');
       expect(result.video.status).toBe('uploading');
-      expect(result.uploadData.uploadId).toBe('omc_upl_1');
+      expect(result.uploadData.uploadId).toBe('vdr_upl_1');
       expect(result.bucketId).toBe('bucket-uuid-123');
     });
   });

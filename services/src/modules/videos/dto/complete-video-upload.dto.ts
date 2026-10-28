@@ -60,7 +60,7 @@ export class CompleteVideoUploadDto {
 
   @ApiPropertyOptional({
     description:
-      'Cloud storage multipart upload ID if using S3/OneMinuteCloud provider',
+      'Cloud storage multipart upload ID if using S3/R2 provider',
     example: 'upload_session_abc123',
   })
   @IsOptional()

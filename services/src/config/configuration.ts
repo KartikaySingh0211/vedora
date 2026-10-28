@@ -12,10 +12,14 @@ export interface AppConfig {
     publishableKey?: string;
   };
   storage: {
-    apiKey: string;
-    bucketId: string;
-    baseUrl: string;
     cdnUrl?: string;
+  };
+  r2: {
+    accountId?: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    bucketName?: string;
+    publicUrl?: string;
   };
   billing: {
     stripeSecretKey?: string;
@@ -43,14 +47,14 @@ export default (): AppConfig => ({
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   },
   storage: {
-    apiKey: process.env.ONEMINUTECLOUD_API_KEY || 'omc_live_placeholder_key',
-    bucketId:
-      process.env.ONEMINUTECLOUD_BUCKET_ID ||
-      '00000000-0000-0000-0000-000000000001',
-    baseUrl:
-      process.env.ONEMINUTECLOUD_BASE_URL ||
-      'https://api.oneminutecloud.com/api/v1',
-    cdnUrl: process.env.STORAGE_CDN_URL,
+    cdnUrl: process.env.STORAGE_CDN_URL || process.env.R2_PUBLIC_URL,
+  },
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucketName: process.env.R2_BUCKET_NAME,
+    publicUrl: process.env.R2_PUBLIC_URL || process.env.STORAGE_CDN_URL,
   },
   billing: {
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,

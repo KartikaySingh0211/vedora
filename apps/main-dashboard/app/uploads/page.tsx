@@ -2,30 +2,26 @@
 
 import {
   ChevronRight,
-  RefreshCcw,
   UploadCloud,
   X,
   Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  Copy,
-  Check,
+  RefreshCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { VedoraClient, UploadProgress, VideoRecord } from "@/lib/sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchWithAuth, PlaylistItem } from "@/lib/api-client";
+import { useUploadQueue } from "@/context/upload-queue-context";
 
 const uploadSchema = z.object({
   title: z.string().min(1, "Video title is required"),
@@ -71,24 +67,8 @@ export default function UploadPage() {
   // Selected resolutions (720p default, 1080p optional for paid tiers)
   const [resolutions, setResolutions] = useState<string[]>(["720p"]);
 
-  // Upload progress, speed & state telemetry
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [transferSpeed, setTransferSpeed] = useState<string | null>(null);
-  const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
-  const [completedVideo, setCompletedVideo] = useState<VideoRecord | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<boolean>(false);
-
-  const handleCopyKey = (key: string) => {
-    navigator.clipboard.writeText(key);
-    setCopiedKey(true);
-    toast.success("Storage key copied to clipboard");
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
-
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { startUpload } = useUploadQueue();
   const { isLoaded, user } = useUser();
   const { getToken } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -160,80 +140,34 @@ export default function UploadPage() {
     }
   };
 
-  const onSubmit = async (data: UploadFormValues) => {
+  const onSubmit = (data: UploadFormValues) => {
     if (!selectedFile) {
       toast.error("Please select a video file to upload");
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setTransferSpeed(null);
-    setEstimatedTime("Initializing upload...");
-    setUploadError(null);
-    setCompletedVideo(null);
+    const tags = data.tags
+      ? data.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
 
-    try {
-      const client = new VedoraClient({
-        baseUrl:
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
-        bearerToken: async () => {
-          return await getToken();
-        },
-      });
+    startUpload({
+      file: selectedFile,
+      title: data.title,
+      slug: data.slug,
+      description: data.description,
+      tags,
+      playlistId: data.playlist || undefined,
+      resolutions: resolutions as ("720p" | "1080p")[],
+      generateSubtitles: data.generateSubtitles === "yes",
+      includeWatermark: data.includeWatermark === "yes",
+      duration: videoDuration,
+    });
 
-      const tags = data.tags
-        ? data.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [];
-
-      const result = await client.videos.upload(
-        selectedFile,
-        {
-          title: data.title,
-          slug: data.slug,
-          description: data.description,
-          tags,
-          playlistId: data.playlist || undefined,
-          resolutions: resolutions as ("720p" | "1080p")[],
-          generateSubtitles: data.generateSubtitles === "yes",
-          includeWatermark: data.includeWatermark === "yes",
-          duration: videoDuration,
-        },
-        {
-          duration: videoDuration,
-          onProgress: (p: UploadProgress) => {
-            setUploadProgress(p.percent);
-            const mbps = (p.speedBps / (1024 * 1024)).toFixed(1);
-            setTransferSpeed(`${mbps} MB/s`);
-
-            if (p.percent >= 100) {
-              setEstimatedTime("Finalizing registration...");
-            } else if (p.etaSeconds < 60) {
-              setEstimatedTime(`~${p.etaSeconds}s remaining`);
-            } else {
-              const mins = Math.floor(p.etaSeconds / 60);
-              const secs = p.etaSeconds % 60;
-              setEstimatedTime(`~${mins}m ${secs}s remaining`);
-            }
-          },
-        },
-      );
-
-      setCompletedVideo(result);
-      setUploadProgress(100);
-      toast.success("Video successfully uploaded and registered!");
-      queryClient.invalidateQueries({ queryKey: ["videos"] });
-      queryClient.invalidateQueries({ queryKey: ["playlists"] });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setUploadError(msg);
-      toast.error(msg);
-    } finally {
-      setIsUploading(false);
-    }
+    toast.success("Upload started! Monitoring progress in the queue.");
+    router.push("/my-videos");
   };
 
   const generateSlug = () => {
@@ -307,84 +241,6 @@ export default function UploadPage() {
               Upload video directly to cloud storage using the Vedora SDK with plan quota checks.
             </p>
           </div>
-
-          {/* Success Card */}
-          {completedVideo && (
-            <div className="mb-8 p-5 rounded-2xl bg-green-500/10 border border-green-500/30 space-y-3">
-              <div className="flex items-center gap-2.5 text-green-500">
-                <CheckCircle2 size={20} />
-                <h4 className="text-sm font-semibold">Video Upload Complete</h4>
-              </div>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-400 font-mono bg-slate-900/70 p-3.5 rounded-xl border border-slate-800/80">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Video ID:</span>
-                    <span className="text-white font-medium select-all">{completedVideo.id}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Status:</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-green-500/10 text-green-400 border border-green-500/20 uppercase tracking-wider">
-                      {completedVideo.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="min-w-0 flex items-center gap-2 bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/70 max-w-full md:max-w-md">
-                  <span className="text-slate-500 shrink-0">Storage Key:</span>
-                  <span
-                    className="text-slate-300 truncate select-all"
-                    title={completedVideo.storageKey || ""}
-                  >
-                    {completedVideo.storageKey}
-                  </span>
-                  {completedVideo.storageKey && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopyKey(completedVideo.storageKey || "")}
-                      className="text-slate-400 hover:text-white p-1 rounded transition shrink-0 hover:bg-slate-800 cursor-pointer"
-                      title="Copy Storage Key"
-                    >
-                      {copiedKey ? (
-                        <Check size={13} className="text-green-400" />
-                      ) : (
-                        <Copy size={13} />
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-3 pt-1">
-                <Link href="/my-videos">
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs cursor-pointer">
-                    View in My Videos
-                  </Button>
-                </Link>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs border-slate-700 hover:bg-slate-800"
-                  onClick={() => {
-                    setCompletedVideo(null);
-                    setSelectedFile(null);
-                    setVideoPreview(null);
-                  }}
-                >
-                  Upload Another Video
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Error Banner */}
-          {uploadError && (
-            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
-              <AlertTriangle size={20} className="text-red-500 mt-0.5 shrink-0" />
-              <div className="space-y-1 text-xs">
-                <h4 className="font-semibold text-red-500 text-sm">Upload Rejected</h4>
-                <p className="text-slate-300">{uploadError}</p>
-              </div>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -638,50 +494,12 @@ export default function UploadPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isUploading || !selectedFile}
+                disabled={!selectedFile}
                 className="bg-blue-600 hover:bg-blue-700 text-white min-w-36 cursor-pointer disabled:opacity-50"
               >
-                {isUploading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin" />
-                    Uploading...
-                  </span>
-                ) : (
-                  "Upload Video"
-                )}
+                Upload Video
               </Button>
             </div>
-
-            {/* Upload Overlay with Progress, Speed & Time */}
-            {isUploading && (
-              <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-[#0E1525] rounded-2xl shadow-2xl p-8 max-w-md w-full space-y-6 border border-slate-200 dark:border-slate-800">
-                  <div className="space-y-2 text-center">
-                    <h3 className="text-lg font-semibold flex items-center justify-center gap-2">
-                      <Loader2 size={20} className="animate-spin text-blue-500" />
-                      Uploading via Vedora SDK...
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Transferring chunks directly to OneMinute Cloud Storage.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="h-3.5 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-slate-800">
-                      <div
-                        className="h-full bg-blue-600 rounded-full transition-all duration-200 ease-out"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-mono">
-                      <span className="font-semibold text-blue-500">{uploadProgress}%</span>
-                      {transferSpeed && <span>{transferSpeed}</span>}
-                      <span>{estimatedTime || "Calculating..."}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </form>
         </div>
       )}

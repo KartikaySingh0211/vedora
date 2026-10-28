@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import QueryProvider from "@/providers/query-provider";
 import ThemeWrapper from "@/providers/theme-provider";
+import { UploadQueueProvider } from "@/context/upload-queue-context";
 import { Toaster } from "sonner";
 import DashboardShell from "@/components/dashboard-shell";
 
@@ -36,15 +37,17 @@ export default function RootLayout({
 				>
 					<ThemeWrapper>
 						<QueryProvider>
-							<DashboardShell>{children}</DashboardShell>
-							<Toaster
-								position="top-right"
-								theme="system"
-								toastOptions={{
-									className: "bg-[#0A0C10] text-white border border-[#23262e]",
-									closeButton: true,
-								}}
-							/>
+							<UploadQueueProvider>
+								<DashboardShell>{children}</DashboardShell>
+								<Toaster
+									position="top-right"
+									theme="system"
+									toastOptions={{
+										className: "bg-[#0A0C10] text-white border border-[#23262e]",
+										closeButton: true,
+									}}
+								/>
+							</UploadQueueProvider>
 						</QueryProvider>
 					</ThemeWrapper>
 				</body>

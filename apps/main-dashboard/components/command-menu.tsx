@@ -92,7 +92,7 @@ export function CommandMenu({
                 onSelect={() => runCommand(() => router.push("/deployment"))}
               >
                 <Server className="mr-2 h-4 w-4" />
-                <span>OneMinute Deploy</span>
+                <span>Cloud Deploy</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/redis"))}
@@ -116,7 +116,7 @@ export function CommandMenu({
                 onSelect={() => runCommand(() => router.push("/cdn"))}
               >
                 <Globe className="mr-2 h-4 w-4" />
-                <span>OneMinuteCDN</span>
+                <span>Edge CDN</span>
               </CommandItem>
             </Command.Group>
 

@@ -2757,7 +2757,7 @@
           },
           "uploadId": {
             "type": "string",
-            "description": "Cloud storage multipart upload ID if using S3/OneMinuteCloud provider",
+            "description": "Cloud storage multipart upload ID if using S3/R2 provider",
             "example": "upload_session_abc123"
           },
           "parts": {

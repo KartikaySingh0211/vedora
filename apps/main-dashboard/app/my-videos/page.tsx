@@ -30,6 +30,7 @@ import {
   ErrorState,
   EmptyState,
 } from "@/components/common";
+import { useUploadQueue } from "@/context/upload-queue-context";
 
 export default function MyVideosPage() {
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
@@ -43,8 +44,9 @@ export default function MyVideosPage() {
   const { isLoaded, user } = useUser();
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
+  const { activeCount, toggleSidebar } = useUploadQueue();
 
-  // 1. Fetch real video records
+  // 1. Fetch real video records with automatic reactive polling for active processing states
   const {
     data: videoList,
     isLoading: isVideosLoading,
@@ -60,6 +62,14 @@ export default function MyVideosPage() {
       return fetchWithAuth<VideoItem[]>(endpoint, token);
     },
     enabled: isLoaded && !!user,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasActive = data?.some((v) =>
+        ["uploading", "uploaded", "processing"].includes(v.status),
+      );
+      // Automatically poll every 2.5 seconds when any video is uploading or transcoding
+      return hasActive ? 2500 : false;
+    },
   });
 
   // 2. Fetch playlists for filtering & name mapping
@@ -173,6 +183,18 @@ export default function MyVideosPage() {
               </button>
             </div>
 
+            {activeCount > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={toggleSidebar}
+                className="text-xs gap-1.5 border-blue-500/40 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 cursor-pointer"
+              >
+                <Loader2 size={13} className="animate-spin text-blue-400" />
+                Upload Queue ({activeCount})
+              </Button>
+            )}
+
             <Link href="/uploads">
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
                 <Upload size={14} />
@@ -198,12 +220,25 @@ export default function MyVideosPage() {
           title="No videos in your library"
           description="Get started by uploading your first video via the Vedora direct-to-cloud upload pipeline."
           action={
-            <Link href="/uploads">
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
-                <Upload size={14} />
-                Upload Video
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              {activeCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={toggleSidebar}
+                  className="text-xs gap-1.5 border-blue-500/40 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 cursor-pointer"
+                >
+                  <Loader2 size={13} className="animate-spin text-blue-400" />
+                  Upload Queue ({activeCount})
+                </Button>
+              )}
+              <Link href="/uploads">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 cursor-pointer">
+                  <Upload size={14} />
+                  Upload Video
+                </Button>
+              </Link>
+            </div>
           }
         />
       )}

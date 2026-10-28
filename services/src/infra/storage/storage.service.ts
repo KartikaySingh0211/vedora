@@ -2,6 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  S3Client,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface StoragePart {
   partNumber: number;
@@ -24,28 +34,58 @@ export interface CompletedPart {
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
-  private readonly apiKey: string;
-  private readonly defaultBucketId: string;
-  private readonly baseUrl: string;
+
+  // Cloudflare R2 S3-Compatible Driver
+  private readonly s3Client?: S3Client;
+  private readonly r2BucketName?: string;
+  private readonly r2PublicUrl?: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey =
-      this.configService.get<string>('storage.apiKey') ||
-      'omc_live_placeholder_key';
-    this.defaultBucketId =
-      this.configService.get<string>('storage.bucketId') ||
-      '00000000-0000-0000-0000-000000000001';
-    this.baseUrl =
-      this.configService.get<string>('storage.baseUrl') ||
-      'https://api.oneminutecloud.com/api/v1';
+    // Cloudflare R2 configuration
+    const accountId = this.configService.get<string>('r2.accountId');
+    const accessKeyId = this.configService.get<string>('r2.accessKeyId');
+    const secretAccessKey = this.configService.get<string>('r2.secretAccessKey');
+    const bucketName = this.configService.get<string>('r2.bucketName');
+    this.r2PublicUrl = this.configService.get<string>('r2.publicUrl');
+
+    if (
+      accountId &&
+      accessKeyId &&
+      secretAccessKey &&
+      bucketName &&
+      !accessKeyId.includes('placeholder')
+    ) {
+      this.r2BucketName = bucketName;
+      this.s3Client = new S3Client({
+        region: 'auto',
+        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      });
+      this.logger.log(
+        `Cloudflare R2 storage driver initialized for bucket: ${bucketName}`,
+      );
+    } else {
+      this.logger.log(
+        'Cloudflare R2 credentials not fully specified. Resilient local storage pipeline active.',
+      );
+    }
+  }
+
+  isR2Enabled(): boolean {
+    return !!(this.s3Client && this.r2BucketName);
   }
 
   getDefaultBucketId(): string {
-    return this.defaultBucketId;
+    return this.r2BucketName || 'vedora-local';
   }
 
   /**
-   * Request multipart upload authorization directly from OneMinute Cloud Storage
+   * Request multipart upload authorization.
+   * Primary: Cloudflare R2 presigned URLs.
+   * Fallback: Resilient local storage mock upload.
    */
   async initiateMultipartUpload(
     bucketId: string,
@@ -53,62 +93,66 @@ export class StorageService {
     size: number,
     duration = 0,
   ): Promise<StorageInitiateResult> {
-    const targetBucket = bucketId || this.defaultBucketId;
+    const targetBucket = bucketId || this.getDefaultBucketId();
 
-    try {
-      // If live OMC key is configured, call OneMinute Cloud API
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        // Safe duration: ensure duration is positive and within realistic video bitrate bounds (avoid division by 0 on OMC)
-        const safeDuration =
-          duration > 0
-            ? duration
-            : Math.max(10, Math.round(size / ((1.5 * 1024 * 1024) / 8)));
+    // 1. Cloudflare R2 S3-Compatible Multipart Ingestion
+    if (this.isR2Enabled()) {
+      try {
+        const bucket = this.r2BucketName!;
+        const key = `raw/${bucket}/${Date.now()}-${filename}`;
+        const createCmd = new CreateMultipartUploadCommand({
+          Bucket: bucket,
+          Key: key,
+          ContentType: 'video/mp4',
+        });
+        const createRes = await this.s3Client!.send(createCmd);
+        const uploadId = createRes.UploadId;
 
-        const response = await fetch(
-          `${this.baseUrl}/storage-buckets/${targetBucket}/objects/initiate`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-            },
-            body: JSON.stringify({
-              filename,
-              contentType: 'video/mp4',
-              size,
-              duration: safeDuration,
-            }),
-          },
-        );
+        if (uploadId) {
+          const partSize = 5 * 1024 * 1024; // 5MB standard chunk
+          const totalParts = Math.max(1, Math.ceil(size / partSize));
+          const parts: StoragePart[] = [];
 
-        if (response.ok) {
-          const data = (await response.json()) as StorageInitiateResult;
-          return data;
+          for (let i = 1; i <= totalParts; i++) {
+            const uploadPartCmd = new UploadPartCommand({
+              Bucket: bucket,
+              Key: key,
+              UploadId: uploadId,
+              PartNumber: i,
+            });
+            const presignedUrl = await getSignedUrl(this.s3Client!, uploadPartCmd, {
+              expiresIn: 3600,
+            });
+            parts.push({
+              partNumber: i,
+              url: presignedUrl,
+            });
+          }
+
+          this.logger.log(
+            `Initiated Cloudflare R2 multipart upload for key ${key} (${parts.length} parts)`,
+          );
+
+          return {
+            objectId: uploadId,
+            key,
+            uploadId,
+            partSize,
+            parts,
+          };
         }
-
-        const data = (await response.json().catch(() => ({}))) as {
-          error?: string;
-          message?: string | string[];
-        };
-        const errMessage = Array.isArray(data.message)
-          ? data.message.join(', ')
-          : data.message || data.error || response.statusText;
-
+      } catch (r2Err: unknown) {
         this.logger.warn(
-          `OneMinute Cloud initiate returned ${response.status} (${errMessage}). Activating resilient local storage pipeline.`,
+          `Cloudflare R2 initiate failed: ${(r2Err as Error).message}. Falling back to resilient local storage.`,
         );
       }
-    } catch (err: unknown) {
-      this.logger.warn(
-        `Cloud storage provider unreachable or in test mode (${(err as Error).message}). Using standard multipart structure.`,
-      );
     }
 
-    // Standard development/offline simulated multipart upload configuration
+    // 2. Resilient development/offline local multipart upload configuration
     const partSize = 5 * 1024 * 1024; // 5MB standard chunk
     const totalParts = Math.max(1, Math.ceil(size / partSize));
-    const objectId = `omc_obj_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const uploadId = `omc_upl_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const objectId = `vdr_obj_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const uploadId = `vdr_upl_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const key = `raw/${targetBucket}/${Date.now()}-${filename}`;
 
     const apiBase =
@@ -142,9 +186,30 @@ export class StorageService {
     key: string,
     parts: CompletedPart[] = [],
   ): Promise<{ success: boolean; key: string }> {
-    const targetBucket = bucketId || this.defaultBucketId;
+    // 1. If Cloudflare R2 is enabled, complete S3 multipart upload
+    if (this.isR2Enabled()) {
+      try {
+        const completeCmd = new CompleteMultipartUploadCommand({
+          Bucket: this.r2BucketName!,
+          Key: key,
+          UploadId: uploadId,
+          MultipartUpload: {
+            Parts: parts.map((p) => ({
+              PartNumber: p.PartNumber,
+              ETag: p.ETag.startsWith('"') ? p.ETag : `"${p.ETag}"`,
+            })),
+          },
+        });
+        await this.s3Client!.send(completeCmd);
+        this.logger.log(`Completed Cloudflare R2 multipart upload for key ${key}`);
+      } catch (r2Err: unknown) {
+        this.logger.warn(
+          `Cloudflare R2 complete multipart failed: ${(r2Err as Error).message}`,
+        );
+      }
+    }
 
-    // Assemble local uploaded chunks if available
+    // 2. Assemble local uploaded chunks if available (local fallback & dev mode)
     try {
       const chunksDir = path.join(process.cwd(), 'storage_local', 'chunks');
       const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
@@ -194,6 +259,7 @@ export class StorageService {
           if (!f.includes('_part_')) return false;
           if (
             effectiveUploadId &&
+            effectiveUploadId !== 'vdr_upl_verified' &&
             effectiveUploadId !== 'omc_upl_verified' &&
             f.startsWith(effectiveUploadId)
           ) {
@@ -243,37 +309,6 @@ export class StorageService {
       );
     }
 
-    try {
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        const response = await fetch(
-          `${this.baseUrl}/storage-buckets/${targetBucket}/objects/${objectId}/complete`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-            },
-            body: JSON.stringify({
-              uploadId,
-              key,
-              parts,
-            }),
-          },
-        );
-
-        const data = (await response.json()) as { error?: string };
-        if (!response.ok) {
-          this.logger.warn(
-            `OneMinute Cloud complete failed: ${data.error || response.statusText}`,
-          );
-        }
-      }
-    } catch (err: unknown) {
-      this.logger.warn(
-        `Could not reach OneMinute Cloud for completion verification: ${(err as Error).message}`,
-      );
-    }
-
     return { success: true, key };
   }
 
@@ -285,6 +320,7 @@ export class StorageService {
     buffer: Buffer,
     contentType = 'application/octet-stream',
   ): Promise<{ success: boolean; key: string }> {
+    // 1. Always write locally for local streaming & caching
     try {
       const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
       if (!fs.existsSync(objectsDir)) {
@@ -298,25 +334,23 @@ export class StorageService {
       );
     }
 
-    try {
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        await fetch(
-          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects/direct`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': contentType,
-              'x-api-key': this.apiKey,
-              'x-object-key': key,
-            },
-            body: new Uint8Array(buffer),
-          },
+    // 2. Upload to Cloudflare R2 if enabled
+    if (this.isR2Enabled()) {
+      try {
+        const putCmd = new PutObjectCommand({
+          Bucket: this.r2BucketName!,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+        });
+        await this.s3Client!.send(putCmd);
+        this.logger.log(`Uploaded direct buffer to Cloudflare R2: ${key}`);
+        return { success: true, key };
+      } catch (r2Err: unknown) {
+        this.logger.warn(
+          `Cloudflare R2 direct buffer upload failed for ${key}: ${(r2Err as Error).message}`,
         );
       }
-    } catch (err: unknown) {
-      this.logger.warn(
-        `Cloud direct upload fallback for ${key}: ${(err as Error).message}`,
-      );
     }
 
     return { success: true, key };
@@ -333,7 +367,7 @@ export class StorageService {
       const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
       const localFilePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
 
-      if (fs.existsSync(localFilePath)) {
+      if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).size > 0) {
         const destDir = path.dirname(targetPath);
         if (!fs.existsSync(destDir)) {
           fs.mkdirSync(destDir, { recursive: true });
@@ -342,25 +376,27 @@ export class StorageService {
         return true;
       }
 
-      // If not on local filesystem, attempt download from cloud storage
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        const response = await fetch(
-          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects?key=${encodeURIComponent(key)}`,
-          {
-            headers: {
-              'x-api-key': this.apiKey,
-            },
-          },
-        );
-
-        if (response.ok) {
-          const arrayBuf = await response.arrayBuffer();
-          const destDir = path.dirname(targetPath);
-          if (!fs.existsSync(destDir)) {
-            fs.mkdirSync(destDir, { recursive: true });
+      // If not locally on disk, download from Cloudflare R2
+      if (this.isR2Enabled()) {
+        try {
+          const getCmd = new GetObjectCommand({
+            Bucket: this.r2BucketName!,
+            Key: key,
+          });
+          const getRes = await this.s3Client!.send(getCmd);
+          if (getRes.Body) {
+            const destDir = path.dirname(targetPath);
+            if (!fs.existsSync(destDir)) {
+              fs.mkdirSync(destDir, { recursive: true });
+            }
+            const bytes = await getRes.Body.transformToByteArray();
+            fs.writeFileSync(targetPath, Buffer.from(bytes));
+            return true;
           }
-          fs.writeFileSync(targetPath, Buffer.from(arrayBuf));
-          return true;
+        } catch (r2Err: unknown) {
+          this.logger.warn(
+            `Cloudflare R2 download failed for ${key}: ${(r2Err as Error).message}`,
+          );
         }
       }
     } catch (err: unknown) {
@@ -379,23 +415,26 @@ export class StorageService {
       const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
       const localFilePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
 
-      if (fs.existsSync(localFilePath)) {
+      if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).size > 0) {
         return fs.readFileSync(localFilePath);
       }
 
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        const response = await fetch(
-          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects?key=${encodeURIComponent(key)}`,
-          {
-            headers: {
-              'x-api-key': this.apiKey,
-            },
-          },
-        );
-
-        if (response.ok) {
-          const arrayBuf = await response.arrayBuffer();
-          return Buffer.from(arrayBuf);
+      // Cloudflare R2 retrieval
+      if (this.isR2Enabled()) {
+        try {
+          const getCmd = new GetObjectCommand({
+            Bucket: this.r2BucketName!,
+            Key: key,
+          });
+          const getRes = await this.s3Client!.send(getCmd);
+          if (getRes.Body) {
+            const bytes = await getRes.Body.transformToByteArray();
+            return Buffer.from(bytes);
+          }
+        } catch (r2Err: unknown) {
+          this.logger.warn(
+            `Cloudflare R2 getObjectBuffer failed for ${key}: ${(r2Err as Error).message}`,
+          );
         }
       }
     } catch (err: unknown) {
@@ -410,10 +449,15 @@ export class StorageService {
    * Resolve public or signed CDN URL for HLS manifest playback
    */
   getPublicUrl(key: string): string {
+    if (this.r2PublicUrl && !this.r2PublicUrl.includes('placeholder')) {
+      return `${this.r2PublicUrl.replace(/\/$/, '')}/${key}`;
+    }
+
     const customCdn = this.configService.get<string>('storage.cdnUrl');
-    if (customCdn && !customCdn.includes('storage.oneminutecloud.com') && !customCdn.includes('placeholder')) {
+    if (customCdn && !customCdn.includes('placeholder')) {
       return `${customCdn.replace(/\/$/, '')}/${key}`;
     }
+
     const port = this.configService.get<number>('port') || 8080;
     if (key.endsWith('.m3u8')) {
       return `http://localhost:${port}/api/v1/storage/hls/${key}`;
@@ -426,23 +470,35 @@ export class StorageService {
    */
   async deleteObject(key: string): Promise<boolean> {
     try {
-      if (this.apiKey && !this.apiKey.includes('placeholder')) {
-        await fetch(
-          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-            },
-            body: JSON.stringify({ key }),
-          },
-        );
+      if (this.isR2Enabled()) {
+        try {
+          const delCmd = new DeleteObjectCommand({
+            Bucket: this.r2BucketName!,
+            Key: key,
+          });
+          await this.s3Client!.send(delCmd);
+        } catch (r2Err: unknown) {
+          this.logger.warn(
+            `Cloudflare R2 delete failed for ${key}: ${(r2Err as Error).message}`,
+          );
+        }
       }
+
+      // Also clean up local file if present
+      try {
+        const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
+        const localFilePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
+        if (fs.existsSync(localFilePath)) {
+          fs.unlinkSync(localFilePath);
+        }
+      } catch {
+        // Ignore local delete errors
+      }
+
       return true;
     } catch (err: unknown) {
       this.logger.warn(
-        `Cloud storage delete failed for ${key}: ${(err as Error).message}`,
+        `Storage delete failed for ${key}: ${(err as Error).message}`,
       );
       return false;
     }

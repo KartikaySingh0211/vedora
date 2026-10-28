@@ -23,6 +23,8 @@
     "db:push": "npx drizzle-kit push"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1158.0",
+    "@aws-sdk/s3-request-presigner": "^3.1158.0",
     "@clerk/backend": "^3.25.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",

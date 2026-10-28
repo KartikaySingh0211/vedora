@@ -82,12 +82,13 @@ flowchart TD
     subgraph External["External Cloud & Persistence"]
         NeonDB[("Neon PostgreSQL<br/>(Drizzle ORM)")]
         LocalDB[("vedora-postgres<br/>(Optional local-db profile)")]
-        OMC[("OneMinute Cloud / S3<br/>(Direct Upload Storage)")]
+        R2[("Cloudflare R2<br/>(S3-Compatible Object Storage)")]
     end
 
     Clients -->|"HTTP / REST API"| APIService
     SDK -->|"1. /videos/init"| VideoService
     SDK -->|"2. Direct Multipart Chunks"| LocalStorage
+    SDK -.->|"2. Direct Cloud Chunks"| R2
     SDK -->|"3. /videos/complete"| VideoService
 
     VideoService --> QuotaLock
@@ -96,11 +97,13 @@ flowchart TD
     VideoService -->|"Enqueue Transcode Job"| RedisQueue
     RedisQueue -->|"Dequeue Job"| TranscodeWorker
     TranscodeWorker -->|"Generate HLS (.m3u8 & .ts)"| LocalStorage
+    TranscodeWorker -.->|"Upload HLS Assets"| R2
 
     TelemetryService -->|"Buffered Pings"| RedisQueue
     RedisQueue -.->|"Batched Write"| NeonDB
 
     EmbedPlayer -->|"HLS Stream / Range Requests"| LocalStorage
+    EmbedPlayer -.->|"Direct CDN Streaming"| R2
     RedisService --- RedisVol
     APIService --- LocalStorage
     NeonDB -.- LocalDB
@@ -305,8 +308,8 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 ## ⚠️ Known Limitations & Active Fallbacks
 
 To maintain complete technical transparency:
-1. **Third-Party Storage Outage & Resilient Local Fallback**:
-   The third-party storage provider (OneMinute Cloud) currently encounters an upstream internal server error on multipart initiation (`POST /objects/initiate -> 500`). Vedora automatically activates its built-in **Resilient Storage Provider Fallback**, buffering and assembling chunks on the local filesystem (`services/storage_local/`) and serving playback through HTTP 206 Partial Content range requests. As documented in [BUG-010](docs/bug-fixes/BUG-010-oneminute-bucket-zero-files-and-fallback-flower-video.md), once third-party storage or Cloudflare R2 credentials are provided, uploads route directly to cloud storage.
+1. **Storage Ingestion & Multi-Provider Architecture**:
+   Vedora supports **Cloudflare R2** directly through native S3-compatible multipart presigned uploads with zero egress fees. When Cloudflare R2 credentials (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`) are supplied, uploads and HLS media route straight to R2. If cloud credentials are absent or in local development mode, Vedora automatically activates its built-in **Resilient Storage Provider Fallback**, assembling chunks in local storage (`services/storage_local/`) and streaming media through HTTP 206 Partial Content range requests.
 2. **Real FFmpeg Transcoding Worker**:
    The background transcode worker executes real FFmpeg and FFprobe binary pipelines (probed stream topology, upscaling prevention, H.264/AAC encoding, and RFC 8216 HLS master and variant playlist generation with playable `.ts` segments). Full technical documentation and verification logs are maintained in [docs/FFmpeg/README.md](docs/FFmpeg/README.md). Dedicated distributed GPU fleets remain on the roadmap for multi-node deployments.
 3. **Deployment Hosting**:
@@ -316,7 +319,7 @@ To maintain complete technical transparency:
 
 ## 🗺️ Roadmap
 
-- [ ] **Cloudflare R2 Native Storage Driver**: Native S3-compatible driver support with 0 egress fees.
+- [x] **Cloudflare R2 Native Storage Driver**: Native S3-compatible driver support with 0 egress fees.
 - [ ] **Distributed FFmpeg Worker Fleet**: Containerized GPU-accelerated video encoding worker pool.
 - [ ] **AI-Powered Subtitles**: Automated multi-language subtitle generation via Whisper AI worker hooks.
 - [ ] **Team & Organization RBAC**: Multi-tenant team workspaces with granular permission tiers.

@@ -135,7 +135,7 @@ export class VideoService {
    * 1. Acquire transaction advisory lock on user storage quota to prevent race conditions
    * 2. Calculate active storage reservation and verify quota
    * 3. Validate playlist relationship if specified
-   * 4. Request multipart upload configuration from OneMinute Cloud Storage
+   * 4. Request multipart upload configuration from Cloudflare R2 / local storage
    * 5. Persist video record with status 'uploading'
    */
   async initVideo(
@@ -201,7 +201,7 @@ export class VideoService {
         }
       }
 
-      // 4. Request multipart upload credentials from OneMinute Cloud Storage
+      // 4. Request multipart upload credentials from Cloudflare R2 / local storage
       const bucketId = this.storageService.getDefaultBucketId();
       const filename = `${dto.slug}.mp4`;
       const duration =
@@ -301,8 +301,8 @@ export class VideoService {
       if (videoRecord.bucket_id && videoRecord.storage_key) {
         await this.storageService.completeMultipartUpload(
           videoRecord.bucket_id,
-          'omc_obj_verified',
-          dto.uploadId || 'omc_upl_verified',
+          dto.uploadId || 'vdr_obj_verified',
+          dto.uploadId || 'vdr_upl_verified',
           dto.storageKey,
           dto.parts || [],
         );
