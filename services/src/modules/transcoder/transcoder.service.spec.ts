@@ -39,6 +39,9 @@ describe('TranscoderService', () => {
       rpush: jest.fn().mockResolvedValue(1),
       lpop: jest.fn().mockResolvedValue(null),
       llen: jest.fn().mockResolvedValue(0),
+      setnxWithExpiry: jest.fn().mockResolvedValue(true),
+      del: jest.fn().mockResolvedValue(true),
+      isHealthy: jest.fn().mockReturnValue(true),
     };
 
     mockStorageService = {

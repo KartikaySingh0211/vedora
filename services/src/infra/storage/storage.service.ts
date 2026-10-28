@@ -319,14 +319,101 @@ export class StorageService {
   }
 
   /**
+   * Retrieve an object from local storage or cloud and save it to a target local path
+   */
+  async downloadObjectToFile(
+    key: string,
+    targetPath: string,
+  ): Promise<boolean> {
+    try {
+      const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
+      const localFilePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
+
+      if (fs.existsSync(localFilePath)) {
+        const destDir = path.dirname(targetPath);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+        fs.copyFileSync(localFilePath, targetPath);
+        return true;
+      }
+
+      // If not on local filesystem, attempt download from cloud storage
+      if (this.apiKey && !this.apiKey.includes('placeholder')) {
+        const response = await fetch(
+          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects?key=${encodeURIComponent(key)}`,
+          {
+            headers: {
+              'x-api-key': this.apiKey,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          const destDir = path.dirname(targetPath);
+          if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+          }
+          fs.writeFileSync(targetPath, Buffer.from(arrayBuf));
+          return true;
+        }
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed downloading storage object ${key} to ${targetPath}: ${(err as Error).message}`,
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Retrieve an object buffer from local storage or cloud
+   */
+  async getObjectBuffer(key: string): Promise<Buffer | null> {
+    try {
+      const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
+      const localFilePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
+
+      if (fs.existsSync(localFilePath)) {
+        return fs.readFileSync(localFilePath);
+      }
+
+      if (this.apiKey && !this.apiKey.includes('placeholder')) {
+        const response = await fetch(
+          `${this.baseUrl}/storage-buckets/${this.defaultBucketId}/objects?key=${encodeURIComponent(key)}`,
+          {
+            headers: {
+              'x-api-key': this.apiKey,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          return Buffer.from(arrayBuf);
+        }
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed reading storage buffer for ${key}: ${(err as Error).message}`,
+      );
+    }
+    return null;
+  }
+
+  /**
    * Resolve public or signed CDN URL for HLS manifest playback
    */
   getPublicUrl(key: string): string {
     const customCdn = this.configService.get<string>('storage.cdnUrl');
-    if (customCdn && !customCdn.includes('storage.oneminutecloud.com')) {
+    if (customCdn && !customCdn.includes('storage.oneminutecloud.com') && !customCdn.includes('placeholder')) {
       return `${customCdn.replace(/\/$/, '')}/${key}`;
     }
     const port = this.configService.get<number>('port') || 8080;
+    if (key.endsWith('.m3u8')) {
+      return `http://localhost:${port}/api/v1/storage/hls/${key}`;
+    }
     return `http://localhost:${port}/api/v1/storage/stream?key=${encodeURIComponent(key)}`;
   }
 

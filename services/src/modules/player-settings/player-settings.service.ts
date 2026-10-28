@@ -155,21 +155,13 @@ export class PlayerSettingsService {
     }
 
     // Resolve stream URL for playback:
-    // If an external CDN is configured (production with cloud transcoding), use the master HLS manifest.
-    // In local development / direct storage mode, prioritize storage_key so direct MP4 playback works cleanly.
+    // When master_m3u8_key is set (transcoding complete), serve the HLS manifest.
+    // If not yet transcoded, fallback to the raw storage_key (e.g. for previews).
     let streamUrl: string | null = null;
-    const customCdn = this.configService.get<string>('storage.cdnUrl');
-    const hasCdn =
-      customCdn &&
-      !customCdn.includes('storage.oneminutecloud.com') &&
-      !customCdn.includes('placeholder');
-
-    if (hasCdn && video.master_m3u8_key) {
+    if (video.master_m3u8_key) {
       streamUrl = this.storageService.getPublicUrl(video.master_m3u8_key);
     } else if (video.storage_key) {
       streamUrl = this.storageService.getPublicUrl(video.storage_key);
-    } else if (video.master_m3u8_key) {
-      streamUrl = this.storageService.getPublicUrl(video.master_m3u8_key);
     }
 
     return {

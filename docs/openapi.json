@@ -481,6 +481,22 @@
         ]
       }
     },
+    "/api/v1/storage/hls/{path}": {
+      "get": {
+        "description": "Delivers HLS playlists and .ts segments with proper video/mp2t and application/vnd.apple.mpegurl MIME types for adaptive bitrate streaming.",
+        "operationId": "StorageController_handleHlsStream_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Deliver HLS master manifests, variant playlists, and video transport stream segments",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.",

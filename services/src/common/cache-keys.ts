@@ -22,4 +22,6 @@ export const CACHE_KEYS = {
    */
   analyticsBuffer: 'vedora:analytics:buffer',
   transcodeQueue: 'vedora:transcode:queue',
+  transcodeLock: (videoId: string): string =>
+    `vedora:transcode:lock:${videoId}`,
 } as const;

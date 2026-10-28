@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-96%20passing%20(13%20suites)-brightgreen)](docs/ENGINEERING_LOG.md)
+[![Tests](https://img.shields.io/badge/Tests-109%20passing%20(15%20suites)-brightgreen)](FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -226,7 +226,7 @@ Once the backend is running, open the interactive Swagger UI:
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (96 tests across 13 suites)
+# 1. Backend unit & integration test suite (109 tests across 15 suites)
 cd services
 npm test
 
@@ -297,8 +297,8 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 To maintain complete technical transparency:
 1. **Third-Party Storage Outage & Resilient Local Fallback**:
    The third-party storage provider (OneMinute Cloud) currently encounters an upstream internal server error on multipart initiation (`POST /objects/initiate -> 500`). Vedora automatically activates its built-in **Resilient Storage Provider Fallback**, buffering and assembling chunks on the local filesystem (`services/storage_local/`) and serving playback through HTTP 206 Partial Content range requests. As documented in [BUG-010](docs/bug-fixes/BUG-010-oneminute-bucket-zero-files-and-fallback-flower-video.md), once third-party storage or Cloudflare R2 credentials are provided, uploads route directly to cloud storage.
-2. **Asynchronous Transcoding Worker**:
-   The current background transcode worker generates valid RFC 8216 HLS master manifests (`master.m3u8`) and multi-rendition variant playlists (360p to 1080p). Job orchestration runs through an asynchronous Redis-backed queue (`ioredis` with bounded concurrency); production deployments connect this queue to a dedicated BullMQ/FFmpeg worker fleet or cloud transcoder (e.g. Cloudflare Stream / AWS MediaConvert).
+2. **Real FFmpeg Transcoding Worker**:
+   The background transcode worker executes real FFmpeg and FFprobe binary pipelines (probed stream topology, upscaling prevention, H.264/AAC encoding, and RFC 8216 HLS master and variant playlist generation with playable `.ts` segments). Full technical documentation and verification logs are maintained in [FFmpeg/README.md](FFmpeg/README.md). Dedicated distributed GPU fleets remain on the roadmap for multi-node deployments.
 3. **Deployment Hosting**:
    The platform is currently optimized for local multi-service development. A hosted public production deployment is part of the roadmap.
 

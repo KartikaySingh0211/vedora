@@ -6,11 +6,12 @@ import { ApiKeyModule } from '../api-key/api-key.module';
 import { TranscoderService } from './transcoder.service';
 import { TranscoderController } from './transcoder.controller';
 import { TranscoderProcessor } from './transcoder.processor';
+import { FfmpegService } from './ffmpeg.service';
 
 @Module({
   imports: [DatabaseModule, RedisModule, StorageModule, ApiKeyModule],
   controllers: [TranscoderController],
-  providers: [TranscoderService, TranscoderProcessor],
-  exports: [TranscoderService],
+  providers: [TranscoderService, TranscoderProcessor, FfmpegService],
+  exports: [TranscoderService, FfmpegService],
 })
 export class TranscoderModule {}

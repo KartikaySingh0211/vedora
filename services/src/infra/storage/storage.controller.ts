@@ -177,8 +177,45 @@ export class StorageController {
     if (!key) {
       return res.status(400).json({ error: 'Key query parameter is required' });
     }
+    return this.serveFileByKey(key, req, res);
+  }
 
+  @Get('hls/*')
+  @ApiOperation({
+    summary:
+      'Deliver HLS master manifests, variant playlists, and video transport stream segments',
+    description:
+      'Delivers HLS playlists and .ts segments with proper video/mp2t and application/vnd.apple.mpegurl MIME types for adaptive bitrate streaming.',
+  })
+  async handleHlsStream(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const rawPath = req.path || req.url;
+    const hlsIndex = rawPath.indexOf('/hls/');
+    const key =
+      hlsIndex !== -1 ? rawPath.substring(hlsIndex + 5).split('?')[0] : '';
+
+    if (!key) {
+      return res.status(400).json({ error: 'HLS path key is required' });
+    }
+
+    return this.serveFileByKey(key, req, res);
+  }
+
+  /**
+   * Internal helper to serve video, HLS manifest, or transport stream segment
+   */
+  private async serveFileByKey(
+    key: string,
+    req: Request,
+    res: Response,
+  ) {
     this.logger.log(`Handling stream request for key: ${key}`);
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
 
     const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
     let filePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
@@ -229,7 +266,7 @@ export class StorageController {
       }
     }
 
-    // If local video file exists on disk, stream it with HTTP 206 Partial Content (range requests)
+    // If local video or HLS segment exists on disk, stream with HTTP 206 Partial Content (range requests)
     if (fs.existsSync(filePath)) {
       const stat = fs.statSync(filePath);
       const fileSize = stat.size;
@@ -237,6 +274,8 @@ export class StorageController {
 
       if (filePath.endsWith('.m3u8')) {
         res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      } else if (filePath.endsWith('.ts')) {
+        res.setHeader('Content-Type', 'video/mp2t');
       } else if (filePath.endsWith('.webm')) {
         res.setHeader('Content-Type', 'video/webm');
       } else {
@@ -264,7 +303,7 @@ export class StorageController {
       }
     }
 
-    // Fallback: If no local file on disk, stream sample video (5-second flower video, not 10-minute stream)
+    // Fallback: If no local file on disk, stream sample video
     return res.redirect(
       307,
       'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
