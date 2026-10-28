@@ -42,7 +42,7 @@ export interface StartUploadParams {
   description?: string;
   tags?: string[];
   playlistId?: string;
-  resolutions?: ("720p" | "1080p")[];
+  resolutions?: ("360p" | "480p" | "720p" | "1080p")[];
   generateSubtitles?: boolean;
   includeWatermark?: boolean;
   duration?: number;

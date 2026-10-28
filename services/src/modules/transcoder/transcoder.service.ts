@@ -21,7 +21,12 @@ import { RedisService } from '../../infra/redis/redis.service';
 import { StorageService } from '../../infra/storage/storage.service';
 import { TranscodeJobData } from './dto/transcode-job.dto';
 import { TranscoderWebhookDto } from './dto/transcoder-webhook.dto';
-import { FfmpegService, STANDARD_RENDITION_LADDER } from './ffmpeg.service';
+import {
+  FfmpegService,
+  STANDARD_RENDITION_LADDER,
+  ADAPTIVE_LADDER_CEILINGS,
+  RESOLUTION_RANKS,
+} from './ffmpeg.service';
 import { CACHE_KEYS } from '../../common/cache-keys';
 
 export interface RenditionConfig {
@@ -302,13 +307,23 @@ export class TranscoderService implements OnModuleInit {
       }
 
       // 5. Fallback for mock unit test suites without FfmpegService:
-      const targetRenditions = (
-        resolutions && resolutions.length > 0 ? resolutions : ['720p']
-      ).filter((r) => Boolean(RENDITION_LADDER[r]));
-
-      if (targetRenditions.length === 0) {
-        targetRenditions.push('720p');
+      let ceiling = '720p';
+      if (resolutions && resolutions.length > 0) {
+        let highestRank = 0;
+        for (const res of resolutions) {
+          const rank = RESOLUTION_RANKS[res] || 0;
+          if (rank > highestRank) {
+            highestRank = rank;
+            ceiling = res;
+          }
+        }
       }
+
+      const candidateLadder =
+        ADAPTIVE_LADDER_CEILINGS[ceiling] || ['360p', '480p', '720p'];
+      const targetRenditions = candidateLadder.filter((r) =>
+        Boolean(RENDITION_LADDER[r]),
+      );
 
       const masterManifestKey = `videos/${videoId}/master.m3u8`;
       const masterPlaylistContent = this.generateMasterPlaylist(
@@ -352,6 +367,7 @@ export class TranscoderService implements OnModuleInit {
           master_m3u8_key: masterManifestKey,
           transcoded_size: totalTranscodedBytes,
           duration: duration,
+          resolutions: targetRenditions,
           updated_at: new Date(),
         })
         .where(eq(schema.videos.id, videoId));

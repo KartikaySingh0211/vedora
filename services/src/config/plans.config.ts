@@ -39,7 +39,12 @@ export const PLAN_LIMITS: Record<UserPlan, PlanLimit> = {
 
 export const DEFAULT_PLAN: UserPlan = 'free';
 
-export const SUPPORTED_RESOLUTIONS = ['720p', '1080p'] as const;
+export const SUPPORTED_RESOLUTIONS = [
+  '360p',
+  '480p',
+  '720p',
+  '1080p',
+] as const;
 export type SupportedResolution = (typeof SUPPORTED_RESOLUTIONS)[number];
 
 /**

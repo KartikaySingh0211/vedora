@@ -2410,14 +2410,15 @@
           },
           "resolutions": {
             "type": "array",
-            "description": "Requested output HLS rendition resolutions. Free plan allows 720p; Pro/Business allows 1080p and 720p",
+            "description": "Requested maximum output HLS rendition resolution ceiling. Free plan allows up to 720p; Pro/Business allows up to 1080p",
             "example": [
-              "720p",
-              "1080p"
+              "720p"
             ],
             "items": {
               "type": "string",
               "enum": [
+                "360p",
+                "480p",
                 "720p",
                 "1080p"
               ]

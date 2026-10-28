@@ -64,8 +64,8 @@ export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
 
-  // Selected resolutions (720p default, 1080p optional for paid tiers)
-  const [resolutions, setResolutions] = useState<string[]>(["720p"]);
+  // Maximum quality ceiling (720p default, 1080p optional for paid tiers)
+  const [maxResolution, setMaxResolution] = useState<"360p" | "480p" | "720p" | "1080p">("720p");
 
   const router = useRouter();
   const { startUpload } = useUploadQueue();
@@ -83,16 +83,8 @@ export default function UploadPage() {
     enabled: isLoaded && !!user,
   });
 
-  const toggleResolution = (res: string) => {
-    if (resolutions.includes(res)) {
-      if (resolutions.length === 1) {
-        toast.error("At least one resolution must be selected");
-        return;
-      }
-      setResolutions(resolutions.filter((r) => r !== res));
-    } else {
-      setResolutions([...resolutions, res]);
-    }
+  const selectResolutionCeiling = (res: "360p" | "480p" | "720p" | "1080p") => {
+    setMaxResolution(res);
   };
 
   const calculateDuration = (file: File): Promise<number> => {
@@ -160,7 +152,7 @@ export default function UploadPage() {
       description: data.description,
       tags,
       playlistId: data.playlist || undefined,
-      resolutions: resolutions as ("720p" | "1080p")[],
+      resolutions: [maxResolution],
       generateSubtitles: data.generateSubtitles === "yes",
       includeWatermark: data.includeWatermark === "yes",
       duration: videoDuration,
@@ -346,36 +338,80 @@ export default function UploadPage() {
                   </div>
                 </div>
 
-                {/* Resolution Selector */}
+                {/* Maximum Resolution Quality Ceiling */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Encoding Resolutions</Label>
+                    <div>
+                      <Label>Maximum Encoding Quality (Ceiling)</Label>
+                      <p className="text-[11px] text-slate-500">
+                        Adaptive streaming automatically generates all supported lower renditions up to this ceiling.
+                      </p>
+                    </div>
                     <span className="text-[11px] text-slate-500">1080p requires Starter+</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <button
                       type="button"
-                      onClick={() => toggleResolution("720p")}
-                      className={`flex items-center justify-between p-3 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                        resolutions.includes("720p")
+                      onClick={() => selectResolutionCeiling("360p")}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        maxResolution === "360p"
                           ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
                           : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
                       }`}
                     >
-                      <span>720p (HD)</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-semibold">360p (SD)</span>
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">360p</span>
                     </button>
+
                     <button
                       type="button"
-                      onClick={() => toggleResolution("1080p")}
-                      className={`flex items-center justify-between p-3 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                        resolutions.includes("1080p")
+                      onClick={() => selectResolutionCeiling("480p")}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        maxResolution === "480p"
+                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-semibold">480p (SD)</span>
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">360p + 480p</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => selectResolutionCeiling("720p")}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        maxResolution === "720p"
+                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-semibold">720p (HD)</span>
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">Default</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">360p + 480p + 720p</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => selectResolutionCeiling("1080p")}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        maxResolution === "1080p"
                           ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/30 text-purple-400"
                           : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
                       }`}
                     >
-                      <span>1080p (Full HD)</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">Paid Plan</span>
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-semibold">1080p (FHD)</span>
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-purple-900/40 text-purple-300">Paid Plan</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">All + 1080p</span>
                     </button>
                   </div>
                 </div>

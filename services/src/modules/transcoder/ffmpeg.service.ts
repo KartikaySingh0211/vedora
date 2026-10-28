@@ -86,6 +86,20 @@ export const STANDARD_RENDITION_LADDER: Record<string, RenditionConfig> = {
   },
 };
 
+export const ADAPTIVE_LADDER_CEILINGS: Record<string, string[]> = {
+  '360p': ['360p'],
+  '480p': ['360p', '480p'],
+  '720p': ['360p', '480p', '720p'],
+  '1080p': ['360p', '480p', '720p', '1080p'],
+};
+
+export const RESOLUTION_RANKS: Record<string, number> = {
+  '360p': 1,
+  '480p': 2,
+  '720p': 3,
+  '1080p': 4,
+};
+
 export interface TranscodeJobOptions {
   inputPath: string;
   outputDir: string;
@@ -297,23 +311,43 @@ export class FfmpegService {
   }
 
   /**
-   * Intelligently select encoding renditions based on source dimensions.
-   * Guarantees that smaller videos are NEVER upscaled.
+   * Intelligently select encoding renditions based on source dimensions and adaptive ladder ceiling.
+   * Treats requested resolution as the upper quality ceiling and generates all supported
+   * lower renditions up to that ceiling:
+   * - 360p -> 360p
+   * - 480p -> 360p + 480p
+   * - 720p -> 360p + 480p + 720p
+   * - 1080p -> 360p + 480p + 720p + 1080p
+   *
+   * Guarantees that smaller videos are NEVER upscaled beyond source dimensions.
    */
   selectRenditions(
     probe: MediaProbeResult,
     requestedResolutions?: string[],
   ): RenditionConfig[] {
-    const requested =
-      requestedResolutions && requestedResolutions.length > 0
-        ? requestedResolutions
-        : ['720p'];
+    // 1. Determine maximum resolution ceiling requested by the user/client.
+    // If multiple resolutions are provided, select the highest quality one as the ceiling.
+    let ceiling = '720p';
+    if (requestedResolutions && requestedResolutions.length > 0) {
+      let highestRank = 0;
+      for (const res of requestedResolutions) {
+        const rank = RESOLUTION_RANKS[res] || 0;
+        if (rank > highestRank) {
+          highestRank = rank;
+          ceiling = res;
+        }
+      }
+    }
+
+    // 2. Expand ceiling to the adaptive ladder candidates
+    const candidateNames =
+      ADAPTIVE_LADDER_CEILINGS[ceiling] || ['360p', '480p', '720p'];
 
     const matched: RenditionConfig[] = [];
 
-    // Filter requested renditions that do NOT upscale source height
-    for (const req of requested) {
-      const standard = STANDARD_RENDITION_LADDER[req];
+    // 3. Filter candidate renditions that do NOT upscale source height
+    for (const name of candidateNames) {
+      const standard = STANDARD_RENDITION_LADDER[name];
       if (standard && standard.height <= probe.height) {
         matched.push({
           ...standard,
@@ -322,7 +356,7 @@ export class FfmpegService {
       }
     }
 
-    // If source is smaller than requested resolutions, find the largest standard resolution <= source height
+    // 4. If source is smaller than lowest candidate (e.g. 240p), transcode matching source resolution
     if (matched.length === 0) {
       const available = Object.values(STANDARD_RENDITION_LADDER)
         .filter((r) => r.height <= probe.height)
@@ -334,12 +368,18 @@ export class FfmpegService {
           fps: Math.min(available[0].fps, probe.fps),
         });
       } else {
-        // If source is even smaller than 360p (e.g. 240p), transcode matching source resolution
+        const evenWidth =
+          probe.width % 2 === 0 ? probe.width : Math.max(2, probe.width - 1);
+        const evenHeight =
+          probe.height % 2 === 0 ? probe.height : Math.max(2, probe.height - 1);
         matched.push({
-          name: `${probe.height}p`,
-          width: probe.width % 2 === 0 ? probe.width : probe.width - 1,
-          height: probe.height % 2 === 0 ? probe.height : probe.height - 1,
-          videoBitrateKbps: Math.min(600, Math.round((probe.bitrate || 600000) / 1000)),
+          name: `${evenHeight}p`,
+          width: evenWidth,
+          height: evenHeight,
+          videoBitrateKbps: Math.min(
+            600,
+            Math.round((probe.bitrate || 600000) / 1000),
+          ),
           audioBitrateKbps: 64,
           fps: probe.fps,
           segmentDurationSec: 4,
@@ -347,7 +387,7 @@ export class FfmpegService {
       }
     }
 
-    // Sort descending by resolution height
+    // Sort descending by resolution height (e.g. 1080p, 720p, 480p, 360p)
     return matched.sort((a, b) => b.height - a.height);
   }
 

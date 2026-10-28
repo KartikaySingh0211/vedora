@@ -65,17 +65,17 @@ export class CreateVideoInitDto {
 
   @ApiPropertyOptional({
     description:
-      'Requested output HLS rendition resolutions. Free plan allows 720p; Pro/Business allows 1080p and 720p',
-    example: ['720p', '1080p'],
+      'Requested maximum output HLS rendition resolution ceiling. Free plan allows up to 720p; Pro/Business allows up to 1080p',
+    example: ['720p'],
     type: [String],
-    enum: ['720p', '1080p'],
+    enum: ['360p', '480p', '720p', '1080p'],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @IsIn(['720p', '1080p'], {
+  @IsIn(['360p', '480p', '720p', '1080p'], {
     each: true,
-    message: 'Resolutions can only contain 720p or 1080p',
+    message: 'Resolutions can only contain 360p, 480p, 720p, or 1080p',
   })
   resolutions?: string[];
 

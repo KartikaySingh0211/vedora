@@ -10,7 +10,7 @@ export interface VideoMetadataInput {
     title: string;
     slug: string;
     size?: number;
-    resolutions?: ('720p' | '1080p')[];
+    resolutions?: ('360p' | '480p' | '720p' | '1080p')[];
     playlistId?: string;
     description?: string;
     tags?: string[];
