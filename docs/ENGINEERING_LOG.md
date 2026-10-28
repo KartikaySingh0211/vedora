@@ -968,8 +968,6 @@ To ensure zero documentation drift across the lifetime of the Vedora project, th
 2. **Root Workspace Guidelines (`GEMINI.md`)**:
    - Created top-level `GEMINI.md` defining always-on directory guidance: Documentation-First Policy, Bug Fix Logging Policy, and Empirical Verification Standards.
 
-3. **Git Configuration (`.gitignore`)**:
-   - Updated `.gitignore` to allow tracking `.agents/rules/` in source control (`.agents/*` with unignore `!.agents/rules/`).
-
-4. **Documentation Sync**:
-   - Updated `README.md` to reference `GEMINI.md` and `.agents/rules/documentation-before-commit.md` in the Engineering Documentation & Ledgers index.
+3. **Git Configuration & Privacy Boundary (`.gitignore`)**:
+   - Configured `.gitignore` to explicitly ignore `.agents/` and `GEMINI.md` so that AI assistant configuration, local agent artifacts, and agent rules remain strictly local to the workspace and are never pushed to the public/remote Git repository.
+   - Removed `.agents/` and `GEMINI.md` from Git index tracking (`git rm --cached`).
