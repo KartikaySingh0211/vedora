@@ -14,18 +14,25 @@ When raw video uploads complete, they cannot be served directly as monolithic MP
    - Immediate transition of video state to `processing` prevents duplicate execution.
    - Processing is completely decoupled from the synchronous HTTP request lifecycle.
 
-2. **Rendition Ladder & Plan Enforcement**:
-   - Implemented standard ladder specifications:
+2. **Automatic Adaptive Rendition Ladder (Option A) & Plan Enforcement**:
+   - **Quality Ceiling Architecture**: When a user or API client specifies a target resolution, it is treated as the **maximum quality ceiling**. The transcode engine automatically expands the ceiling into a full adaptive rendition ladder generating all supported lower renditions:
+     - **360p Ceiling**: Generates `['360p']`
+     - **480p Ceiling**: Generates `['360p', '480p']` (sorted `['480p', '360p']`)
+     - **720p Ceiling (Default)**: Generates `['360p', '480p', '720p']` (sorted `['720p', '480p', '360p']`)
+     - **1080p Ceiling**: Generates `['360p', '480p', '720p', '1080p']` (sorted `['1080p', '720p', '480p', '360p']`)
+   - **Strict No-Upscaling Rule**: Source video stream dimensions are probed using FFprobe before transcoding. Candidate renditions exceeding the source video's probed height (`standard.height > probe.height`) are filtered out. For example, a 720p source with a 1080p ceiling produces only `['720p', '480p', '360p']`.
+   - **Sub-360p Fallback**: If a source video is smaller than 360p (e.g. 240p), a source-matching custom rendition is generated with guaranteed even dimensions.
+   - Standard rendition profiles:
      - **360p**: 640x360, 800 kbps video, 96 kbps audio, 30 fps, 4-sec segments.
      - **480p**: 854x480, 1400 kbps video, 128 kbps audio, 30 fps, 4-sec segments.
      - **720p**: 1280x720, 2800 kbps video, 128 kbps audio, 30 fps, 4-sec segments.
      - **1080p**: 1920x1080, 5000 kbps video, 192 kbps audio, 60 fps, 4-sec segments.
-   - Plan-based resolution capping: Free and Starter tiers are capped at 720p; 1080p is restricted to Pro and Business tiers. Lower-resolution source videos are never upscaled.
+   - **Plan-Based Resolution Capping**: Free and Starter plans are capped at 720p maximum encoding ceiling; 1080p is restricted to Starter/Pro/Business plans.
 
 3. **Manifest Generation & Artifact Storage**:
-   - Master manifest (`videos/<video-id>/master.m3u8`) is generated following the HLS RFC 8216 specification with `#EXT-X-STREAM-INF` declarations linking each authorized rendition variant.
-   - Variant media playlists (`videos/<video-id>/<rendition>/index.m3u8`) and segment manifests are uploaded directly to OneMinute Cloud Storage.
-   - Upload uses direct binary buffer streaming with `Content-Type: application/vnd.apple.mpegurl` and `video/MP2T`.
+   - Master manifest (`videos/<video-id>/master.m3u8`) is generated following the HLS RFC 8216 specification with `#EXT-X-STREAM-INF` declarations linking each successfully generated variant rendition.
+   - Variant media playlists (`videos/<video-id>/<rendition>/index.m3u8`) and `.ts` media segments are uploaded directly to **Cloudflare R2** object storage (or `storage_local` fallback in offline environments).
+   - Upload uses direct binary buffer streaming with `Content-Type: application/vnd.apple.mpegurl` and `video/mp2t`.
 
 4. **HMAC Webhook Verification & Atomic Ready Transition**:
    - Webhook endpoint (`POST /api/v1/transcoder/webhook`) is protected by cryptographic HMAC-SHA256 signature verification (`x-vedora-signature`), preventing unauthorized or forged completion calls.

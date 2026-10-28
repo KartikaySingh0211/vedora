@@ -18,6 +18,7 @@ This directory serves as the centralized, immutable engineering ledger for all b
 | [BUG-008](./BUG-008-embed-player-infinite-buffering-dns-resolution.md) | 2026-10-25 | Fullstack / Storage & Player | High | Embed video player infinite buffering & invalid storage domain DNS failure | Resolved |
 | [BUG-009](./BUG-009-mock-upload-disk-persistence-and-hls-redirect-mismatch.md) | 2026-10-25 | Fullstack / Storage | High | Discarded mock upload payloads & unexpected 10-minute video playback | Resolved |
 | [BUG-010](./BUG-010-oneminute-bucket-zero-files-and-fallback-flower-video.md) | 2026-10-25 | Storage / Embed Player / SDK | High | OneMinute Cloud bucket zero files & fallback flower video playback | Resolved |
+| [BUG-011](./BUG-011-cloudflare-r2-cors-and-non-blocking-upload-queue.md) | 2026-10-28 | Storage / Cloudflare R2 / Frontend | High | Cloudflare R2 presigned multipart PUT CORS preflight rejection & blocking modal upload UX | Resolved |
 
 ---
 

@@ -34,10 +34,12 @@ graph TD
     end
     
     subgraph Storage Ingestion Pipeline
-        DashboardApp -->|POST /api/oneminutecloud/provider| TokenProxy[Token Proxy Route]
-        TokenProxy -->|Clerk Session Verified| OMCBackend[OneMinute Cloud Backend]
-        OMCBackend -->|Presigned Multipart URLs| DashboardApp
-        DashboardApp -->|Direct Chunk Streaming| StorageBucket[OneMinute Cloud S3/CDN]
+        DashboardApp -->|1. POST /api/v1/videos/init| BackendAPI
+        BackendAPI -->|Generate Presigned Multipart URLs| StorageService[StorageService (S3 Client)]
+        StorageService -->|S3 Multipart Upload Parts| CloudflareR2[Cloudflare R2 Bucket]
+        BackendAPI -->|Return Presigned URLs| DashboardApp
+        DashboardApp -->|2. Direct Multipart Chunk Streaming| CloudflareR2
+        DashboardApp -->|3. POST /api/v1/videos/complete| BackendAPI
     end
 ```
 
@@ -238,39 +240,40 @@ sequenceDiagram
 
 ---
 
-## 6. Video Ingestion & Token Proxy Architecture
+## 6. Video Ingestion, Cloudflare R2 & Adaptive Transcoding Architecture
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Browser as User Browser (apps/main-dashboard)
-    participant Proxy as Token Proxy Route (/api/oneminutecloud/provider)
-    participant Clerk as Clerk Auth
-    participant OMC as OneMinute Cloud Storage Backend
-    participant S3 as Storage S3 / Cloudflare CDN
+    participant Queue as Background Upload Queue (Sidebar)
+    participant API as Vedora Backend API (/api/v1)
+    participant R2 as Cloudflare R2 (S3-Compatible Endpoint)
+    participant Worker as Transcoder Worker (FFmpeg)
 
-    Browser->>Browser: User selects video file (e.g. 500 MB)
-    Browser->>Proxy: POST /api/oneminutecloud/provider (type: 'upload')
-    Proxy->>Clerk: auth()
-    alt User Not Signed In
-        Proxy-->>Browser: 401 Unauthorized
-    else User Signed In
-        Proxy->>OMC: Initiate Multipart Upload (Server API Key)
-        OMC-->>Proxy: { uploadData, objectId, uploadId, key }
-        Proxy-->>Browser: Return Upload Session Data
+    Browser->>Browser: User selects video file & quality ceiling (e.g. 720p)
+    Browser->>Queue: Enqueue upload & redirect user to /my-videos
+    Queue->>API: POST /api/v1/videos/init (size, quality ceiling, metadata)
+    API->>API: Advisory Lock, Plan Quota Check & R2 Multipart Initiation
+    API-->>Queue: Return { videoId, uploadId, key, parts: [presignedUrls] }
+
+    loop For Each 5MB-10MB Chunk
+        Queue->>R2: HTTP PUT chunk directly to Presigned URL
+        R2-->>Queue: 200 OK (ETag header)
+        Queue->>Queue: Update transfer speed (MB/s), ETA (s), & progress %
     end
 
-    loop For Each 10MB Chunk
-        Browser->>S3: PUT Chunk to Presigned URL
-        S3-->>Browser: 200 OK (ETag)
-        Browser->>Browser: Update Progress, Speed (MB/s), and ETA (s)
-    end
+    Queue->>API: POST /api/v1/videos/complete (videoId, parts with ETags)
+    API->>R2: CompleteMultipartUploadCommand
+    API->>API: Transition status to 'uploaded' & enqueue transcode job
+    API-->>Queue: Upload Complete Notification
 
-    Browser->>Proxy: POST /api/oneminutecloud/provider (type: 'complete', parts: [...])
-    Proxy->>OMC: Complete Multipart Upload
-    OMC-->>Proxy: { status: 'complete', key: cloudObjectKey }
-    Proxy-->>Browser: { key: cloudObjectKey }
-    Browser->>Browser: Display Success & Store cloudObjectKey for Transcoding
+    Worker->>Worker: Dequeue transcode job & probe media metadata
+    Worker->>Worker: Expand quality ceiling to Adaptive Ladder (No-Upscaling)
+    Worker->>Worker: Transcode H.264/AAC variants & generate master.m3u8
+    Worker->>R2: Upload master.m3u8, index.m3u8 files, & .ts segments
+    Worker->>API: Transition status to 'ready' with resolutions array
+```
 ```
 
 ### Telemetry Calculation Engine

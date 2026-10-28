@@ -9,9 +9,9 @@ Video platforms ingest large assets (ranging from 100 MB to 100 GB). Routing mas
 ## Decision
 1. **Direct-to-Cloud Ingestion with Server-Authorized Presigned Chunks**:
    - The client initiates an upload via `POST /api/v1/videos/init`.
-   - The backend validates authentication, plan tier, resolution eligibility, and storage capacity before requesting multipart upload configurations from OneMinute Cloud Storage (`https://api.oneminutecloud.com/api/v1`).
-   - The backend returns presigned multipart upload URLs to the client. The client then transfers video chunks directly to the cloud storage provider via PUT requests with ETag header extraction.
-   - Long-lived storage provider credentials (`ONEMINUTECLOUD_API_KEY`) remain strictly on the server and are never exposed to clients.
+   - The backend validates authentication, plan tier, resolution eligibility, and storage capacity before requesting multipart upload configurations from **Cloudflare R2** (or local fallback storage).
+   - The backend returns presigned multipart upload URLs to the client. The client then transfers video chunks directly to the Cloudflare R2 bucket via HTTP PUT requests with ETag header extraction.
+   - Long-lived storage provider credentials (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) remain strictly on the server and are never exposed to clients.
 
 2. **Storage Accounting & Transcoding Reservations**:
    - Incoming reservation calculation accounts for both raw and anticipated transcoded output:

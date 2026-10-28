@@ -15,10 +15,11 @@ Developers and internal dashboard applications require a robust, client-agnostic
      - `uploader.ts`: Core multipart upload pipeline transferring chunks directly to cloud endpoints.
      - `types.ts`: Strongly typed request/response models, `UploadProgress`, and `VedoraError` hierarchy.
 
-2. **3-Step Upload Pipeline**:
-   - **Step 1: Init (`POST /api/v1/videos/init`)**: Registers metadata, reserves storage quota, and obtains presigned multipart URLs.
-   - **Step 2: Direct Upload**: Iterates through parts, slicing chunks via `file.slice(start, end)`, performing direct HTTP `PUT` requests to cloud storage presigned endpoints, and extracting ETags.
-   - **Step 3: Complete (`POST /api/v1/videos/complete`)**: Confirms upload with the backend, transitioning video status to `uploaded` and updating playlist counts.
+2. **3-Step Upload Pipeline & Non-Blocking Background Queue**:
+   - **Step 1: Init (`POST /api/v1/videos/init`)**: Registers metadata, validates plan quota, receives quality ceiling (`360p`, `480p`, `720p`, `1080p`), and obtains presigned multipart URLs.
+   - **Step 2: Direct Upload**: Slices chunks via `file.slice(start, end)`, executing direct HTTP `PUT` requests to cloud storage presigned endpoints with ETag extraction.
+   - **Step 3: Complete (`POST /api/v1/videos/complete`)**: Confirms upload with the backend, transitioning video status to `uploaded`, triggering asynchronous transcode queueing, and updating playlist counts.
+   - **Non-Blocking Background Dashboard Queue**: Uploads execute inside a global React context (`UploadQueueContext`) rendering in a dedicated right sidebar. Users are instantly redirected to `/my-videos` upon initiating an upload, allowing them to browse, inspect, and manage other assets while observing real-time speed (MB/s), percentage, and remaining ETA.
 
 3. **Telemetry & Resilience**:
    - Non-linear progress and telemetry calculations:

@@ -20,7 +20,7 @@ This document details the complete architectural audit (Phase A), identifies the
    - Rejects requests that exceed plan storage caps (Free: 500MB/file, 10GB total).
 3. **Upload Authorization**:
    - Calls `StorageService.initiateMultipartUpload(bucketId, filename, size, duration)`.
-   - In production with active OneMinute Cloud credentials, requests cloud multipart upload parts.
+   - In production with active Cloudflare R2 credentials, generates direct S3-compatible multipart upload presigned URLs.
    - In development or fallback mode, creates presigned URLs pointing to `/api/v1/storage/mock-upload`.
 4. **Database Record**:
    - Inserts row into `videos` table with status `'uploading'`.

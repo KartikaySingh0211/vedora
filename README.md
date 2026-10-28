@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-128%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-138%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -35,14 +35,14 @@ Vedora addresses these challenges with an integrated, developer-first platform: 
 
 ## ⚡ Core Capabilities
 
-1. **Direct-to-Cloud Ingestion & TypeScript SDK (`@vedora/sdk`)**:
-   Video files are sliced and uploaded directly to cloud storage using presigned multipart chunk URLs with bounded exponential backoff retries and `AbortSignal` cancellation, preventing multi-gigabyte payloads from proxying through application servers.
+1. **Direct-to-Cloud Ingestion, Cloudflare R2 & Background Queue**:
+   Video files are sliced and uploaded directly to Cloudflare R2 using presigned multipart chunk URLs with bounded exponential backoff retries and `AbortSignal` cancellation. Dashboard uploads run inside a non-blocking right sidebar queue with real-time transfer telemetry (MB/s speed, ETA), allowing users to browse without interruption.
 2. **Dual-Layer Authentication & Multi-Tier Caching**:
    `DualAuthGuard` validates either Clerk session JWTs (for dashboard users) or high-entropy API keys (`VDR_<32hex>_<secret>`). Keys are hashed with Argon2id; verification follows a 3-tier sequence (L1 local in-memory LRU, L2 Redis with HMAC-SHA256 digest keys, L3 Neon PostgreSQL).
 3. **Atomic Quota Enforcement via PostgreSQL Advisory Locks**:
    PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) serialize concurrent upload requests per user, guaranteeing that active storage plus incoming reservations never exceed tier caps.
-4. **Adaptive HLS Playback & Customizable Embed Player**:
-   Generates RFC 8216 HLS master manifests and variant playlists (360p to 1080p). Built-in `<VedoraPlayer />` and `<EmbedVideoModal />` provide adaptive streaming via `hls.js`, HTML5 fallback, responsive iframe code generation, custom themes, and watermark branding.
+4. **Option A: Automatic Adaptive Rendition Ladder with Quality Ceilings**:
+   Users select a maximum quality ceiling (360p, 480p, 720p, 1080p). Vedora automatically encodes all supported lower renditions down to 360p (e.g. 720p $\to$ 360p + 480p + 720p) with strict no-upscaling guarantees, generating RFC 8216 `master.m3u8` manifests and `.ts` media segments. Built-in `<VedoraPlayer />` and `<EmbedVideoModal />` provide adaptive bitrate streaming via `hls.js`.
 5. **Privacy-Preserving Telemetry & Usage-Based Billing**:
    Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Stripe webhook listeners sync subscription tiers and manage monthly playback-minute resets.
 
@@ -128,7 +128,7 @@ User video library displaying lifecycle status badges (`uploading`, `uploaded`, 
 | :--- | :--- | :--- |
 | **API Keys Management** | `/` (Dashboard Root) | Argon2id key generation, one-time reveal modal, 5-minute cooldown regeneration, revocation |
 | **Playlists Management** | `/playlists` | Playlist creation, user-scoped limit checks (10 max), atomic video count increments |
-| **Direct Upload Studio** | `/uploads` | Drag-and-drop ingestion, metadata parsing, resolution toggles, real-time speed & ETA telemetry |
+| **Direct Upload Studio** | `/uploads` | Drag-and-drop ingestion, quality ceiling selector (360p-1080p), persistent right sidebar queue with real-time speed & ETA |
 | **Video Library** | `/my-videos` | Real-time TanStack Query cache, grid/table view, lifecycle badges, embed code modal launcher |
 | **Embeddable Player** | `/embed/[videoid]` | Standalone viewport playback, HLS.js adaptive streaming, speed selector, PiP, keyboard shortcuts |
 | **Custom Player Settings**| `/player` | Primary color picker, control bar styling, watermark position/opacity slider, UI control toggles |
@@ -288,7 +288,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
-- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-010).
+- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-011).
 
 ---
 

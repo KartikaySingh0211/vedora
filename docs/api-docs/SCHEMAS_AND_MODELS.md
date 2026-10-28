@@ -135,7 +135,7 @@ Request body for `POST /api/v1/videos/init`.
 | `slug` | `string` | Yes | Regex: `^[a-z0-9]+(?:-[a-z0-9]+)*$` | URL-safe slug |
 | `size` | `number` | Yes | Positive integer (> 0 bytes) | Raw input file size |
 | `duration` | `number` | Yes | Positive number (> 0 seconds) | Video duration in seconds |
-| `resolutions` | `string[]` | No | Enum: `['360p', '480p', '720p', '1080p']` | Target transcoded renditions |
+| `resolutions` | `string[]` | No | Enum: `['360p', '480p', '720p', '1080p']` | Maximum quality ceiling for adaptive HLS ladder (e.g. `'720p'` generates 360p + 480p + 720p) |
 | `playlistId` | `string` | No | Valid UUID | Optional playlist attachment |
 | `description` | `string` | No | Max: 2000 chars | Video description |
 | `tags` | `string[]` | No | Array of strings | Categorization tags |

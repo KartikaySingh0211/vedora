@@ -4,15 +4,16 @@
 **Accepted** (Implemented in Phase 4)
 
 ## Context
-Video files can be multiple gigabytes in size. Routing multi-gigabyte video streams directly through the Node.js API server would consume memory and saturate network bandwidth. However, uploading directly from the client to cloud storage requires master API keys (`ONEMINUTECLOUD_API_KEY`), which must never be exposed in client-side bundles.
+Video files can be multiple gigabytes in size. Routing multi-gigabyte video streams directly through the Node.js API server would consume memory and saturate network bandwidth. However, uploading directly from the client to cloud storage requires master storage credentials (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`), which must never be exposed in client-side bundles.
 
 ## Decision
-1. **Server-Side Token Proxy Route**:
-   - Implemented route handlers at `apps/main-dashboard/app/api/oneminutecloud/[provider]/route.ts` and `provider/route.ts`.
-   - The route handler validates the user's Clerk session (`await auth()`). If unauthenticated, it returns HTTP 401.
-   - Using the master API key securely kept on the server, the proxy requests short-lived presigned multipart upload URLs from OneMinute Cloud and returns them to the browser.
-2. **Direct Browser-to-Storage Streaming**:
-   - The browser streams video chunks directly to the storage provider's S3/CDN bucket using presigned URLs.
+1. **Server-Side Authorization & Presigned Multipart URLs**:
+   - The client initiates an upload via `POST /api/v1/videos/init` with an authenticated Clerk Bearer token or API key.
+   - Using master Cloudflare R2 S3-compatible credentials stored strictly server-side, the backend initiates a multipart upload (`CreateMultipartUploadCommand`) and generates short-lived presigned chunk upload URLs (`UploadPartCommand`) using `@aws-sdk/s3-request-presigner`.
+   - The presigned URLs are returned to the client SDK with chunk bounds.
+2. **Direct Browser-to-R2 Streaming**:
+   - The browser streams video chunks directly to Cloudflare R2's S3-compatible endpoint (`https://<account-id>.r2.cloudflarestorage.com`) via HTTP PUT requests, extracting ETags from each part response.
+   - Zero egress fees and zero intermediary server proxying.
 3. **Upload Telemetry Engine**:
    - Computes transfer speed (MB/s) and estimated remaining time (ETA) defensively:
      $$\text{Elapsed} = \max\left(0.1, \frac{\text{Date.now}() - \text{StartTime}}{1000}\right)$$

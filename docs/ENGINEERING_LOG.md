@@ -853,3 +853,93 @@ services:            0 errors, 0 warnings
 === Production Builds ===
 services:            Compiled successfully via nest build (dist/main.js)
 ```
+
+---
+
+## [2026-10-28 / 2026-10-29] — Run #11: Cloudflare R2 Migration, Non-Blocking Background Upload Queue, and Automatic Adaptive Rendition Ladder (Option A)
+
+### 1. Problem Statement & Audit
+Following initial video ingestion and transcode development:
+1. **Third-Party Storage Instability**: Reliance on OneMinute Cloud caused intermittent upstream 500/502 errors during multipart initiate and lacked zero-egress predictability.
+2. **Blocking Upload UX**: When users uploaded video files in the dashboard, a modal overlay remained permanently pinned to the screen, preventing navigation to `/my-videos` or multitasking. Furthermore, video statuses on `/my-videos` did not update without manual browser page reloads.
+3. **Single-Rendition Selection vs. Adaptive Ladders**: Choosing 720p or 1080p in the upload form encoded only that exact single rendition rather than a full multi-bitrate adaptive ladder, undermining HLS adaptive bitrate switching (ABR) on mobile and constrained connections.
+
+### 2. Architecture & Design Decisions
+
+1. **Cloudflare R2 Native S3 Driver (`StorageService`)**:
+   - Replaced OneMinute Cloud with native Cloudflare R2 using `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`.
+   - Credentials configured via `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_PUBLIC_URL`.
+   - In `initiateMultipartUpload`, generates S3-compliant presigned `UploadPartCommand` URLs directly to `https://<account-id>.r2.cloudflarestorage.com`.
+   - In `uploadDirectBuffer`, persists buffers to both local storage (`storage_local/objects/`) and Cloudflare R2 (`PutObjectCommand`), maintaining zero-downtime offline fallback capability.
+   - Preserved folder separation: `raw/<bucket>/<timestamp>-<filename>` for original uploads, and `videos/<videoId>/` for HLS assets.
+
+2. **Persistent Non-Blocking Background Upload Queue (`UploadQueueContext`)**:
+   - Built a global React upload queue context (`apps/main-dashboard/context/upload-queue-context.tsx`) rendering inside a dedicated right sidebar.
+   - When a user submits an upload, they are immediately redirected to `/my-videos`. The upload proceeds in the background with real-time transfer telemetry (MB/s speed, progress bar, estimated time remaining).
+   - Configured reactive polling in `/my-videos` (`refetchInterval: 3000` while videos are in `uploading` or `processing` states), dynamically transitioning video cards to `ready` without requiring manual page reloads.
+
+3. **Option A: Automatic Adaptive Rendition Ladder with Quality Ceilings**:
+   - Configured standard ladder specifications in [`FfmpegService`](services/src/modules/transcoder/ffmpeg.service.ts):
+     - `360p`: 640x360, 800 kbps video, 96 kbps audio, 30 fps
+     - `480p`: 854x480, 1400 kbps video, 128 kbps audio, 30 fps
+     - `720p`: 1280x720, 2800 kbps video, 128 kbps audio, 30 fps
+     - `1080p`: 1920x1080, 5000 kbps video, 192 kbps audio, 60 fps
+   - **Quality Ceiling Expansion**:
+     - `360p` $\to$ `['360p']`
+     - `480p` $\to$ `['360p', '480p']`
+     - `720p` $\to$ `['360p', '480p', '720p']`
+     - `1080p` $\to$ `['360p', '480p', '720p', '1080p']`
+   - **Strict No-Upscaling Rule**: Source video dimensions are probed before encoding; renditions with height greater than source height are pruned (`cand.height <= probe.height`).
+   - **Sub-360p Fallback**: If source height is below 360p (e.g. 240p), encodes a custom source-dimension rendition with even dimensions.
+   - Master playlist (`master.m3u8`) links every successfully generated rendition variant in descending order.
+   - Upload form UI updated to clearly present maximum quality ceilings with descriptions of the generated adaptive stream.
+
+### 3. Verification & Monorepo Test Summary
+
+```text
+=== Services Test Suite ===
+PASS src/utils/api-key.util.spec.ts (5 tests)
+PASS src/modules/playlist/playlist.service.spec.ts (10 tests)
+PASS src/modules/analytics/analytics.service.spec.ts (6 tests)
+PASS src/guards/dual-auth.guard.spec.ts (5 tests)
+PASS src/modules/health/health.controller.spec.ts (3 tests)
+PASS src/utils/user-agent.util.spec.ts (11 tests)
+PASS src/guards/upload-video.guard.spec.ts (7 tests)
+PASS src/modules/billing/billing.service.spec.ts (8 tests)
+PASS src/app.controller.spec.ts (2 tests)
+PASS src/modules/player-settings/player-settings.service.spec.ts (6 tests)
+PASS src/modules/videos/video.service.spec.ts (14 tests)
+PASS src/modules/transcoder/transcoder.service.spec.ts (9 tests)
+PASS src/infra/storage/storage.controller.spec.ts (5 tests)
+PASS src/modules/api-key/api-key.service.spec.ts (7 tests)
+PASS src/swagger.spec.ts (5 tests)
+PASS src/modules/transcoder/transcoder-e2e.spec.ts (11 tests)
+PASS src/modules/transcoder/ffmpeg.service.spec.ts (24 tests)
+
+Test Suites: 17 passed, 17 total
+Tests:       138 passed, 138 total
+Snapshots:   0 total
+Time:        13.007 s
+
+=== SDK Test Suite ===
+▶ Vedora SDK
+  ✔ should initialize VedoraClient with default config
+  ✔ should accept custom baseUrl and apiKey
+  ✔ should reject empty or zero-byte file in client.videos.upload
+✔ Vedora SDK (3 tests passed)
+
+=== Production Builds ===
+services:            Compiled successfully via nest build (dist/main.js)
+sdks/vedora-sdk:     Compiled successfully via tsc (dist/index.d.ts, dist/index.js)
+apps/main-dashboard: Compiled successfully via next build Turbopack (16 static & dynamic routes)
+
+=== Live Cloudflare R2 Ingestion Verification ===
+Bucket: vedora-media
+Ceiling: 720p on 720p synthetic fixture
+Generated:
+  - videos/<id>/master.m3u8 (316 bytes)
+  - videos/<id>/720p/index.m3u8 & segment_000.ts (33.4 KB)
+  - videos/<id>/480p/index.m3u8 & segment_000.ts (26.1 KB)
+  - videos/<id>/360p/index.m3u8 & segment_000.ts (26.5 KB)
+All objects retrieved and verified via GetObject/HeadObject; cleaned up afterward.
+```
