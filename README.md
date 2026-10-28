@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-124%20passing%20(16%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-128%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -59,41 +59,51 @@ flowchart TD
         SDK["@vedora/sdk<br/>(TypeScript)"]
     end
 
-    subgraph Gateway["NestJS API Gateway (Port 8080 /api/v1)"]
-        DualAuth["DualAuthGuard<br/>(Clerk JWT / API Key)"]
-        QuotaLock["pg_advisory_xact_lock<br/>(Atomic Quotas)"]
-        VideoService["Video & Playlist Engine"]
-        TranscodeService["Transcoding Engine"]
-        TelemetryService["Analytics Ping Collector"]
+    subgraph Docker["Containerized Services (Docker Compose)"]
+        subgraph APIService["vedora-api Container (Port 8080)"]
+            DualAuth["DualAuthGuard<br/>(Clerk JWT / API Key)"]
+            QuotaLock["pg_advisory_xact_lock<br/>(Atomic Quotas)"]
+            VideoService["Video & Playlist Engine"]
+            TranscodeWorker["Transcoder Worker<br/>(FFmpeg 8 / FFprobe)"]
+            TelemetryService["Analytics Ping Collector"]
+            HealthCheck["Health Check<br/>(/api/v1/health)"]
+        end
+
+        subgraph RedisService["vedora-redis Container (Port 6379)"]
+            RedisQueue["Redis 7 Queue<br/>• Transcode Jobs<br/>• Telemetry Buffer<br/>• API Key Cache"]
+        end
+
+        subgraph VolumeStorage["Persistent Docker Volumes"]
+            LocalStorage["vedora_storage Volume<br/>• /app/storage_local/objects<br/>• Raw MP4 & HLS (.m3u8/.ts)"]
+            RedisVol["redis_data Volume<br/>• /data (AOF Persistence)"]
+        end
     end
 
-    subgraph Caches["Multi-Tier Cache & Queues"]
-        L1["L1: Local In-Memory LRU"]
-        L2["L2: Redis 7 (Docker)<br/>• Transcode Queue<br/>• Telemetry Buffer"]
-    end
-
-    subgraph Persistence["Storage & Database"]
+    subgraph External["External Cloud & Persistence"]
         NeonDB[("Neon PostgreSQL<br/>(Drizzle ORM)")]
-        Storage[("Cloud Storage / Resilient Local<br/>• Presigned Chunks<br/>• HLS Manifests")]
+        LocalDB[("vedora-postgres<br/>(Optional local-db profile)")]
+        OMC[("OneMinute Cloud / S3<br/>(Direct Upload Storage)")]
     end
 
-    Clients -->|"HTTP / REST API"| Gateway
+    Clients -->|"HTTP / REST API"| APIService
     SDK -->|"1. /videos/init"| VideoService
-    SDK -->|"2. Direct Multipart Chunks"| Storage
+    SDK -->|"2. Direct Multipart Chunks"| LocalStorage
     SDK -->|"3. /videos/complete"| VideoService
-
-    DualAuth --> L1
-    L1 -->|"Cache Miss"| L2
-    L2 -->|"Cache Miss"| NeonDB
 
     VideoService --> QuotaLock
     QuotaLock --> NeonDB
 
-    TranscodeService -->|"Enqueue Job"| L2
-    TelemetryService -->|"Buffered Pings"| L2
-    L2 -.->|"Batched Write"| NeonDB
+    VideoService -->|"Enqueue Transcode Job"| RedisQueue
+    RedisQueue -->|"Dequeue Job"| TranscodeWorker
+    TranscodeWorker -->|"Generate HLS (.m3u8 & .ts)"| LocalStorage
 
-    EmbedPlayer -->|"HLS Stream / Range Requests"| Storage
+    TelemetryService -->|"Buffered Pings"| RedisQueue
+    RedisQueue -.->|"Batched Write"| NeonDB
+
+    EmbedPlayer -->|"HLS Stream / Range Requests"| LocalStorage
+    RedisService --- RedisVol
+    APIService --- LocalStorage
+    NeonDB -.- LocalDB
 ```
 
 ---
@@ -126,14 +136,48 @@ User video library displaying lifecycle status badges (`uploading`, `uploaded`, 
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
+### Option A: Docker Compose (Recommended & Fully Reproducible)
+
+The fastest and most reproducible way to run Vedora is using Docker Compose. The containerized stack bundles the NestJS API gateway, background transcoder worker, system FFmpeg/FFprobe binaries, and Redis 7 into a hardened multi-stage Alpine runner.
+
+```bash
+# 1. Clone repository and navigate to root
+git clone https://github.com/KartikaySingh0211/vedora.git
+cd vedora
+
+# 2. Configure environment variables
+cp .env.example .env
+# Set DATABASE_URL to your Neon PostgreSQL connection string (or use the offline local-db profile below)
+
+# 3. Build and launch the containerized stack (API + FFmpeg Transcoder + Redis 7)
+docker compose up -d
+
+# 4. Apply database schema migrations inside the running API container
+docker compose exec api npm run db:migrate
+
+# 5. Verify stack health and API accessibility
+curl http://localhost:8080/api/v1/health
+# Output: {"status":"ok","dependencies":{"database":"up","redis":"up"}}
+```
+
+> [!NOTE]
+> **Database Architecture**: Vedora uses `@neondatabase/serverless` with WebSocket connection pooling. A remote Neon Serverless PostgreSQL instance is the primary and recommended database. The containerized `local-db` profile (`docker compose --profile local-db up -d`) provides a standard PostgreSQL 16 instance for external TCP database tools and schema inspection.
+
+---
+
+### Option B: Bare-Metal Node.js Development
+
+For local frontend or backend feature development without containerizing the Node processes:
+
+#### 1. Prerequisites
 - **Node.js**: `v20.x` or `v24.x` (LTS recommended)
-- **Docker Desktop**: For running Redis 7
-- **PostgreSQL Database**: Neon serverless PostgreSQL connection string (or local PostgreSQL 16+)
+- **Docker Desktop**: For running Redis 7 (`docker compose up -d redis`)
+- **FFmpeg**: System `ffmpeg` and `ffprobe` in your `PATH` (or `@ffmpeg-installer`)
+- **PostgreSQL Database**: Neon serverless connection string (or local PostgreSQL 16+)
 - **Clerk Authentication**: Free Clerk account with Publishable & Secret keys
 
-### 2. Workspace Installation
-Vedora is organized as a multi-package repository. Install dependencies in each workspace:
+#### 2. Workspace Installation
+Install dependencies in each workspace:
 
 ```bash
 # Backend services
@@ -154,68 +198,34 @@ cd ../landing-page
 npm install
 ```
 
-### 3. Environment Configuration
-Configure environment variables using the provided workspace `.env.example` templates:
-
+#### 3. Environment Configuration
 ```bash
-# 1. Backend Services
 cp services/.env.example services/.env
-
-# 2. Main Dashboard
 cp apps/main-dashboard/.env.example apps/main-dashboard/.env
-
-# 3. Landing Page
 cp apps/landing-page/.env.example apps/landing-page/.env
 ```
 
-#### Core Backend Variables (`services/.env`)
-| Variable | Description | Default / Example |
-| :--- | :--- | :--- |
-| `PORT` | API server listening port | `8080` |
-| `DATABASE_URL` | PostgreSQL pooler connection URL | `postgresql://user:pass@ep-pooler.neon.tech/neondb?sslmode=require` |
-| `REDIS_HOST` | Distributed cache host | `localhost` |
-| `REDIS_PORT` | Distributed cache port | `6379` |
-| `REDIS_PASSWORD` | Redis authentication password | `vedorasecret` |
-| `API_KEY_DIGEST_SECRET` | 32+ character HMAC secret for derived cache indexing | Random 32+ character string |
-| `CLERK_SECRET_KEY` | Clerk server-side secret key | `sk_test_...` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk public frontend key | `pk_test_...` |
-
-### 4. Start Infrastructure (Redis)
-Start Redis 7 with Docker Compose:
-
+#### 4. Run Applications Locally
 ```bash
-cd services
-docker compose up -d
-```
-*(Note: If Docker is unavailable, the backend automatically detects this and falls back safely to Neon PostgreSQL without interrupting authentication or API operations).*
+# Terminal 1: Distributed Cache & Queue
+docker compose up -d redis
 
-### 5. Apply Database Migrations
-Apply Drizzle schema migrations to Neon PostgreSQL:
-
-```bash
+# Terminal 2: Apply Migrations & Run Backend API (port 8080)
 cd services
 npm run db:migrate
-```
-
-### 6. Run Applications Locally
-Open separate terminal tabs for each service:
-
-```bash
-# Terminal 1: Backend API (port 8080)
-cd services
 npm run start:dev
 
-# Terminal 2: Main Dashboard (port 3001)
+# Terminal 3: Main Dashboard (port 3001)
 cd apps/main-dashboard
 npm run dev -- -p 3001
 
-# Terminal 3: Marketing Landing Page (port 3000)
+# Terminal 4: Marketing Landing Page (port 3000)
 cd apps/landing-page
 npm run dev -- -p 3000
 ```
 
-### 7. Interactive API Documentation (Swagger)
-Once the backend is running, open the interactive Swagger UI:
+### 📖 Interactive API Documentation (Swagger)
+Once the backend is running (via Docker or Node), open the interactive Swagger UI:
 - **Swagger UI**: [http://localhost:8080/api/docs](http://localhost:8080/api/docs)
 - **OpenAPI 3.0 Spec**: Statically exported at [`docs/openapi.json`](docs/openapi.json)
 
@@ -226,7 +236,7 @@ Once the backend is running, open the interactive Swagger UI:
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (124 tests across 16 suites)
+# 1. Backend unit & integration test suite (128 tests across 17 suites)
 cd services
 npm test
 

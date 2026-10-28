@@ -130,8 +130,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Enable graceful shutdown hooks for SIGINT / SIGTERM signals
+  app.enableShutdownHooks();
+
   const port = configService.get<number>('port') || 8080;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(`Vedora backend API running on port ${port} (prefix: /api/v1)`);
 }
 

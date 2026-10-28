@@ -228,7 +228,11 @@ export class StorageService {
             // Ignore non-fatal chunk cleanup failures
           }
         }
-        outStream.end();
+        await new Promise<void>((resolve, reject) => {
+          outStream.on('finish', () => resolve());
+          outStream.on('error', (err) => reject(err));
+          outStream.end();
+        });
         this.logger.log(
           `Assembled uploaded local video file at ${targetPath} (${chunkFiles.length} chunks)`,
         );

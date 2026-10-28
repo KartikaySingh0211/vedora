@@ -499,7 +499,7 @@
     },
     "/api/health": {
       "get": {
-        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.",
+        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 when operational, or 503 when degraded.",
         "operationId": "HealthController_checkHealth[0]",
         "parameters": [],
         "responses": {
@@ -532,7 +532,7 @@
     },
     "/api/v1/health": {
       "get": {
-        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.",
+        "description": "Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 when operational, or 503 when degraded.",
         "operationId": "HealthController_checkHealth[1]_v1",
         "parameters": [],
         "responses": {

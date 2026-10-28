@@ -1,3 +1,5 @@
+name: vedora
+
 services:
   redis:
     image: redis:7-alpine
@@ -20,24 +22,64 @@ services:
       retries: 5
       start_period: 5s
 
-  # Optional: Containerized API & FFmpeg Worker service
-  # api:
-  #   build: .
-  #   container_name: vedora-api
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - PORT=8080
-  #     - REDIS_HOST=redis
-  #     - REDIS_PORT=6379
-  #     - REDIS_PASSWORD=${REDIS_PASSWORD:-vedorasecret}
-  #     - FFMPEG_PATH=/usr/bin/ffmpeg
-  #     - FFPROBE_PATH=/usr/bin/ffprobe
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vedora-api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+      - path: ../.env
+        required: false
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+      - FFPROBE_PATH=/usr/bin/ffprobe
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - vedora_storage:/app/storage_local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional local PostgreSQL profile for offline development without external Neon database
+  postgres:
+    profiles:
+      - local-db
+    image: postgres:16-alpine
+    container_name: vedora-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=vedora
+      - POSTGRES_PASSWORD=vedorasecret
+      - POSTGRES_DB=vedora
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vedora -d vedora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   redis_data:
+    driver: local
+  vedora_storage:
+    driver: local
+  postgres_data:
     driver: local

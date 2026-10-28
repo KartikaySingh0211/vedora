@@ -1,4 +1,5 @@
-import { Controller, Get, Inject, VERSION_NEUTRAL } from '@nestjs/common';
+import { Controller, Get, Inject, Res, VERSION_NEUTRAL } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiOkResponse,
   ApiOperation,
@@ -23,7 +24,7 @@ export class HealthController {
   @ApiOperation({
     summary: 'Health check endpoint',
     description:
-      'Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 with operational dependency statuses.',
+      'Evaluates connectivity to Neon PostgreSQL database and Redis cluster. Returns 200 when operational, or 503 when degraded.',
   })
   @ApiOkResponse({
     description: 'System health status and dependency connectivity details',
@@ -33,7 +34,9 @@ export class HealthController {
     description: 'System degraded when database connection fails',
     type: HealthResponseDto,
   })
-  async checkHealth(): Promise<HealthResponseDto> {
+  async checkHealth(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<HealthResponseDto> {
     let dbStatus = 'down';
     try {
       await this.db.execute(sql`SELECT 1`);
@@ -48,6 +51,9 @@ export class HealthController {
       redisPing || redisConnected ? 'up' : 'down (fallback to db active)';
 
     const isSystemHealthy = dbStatus === 'up';
+    if (!isSystemHealthy) {
+      res.status(503);
+    }
 
     return {
       status: isSystemHealthy ? 'ok' : 'degraded',
