@@ -199,3 +199,4 @@ Exit code: 0
    Every transcoding job allocates a dedicated temporary directory in `os.tmpdir()/vedora-jobs/{videoId}-{timestamp}`. The directory is cleaned up in a `finally` block regardless of whether transcoding succeeds, times out, or fails.
 3. **No Distributed Exactly-Once Claims**:
    Vedora's queue uses standard Redis list primitives (`rpush` / `lpop`) backed by single-instance distributed locking and heartbeat renewal. In the event of a worker crash, stranded jobs are safely detected and transitioned to `failed`. Distributed exactly-once execution across multi-region clusters is not claimed and not required; safe at-least-once recovery with idempotent transitions is enforced.
+

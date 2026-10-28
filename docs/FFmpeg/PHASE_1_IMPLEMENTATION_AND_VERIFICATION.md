@@ -18,9 +18,9 @@ The pipeline now:
 
 | File | Change Type | Purpose |
 | :--- | :---: | :--- |
-| `FFmpeg/README.md` | **Created** | Documentation index for FFmpeg architecture and implementation logs. |
-| `FFmpeg/PHASE_1_AUDIT_AND_ARCHITECTURE.md` | **Created** | Comprehensive architectural audit of simulated transcoding and detailed transition plan. |
-| `FFmpeg/PHASE_1_IMPLEMENTATION_AND_VERIFICATION.md` | **Created** | This verification report, execution proofs, and manual testing procedures. |
+| `docs/FFmpeg/README.md` | **Created** | Documentation index for FFmpeg architecture and implementation logs. |
+| `docs/FFmpeg/PHASE_1_AUDIT_AND_ARCHITECTURE.md` | **Created** | Comprehensive architectural audit of simulated transcoding and detailed transition plan. |
+| `docs/FFmpeg/PHASE_1_IMPLEMENTATION_AND_VERIFICATION.md` | **Created** | This verification report, execution proofs, and manual testing procedures. |
 | `services/package.json` | **Updated** | Added `@ffmpeg-installer/ffmpeg` and `@ffprobe-installer/ffprobe` runtime dependencies. |
 | `services/src/modules/transcoder/ffmpeg.service.ts` | **Created** | Dedicated service for executable discovery, media probing, rendition filtering, and FFmpeg HLS encoding. |
 | `services/src/modules/transcoder/ffmpeg.service.spec.ts` | **Created** | 11 unit & integration tests verifying probing, upscaling guards, and HLS generation on synthetic video fixtures. |
