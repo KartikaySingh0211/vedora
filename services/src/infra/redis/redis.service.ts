@@ -144,6 +144,56 @@ export class RedisService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  /**
+   * Safe lock release: only deletes the key if its current value matches the given token.
+   * Uses Redis Lua script for atomicity to prevent deleting locks held by subsequent workers.
+   */
+  async releaseLock(key: string, token: string): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    const lua = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    try {
+      const result = await this.client.eval(lua, 1, key, token);
+      return result === 1;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis releaseLock failed: ${msg}`);
+      return false;
+    }
+  }
+
+  /**
+   * Safe lock renewal (heartbeat): extends TTL only if current value matches the given token.
+   * Uses Redis Lua script for atomicity to prevent extending expired or reacquired locks.
+   */
+  async renewLock(
+    key: string,
+    token: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    const lua = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("expire", KEYS[1], ARGV[2])
+      else
+        return 0
+      end
+    `;
+    try {
+      const result = await this.client.eval(lua, 1, key, token, ttlSeconds);
+      return result === 1;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis renewLock failed: ${msg}`);
+      return false;
+    }
+  }
+
   async hset(hash: string, field: string, value: string): Promise<boolean> {
     if (!this.client || !this.isConnected) return false;
     try {

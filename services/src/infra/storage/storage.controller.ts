@@ -220,6 +220,12 @@ export class StorageController {
     const objectsDir = path.join(process.cwd(), 'storage_local', 'objects');
     let filePath = path.join(objectsDir, key.replace(/[/\\]/g, '_'));
 
+    const isHls =
+      key.endsWith('.m3u8') ||
+      key.endsWith('.ts') ||
+      key.includes('.m3u8') ||
+      key.includes('.ts');
+
     // If key points to an m3u8 manifest, check if raw uploaded video file exists on disk
     if (
       !fs.existsSync(filePath) &&
@@ -248,20 +254,6 @@ export class StorageController {
           this.logger.warn(
             `Could not resolve video storage_key: ${(dbErr as Error).message}`,
           );
-        }
-      }
-
-      // If still not found, check if any raw video file exists in objectsDir
-      if (!fs.existsSync(filePath) && fs.existsSync(objectsDir)) {
-        const files = fs.readdirSync(objectsDir);
-        if (files.length > 0) {
-          const sorted = files
-            .map((f) => ({
-              name: f,
-              time: fs.statSync(path.join(objectsDir, f)).mtimeMs,
-            }))
-            .sort((a, b) => b.time - a.time);
-          filePath = path.join(objectsDir, sorted[0].name);
         }
       }
     }
@@ -301,6 +293,15 @@ export class StorageController {
         const fileStream = fs.createReadStream(filePath);
         return fileStream.pipe(res);
       }
+    }
+
+    // If an HLS segment or manifest is missing, return 404 Not Found rather than redirecting to MP4
+    if (isHls) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: `HLS resource not found for key: ${key}`,
+        error: 'Not Found',
+      });
     }
 
     // Fallback: If no local file on disk, stream sample video

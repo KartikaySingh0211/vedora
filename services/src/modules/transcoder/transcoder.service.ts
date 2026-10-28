@@ -6,9 +6,10 @@ import {
   NotFoundException,
   UnauthorizedException,
   Optional,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,7 +40,7 @@ export const RENDITION_LADDER: Record<string, RenditionConfig> =
 const QUEUE_KEY = 'vedora:transcode:queue';
 
 @Injectable()
-export class TranscoderService {
+export class TranscoderService implements OnModuleInit {
   private readonly logger = new Logger(TranscoderService.name);
   private isProcessing = false;
 
@@ -51,6 +52,16 @@ export class TranscoderService {
     private readonly configService: ConfigService,
     @Optional() private readonly ffmpegService?: FfmpegService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.recoverStuckJobs();
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Could not run startup recovery of stuck jobs: ${(err as Error).message}`,
+      );
+    }
+  }
 
   /**
    * Enqueue an asynchronous transcoding job.
@@ -98,11 +109,12 @@ export class TranscoderService {
     try {
       await this.executeTranscoding(jobData);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const sanitized = this.sanitizeErrorMessage(rawMsg);
       this.logger.error(
-        `Transcoding job failed for video ${jobData.videoId}: ${msg}`,
+        `Transcoding job failed for video ${jobData.videoId}: ${sanitized}`,
       );
-      await this.markVideoFailed(jobData.videoId, msg);
+      await this.markVideoFailed(jobData.videoId, sanitized);
     } finally {
       this.isProcessing = false;
       // Check if more jobs are in queue
@@ -125,13 +137,14 @@ export class TranscoderService {
   async executeTranscoding(jobData: TranscodeJobData): Promise<void> {
     const { videoId, resolutions, storageKey } = jobData;
 
-    // 1. Distributed lock to prevent duplicate worker execution
+    // 1. Distributed lock with ownership token to prevent duplicate worker execution
     const lockKey = CACHE_KEYS.transcodeLock(videoId);
+    const lockToken = crypto.randomUUID();
     let acquired = true;
     if (typeof this.redisService.setnxWithExpiry === 'function') {
       acquired = await this.redisService.setnxWithExpiry(
         lockKey,
-        'locked',
+        lockToken,
         600,
       );
     }
@@ -140,6 +153,17 @@ export class TranscoderService {
         `Transcoding job for video ${videoId} is already running in another worker. Skipping.`,
       );
       return;
+    }
+
+    // Active lock renewal heartbeat: extends 600s TTL every 30s during long transcoding
+    let renewalTimer: NodeJS.Timeout | null = null;
+    if (acquired && typeof this.redisService.renewLock === 'function') {
+      renewalTimer = setInterval(() => {
+        void this.redisService.renewLock(lockKey, lockToken, 600);
+      }, 30_000);
+      if (typeof renewalTimer.unref === 'function') {
+        renewalTimer.unref();
+      }
     }
 
     // 2. Check if video is already ready (Idempotency)
@@ -156,7 +180,14 @@ export class TranscoderService {
       this.logger.log(
         `Video ${videoId} is already ready. Skipping redundant job.`,
       );
-      await this.redisService.del(lockKey);
+      if (renewalTimer) {
+        clearInterval(renewalTimer);
+      }
+      if (typeof this.redisService.releaseLock === 'function') {
+        await this.redisService.releaseLock(lockKey, lockToken);
+      } else if (typeof this.redisService.del === 'function') {
+        await this.redisService.del(lockKey);
+      }
       return;
     }
 
@@ -329,11 +360,17 @@ export class TranscoderService {
         `Transcoding fallback completed for video ${videoId}. Status: ready.`,
       );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Transcoding job error for video ${videoId}: ${msg}`);
-      await this.markVideoFailed(videoId, msg);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const sanitized = this.sanitizeErrorMessage(rawMsg);
+      this.logger.error(
+        `Transcoding job error for video ${videoId}: ${sanitized}`,
+      );
+      await this.markVideoFailed(videoId, sanitized);
       throw err;
     } finally {
+      if (renewalTimer) {
+        clearInterval(renewalTimer);
+      }
       if (cleanupNeeded && fs.existsSync(jobDir)) {
         try {
           fs.rmSync(jobDir, { recursive: true, force: true });
@@ -343,7 +380,9 @@ export class TranscoderService {
           );
         }
       }
-      if (typeof this.redisService.del === 'function') {
+      if (typeof this.redisService.releaseLock === 'function') {
+        await this.redisService.releaseLock(lockKey, lockToken);
+      } else if (typeof this.redisService.del === 'function') {
         await this.redisService.del(lockKey);
       }
     }
@@ -493,10 +532,23 @@ export class TranscoderService {
   }
 
   /**
+   * Sanitizes diagnostic error messages by stripping filesystem paths and credential patterns.
+   */
+  sanitizeErrorMessage(raw: string): string {
+    if (!raw) return 'Unknown error';
+    return raw
+      .replace(/[A-Za-z]:\\[^ \n\r\t"]+/g, '[redacted_path]')
+      .replace(/\/(?:[a-zA-Z0-9._-]+\/)+[a-zA-Z0-9._-]+/g, '[redacted_path]')
+      .replace(/(?:password|secret|token|api_?key)=[^&\s]+/gi, '$1=[redacted]')
+      .trim();
+  }
+
+  /**
    * Safely mark a video as failed with diagnostic reason.
    */
   async markVideoFailed(videoId: string, reason: string): Promise<void> {
-    this.logger.warn(`Marking video ${videoId} as failed: ${reason}`);
+    const sanitizedReason = this.sanitizeErrorMessage(reason);
+    this.logger.warn(`Marking video ${videoId} as failed: ${sanitizedReason}`);
     await this.db
       .update(schema.videos)
       .set({
@@ -504,5 +556,59 @@ export class TranscoderService {
         updated_at: new Date(),
       })
       .where(eq(schema.videos.id, videoId));
+  }
+
+  /**
+   * Recovers jobs stranded in 'processing' status (e.g. after worker crash or network partition).
+   * If a video is stuck in 'processing' for longer than thresholdMs and has no active Redis lock,
+   * mark it as failed so it does not stay orphaned indefinitely.
+   */
+  async recoverStuckJobs(thresholdMs = 15 * 60 * 1000): Promise<string[]> {
+    const cutoff = new Date(Date.now() - thresholdMs);
+    try {
+      const result = await this.db
+        .select({
+          id: schema.videos.id,
+          status: schema.videos.status,
+          updatedAt: schema.videos.updated_at,
+        })
+        .from(schema.videos)
+        .where(
+          and(
+            eq(schema.videos.status, 'processing'),
+            lt(schema.videos.updated_at, cutoff),
+          ),
+        );
+
+      const stuckVideos = Array.isArray(result) ? result : [];
+      const recoveredIds: string[] = [];
+
+      for (const video of stuckVideos) {
+        const lockKey = CACHE_KEYS.transcodeLock(video.id);
+        let hasLock = false;
+        if (typeof this.redisService.get === 'function') {
+          const lockVal = await this.redisService.get(lockKey);
+          hasLock = Boolean(lockVal);
+        }
+
+        if (!hasLock) {
+          this.logger.warn(
+            `Recovering stranded job for video ${video.id}; marking failed`,
+          );
+          await this.markVideoFailed(
+            video.id,
+            'Transcoding worker crashed or job timed out without completion',
+          );
+          recoveredIds.push(video.id);
+        }
+      }
+
+      return recoveredIds;
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to recover stuck jobs: ${(err as Error).message}`,
+      );
+      return [];
+    }
   }
 }

@@ -94,7 +94,10 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
       lpop: jest.fn().mockResolvedValue(null),
       llen: jest.fn().mockResolvedValue(0),
       setnxWithExpiry: jest.fn().mockResolvedValue(true),
+      releaseLock: jest.fn().mockResolvedValue(true),
+      renewLock: jest.fn().mockResolvedValue(true),
       del: jest.fn().mockResolvedValue(true),
+      get: jest.fn().mockResolvedValue(null),
       isHealthy: jest.fn().mockReturnValue(true),
     };
 
@@ -201,6 +204,107 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
     );
 
     // Verify lock was released
-    expect(mockRedisService.del).toHaveBeenCalled();
+    expect(
+      mockRedisService.releaseLock.mock.calls.length > 0 ||
+        mockRedisService.del.mock.calls.length > 0,
+    ).toBe(true);
+  });
+
+  it('should mark video failed, never mark ready, and sanitize error if storage upload fails', async () => {
+    if (!fs.existsSync(realVideoPath)) return;
+
+    jest
+      .spyOn(storageService, 'uploadDirectBuffer')
+      .mockRejectedValueOnce(
+        new Error('Upload failed to C:\\vedora\\secrets\\bucket_token.key'),
+      );
+
+    await expect(
+      service.executeTranscoding({
+        videoId: 'upload-fail-vid',
+        userId: 'user-01',
+        storageKey: realVideoKey,
+        resolutions: ['360p'],
+        title: 'Upload Fail Video',
+        slug: 'upload-fail-video',
+        duration: 1,
+      }),
+    ).rejects.toThrow();
+
+    // Verify video was marked failed
+    expect(mockDb.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+      }),
+    );
+
+    // Verify sanitized error message
+    const sanitized = service.sanitizeErrorMessage(
+      'Upload failed to C:\\vedora\\secrets\\bucket_token.key with token=xyz123',
+    );
+    expect(sanitized).not.toContain('C:\\vedora');
+    expect(sanitized).not.toContain('xyz123');
+    expect(sanitized).toContain('[redacted');
+  });
+
+  it('should skip duplicate concurrent worker when distributed lock is held', async () => {
+    mockRedisService.setnxWithExpiry.mockResolvedValueOnce(false);
+    mockDb.update.mockClear();
+
+    await service.executeTranscoding({
+      videoId: 'concurrent-vid',
+      userId: 'user-01',
+      storageKey: realVideoKey,
+      resolutions: ['360p'],
+      title: 'Concurrent Video',
+      slug: 'concurrent-video',
+      duration: 1,
+    });
+
+    // Should return early and not update database to processing or ready
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it('should release lock using token-verified releaseLock on completion', async () => {
+    if (!fs.existsSync(realVideoPath)) return;
+
+    jest
+      .spyOn(storageService, 'uploadDirectBuffer')
+      .mockResolvedValue({ success: true, key: 'test' });
+
+    await service.executeTranscoding({
+      videoId: 'lock-test-vid',
+      userId: 'user-01',
+      storageKey: realVideoKey,
+      resolutions: ['360p'],
+      title: 'Lock Test',
+      slug: 'lock-test',
+      duration: 1,
+    });
+
+    expect(mockRedisService.releaseLock).toHaveBeenCalledWith(
+      'vedora:transcode:lock:lock-test-vid',
+      expect.any(String),
+    );
+  });
+
+  it('should recover stranded jobs in processing status when no active lock exists', async () => {
+    mockDb.where.mockResolvedValueOnce([
+      {
+        id: 'stranded-vid-99',
+        status: 'processing',
+        updated_at: new Date(Date.now() - 3600000), // 1 hour old
+      },
+    ]);
+    mockRedisService.get.mockResolvedValueOnce(null); // No active Redis lock
+
+    const recovered = await service.recoverStuckJobs(15 * 60 * 1000);
+
+    expect(recovered).toContain('stranded-vid-99');
+    expect(mockDb.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+      }),
+    );
   });
 });

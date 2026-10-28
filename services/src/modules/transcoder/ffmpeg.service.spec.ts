@@ -12,6 +12,7 @@ describe('FfmpegService', () => {
   let testVideoPath: string;
   let silentVideoPath: string;
   let corruptVideoPath: string;
+  let audioOnlyPath: string;
 
   beforeAll(() => {
     tmpDir = path.join(os.tmpdir(), `vedora-ffmpeg-test-${Date.now()}`);
@@ -20,6 +21,7 @@ describe('FfmpegService', () => {
     testVideoPath = path.join(tmpDir, 'test-with-audio.mp4');
     silentVideoPath = path.join(tmpDir, 'test-silent.mp4');
     corruptVideoPath = path.join(tmpDir, 'corrupt.mp4');
+    audioOnlyPath = path.join(tmpDir, 'test-audio-only.aac');
 
     // Generate real 1-second synthetic video with audio
     try {
@@ -57,6 +59,19 @@ describe('FfmpegService', () => {
         'yuv420p',
         '-an',
         silentVideoPath,
+      ]);
+
+      // Generate real 1-second audio-only file (no video stream)
+      cp.execFileSync(ffmpeg.path, [
+        '-y',
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=1000:duration=1',
+        '-c:a',
+        'aac',
+        '-vn',
+        audioOnlyPath,
       ]);
 
       // Write corrupt file
@@ -138,6 +153,14 @@ describe('FfmpegService', () => {
 
       await expect(service.probeMedia(corruptVideoPath)).rejects.toThrow(
         /Media probe failed|Invalid ffprobe output|no compatible video stream/,
+      );
+    });
+
+    it('should reject when an audio-only file with no video stream is provided', async () => {
+      if (!fs.existsSync(audioOnlyPath)) return;
+
+      await expect(service.probeMedia(audioOnlyPath)).rejects.toThrow(
+        'no compatible video stream detected',
       );
     });
   });
@@ -265,6 +288,56 @@ describe('FfmpegService', () => {
       expect(result.masterPlaylistContent).toContain('#EXTM3U');
       expect(fs.existsSync(path.join(outputDir, '360p', 'index.m3u8'))).toBe(true);
       expect(fs.existsSync(path.join(outputDir, '360p', 'segment_000.ts'))).toBe(true);
+    });
+
+    it('should fail and terminate process when FFmpeg execution times out', async () => {
+      if (!fs.existsSync(testVideoPath)) return;
+
+      const probe = await service.probeMedia(testVideoPath);
+      const renditions = service.selectRenditions(probe, ['360p']);
+      const outputDir = path.join(tmpDir, 'hls-timeout-output');
+
+      // 1ms timeout triggers timeout rejection
+      await expect(
+        service.transcodeToHls({
+          inputPath: testVideoPath,
+          outputDir,
+          videoId: 'vid-timeout-01',
+          probe,
+          renditions,
+          timeoutMs: 1,
+        }),
+      ).rejects.toThrow(/timed out/i);
+    });
+
+    it('should reject with nonzero exit status when FFmpeg encounters fatal encoding errors', async () => {
+      if (!fs.existsSync(corruptVideoPath)) return;
+
+      const fakeProbe: MediaProbeResult = {
+        width: 640,
+        height: 360,
+        duration: 1,
+        fps: 30,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        hasVideo: true,
+        hasAudio: false,
+        bitrate: 800000,
+        formatName: 'mp4',
+      };
+      const renditions = service.selectRenditions(fakeProbe, ['360p']);
+      const outputDir = path.join(tmpDir, 'hls-fail-output');
+
+      await expect(
+        service.transcodeToHls({
+          inputPath: corruptVideoPath,
+          outputDir,
+          videoId: 'vid-corrupt-01',
+          probe: fakeProbe,
+          renditions,
+          timeoutMs: 30000,
+        }),
+      ).rejects.toThrow(/FFmpeg failed with exit code/i);
     });
   });
 });

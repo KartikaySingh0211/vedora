@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-109%20passing%20(15%20suites)-brightgreen)](FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-124%20passing%20(16%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -226,7 +226,7 @@ Once the backend is running, open the interactive Swagger UI:
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (109 tests across 15 suites)
+# 1. Backend unit & integration test suite (124 tests across 16 suites)
 cd services
 npm test
 
