@@ -87,3 +87,4 @@ Configured `refetchInterval` in `apps/main-dashboard/app/my-videos/page.tsx`:
 
 - Pre-configured CORS policies are documented in the onboarding and setup guides.
 - The `UploadQueueContext` handles network disconnects and surfaces retry options without resetting dashboard state.
+

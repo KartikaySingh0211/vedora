@@ -943,3 +943,33 @@ Generated:
   - videos/<id>/360p/index.m3u8 & segment_000.ts (26.5 KB)
 All objects retrieved and verified via GetObject/HeadObject; cleaned up afterward.
 ```
+
+
+---
+
+## [2026-10-29] - Run #12: Mandatory Pre-Commit Documentation Update Rule & Workspace Assistant Policy
+
+### 1. Context & User Directive
+To ensure zero documentation drift across the lifetime of the Vedora project, the user established a strict development rule:
+> "create a rule to always update relevant documentation before every commit"
+
+### 2. Architecture & Rule Configuration
+1. **Rule Definition (`.agents/rules/documentation-before-commit.md`)**:
+   - Implemented an agent rule targeting all files (`globs: ["**/*"]`).
+   - Defined a mandatory 6-point pre-commit audit checklist covering:
+     1. `docs/ENGINEERING_LOG.md` (Dated run entries for non-trivial changes).
+     2. `README.md` (Capabilities, walkthroughs, test badges, environment requirements).
+     3. `docs/decisions/ADR-XXX-*.md` (Architectural patterns, storage, queues, schemas).
+     4. `docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md` (Topology, sequence diagrams, threat models).
+     5. `docs/api-docs/` & `docs/openapi.json` (Endpoints, DTOs, schemas, Swagger).
+     6. `docs/bug-fixes/` (`BUG-XXX` entries and updated index table).
+   - Codified a 4-step execution workflow: Verify $\to$ Audit & Update Docs $\to$ Stage Atomically $\to$ Commit.
+
+2. **Root Workspace Guidelines (`GEMINI.md`)**:
+   - Created top-level `GEMINI.md` defining always-on directory guidance: Documentation-First Policy, Bug Fix Logging Policy, and Empirical Verification Standards.
+
+3. **Git Configuration (`.gitignore`)**:
+   - Updated `.gitignore` to allow tracking `.agents/rules/` in source control (`.agents/*` with unignore `!.agents/rules/`).
+
+4. **Documentation Sync**:
+   - Updated `README.md` to reference `GEMINI.md` and `.agents/rules/documentation-before-commit.md` in the Engineering Documentation & Ledgers index.

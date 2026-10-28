@@ -70,4 +70,5 @@ Thumbs.db
 storage_local/
 services/storage_local/
 
-.agents/
+.agents/*
+!.agents/rules/

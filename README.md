@@ -289,6 +289,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
 - 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-011).
+- 📜 **[Workspace Rules & Assistant Policy (`GEMINI.md`)](GEMINI.md)**: Mandatory repository guidelines and pre-commit documentation update policy configured in [`.agents/rules/documentation-before-commit.md`](.agents/rules/documentation-before-commit.md).
 
 ---
 
