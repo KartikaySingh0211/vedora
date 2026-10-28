@@ -41,7 +41,7 @@ Vedora addresses these challenges with an integrated, developer-first platform: 
    `DualAuthGuard` validates either Clerk session JWTs (for dashboard users) or high-entropy API keys (`VDR_<32hex>_<secret>`). Keys are hashed with Argon2id; verification follows a 3-tier sequence (L1 local in-memory LRU, L2 Redis with HMAC-SHA256 digest keys, L3 Neon PostgreSQL).
 3. **Atomic Quota Enforcement via PostgreSQL Advisory Locks**:
    PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) serialize concurrent upload requests per user, guaranteeing that active storage plus incoming reservations never exceed tier caps.
-4. **Option A: Automatic Adaptive Rendition Ladder with Quality Ceilings**:
+4. **Automatic Adaptive Rendition Ladder with Quality Ceilings**:
    Users select a maximum quality ceiling (360p, 480p, 720p, 1080p). Vedora automatically encodes all supported lower renditions down to 360p (e.g. 720p $\to$ 360p + 480p + 720p) with strict no-upscaling guarantees, generating RFC 8216 `master.m3u8` manifests and `.ts` media segments. Built-in `<VedoraPlayer />` and `<EmbedVideoModal />` provide adaptive bitrate streaming via `hls.js`.
 5. **Privacy-Preserving Telemetry & Usage-Based Billing**:
    Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Stripe webhook listeners sync subscription tiers and manage monthly playback-minute resets.
