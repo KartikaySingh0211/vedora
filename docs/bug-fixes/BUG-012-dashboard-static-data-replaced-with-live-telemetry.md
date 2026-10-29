@@ -1,4 +1,4 @@
-# BUG-012: Home Dashboard Displayed Static Hardcoded Placeholder Stats
+﻿# BUG-012: Home Dashboard Displayed Static Hardcoded Placeholder Stats
 
 ## Bug Metadata
 - **ID**: BUG-012

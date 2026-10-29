@@ -28,7 +28,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 const swaggerConfig = new DocumentBuilder()
   .setTitle('Vedora Video Platform API')
   .setDescription(
-    'Production REST API for Vedora — Video Ingestion, HLS Transcoding, Analytics Telemetry, Player Customization, and Subscription Billing.',
+    'Production REST API for Vedora — Video Ingestion, HLS Transcoding, Analytics Telemetry, Player Customization, and Open-Source Infrastructure.',
   )
   .setVersion('1.0.0')
   .addBearerAuth(
@@ -60,7 +60,6 @@ const swaggerConfig = new DocumentBuilder()
   .addTag('Transcoder', 'HLS transcoding job orchestration and signed webhook receiver')
   .addTag('Player Settings', 'Custom video player theming, controls, watermark, and public config')
   .addTag('Analytics', 'High-throughput playback telemetry ingestion and aggregated metrics')
-  .addTag('Billing', 'Stripe webhook synchronization and subscription tier accounting')
   .build();
 
 const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -203,12 +202,8 @@ Every route handler MUST specify:
   description: 'Missing, expired, or invalid Bearer token or API key.',
   type: ErrorResponseDto,
 })
-@ApiForbiddenResponse({
-  description: 'Storage quota cap exceeded for caller subscription tier.',
-  type: ErrorResponseDto,
-})
 @ApiPayloadTooLargeResponse({
-  description: 'File size exceeds maximum upload allowance for caller subscription tier.',
+  description: 'File size exceeds maximum upload allowance (10 GiB default).',
   type: ErrorResponseDto,
 })
 async initUpload(@Body() dto: CreateVideoInitDto) { ... }
@@ -265,7 +260,7 @@ To prevent documentation drift, Vedora includes an automated Jest test suite ded
 
 1. **Bootstrap Validity**: Confirms `AppModule` compiles without circular dependency errors.
 2. **Schema Integrity**: Generates the OpenAPI 3.0 document and verifies `openapi: '3.0.0'` metadata.
-3. **Tag Taxonomy**: Asserts all 10 core tags (`System`, `Health`, `API Keys`, `Playlists`, `Videos`, `Storage`, `Transcoder`, `Player Settings`, `Analytics`, `Billing`) are registered.
+3. **Tag Taxonomy**: Asserts all 9 core tags (`System`, `Health`, `API Keys`, `Playlists`, `Videos`, `Storage`, `Transcoder`, `Player Settings`, `Analytics`) are registered.
 4. **Endpoint Completeness**: Validates that all 19 endpoints exist in the OpenAPI paths object.
 5. **Security Scheme Registration**: Confirms both `bearer` (JWT) and `x-api-key` (API key) are registered under `components.securitySchemes`.
 6. **Automatic Disk Export**: Serializes the generated document to [`docs/openapi.json`](docs/openapi.json).

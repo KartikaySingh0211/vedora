@@ -1,4 +1,4 @@
-# ADR-008: Asynchronous HLS Transcoding Pipeline and Rendition Ladder
+﻿# ADR-008: Asynchronous HLS Transcoding Pipeline and Rendition Ladder
 
 ## Status
 Accepted

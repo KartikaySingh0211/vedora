@@ -1,4 +1,4 @@
-# ADR-001: API Key Security, Cryptographic Hashing, and Multi-Tier Caching
+﻿# ADR-001: API Key Security, Cryptographic Hashing, and Multi-Tier Caching
 
 ## Status
 **Accepted** (Implemented in Phase 2)

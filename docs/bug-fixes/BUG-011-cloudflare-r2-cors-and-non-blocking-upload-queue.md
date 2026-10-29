@@ -1,4 +1,4 @@
-# BUG-011: Cloudflare R2 Multipart CORS Error & Blocking Modal Upload UX
+﻿# BUG-011: Cloudflare R2 Multipart CORS Error & Blocking Modal Upload UX
 
 ## Metadata
 - **Bug ID**: BUG-011

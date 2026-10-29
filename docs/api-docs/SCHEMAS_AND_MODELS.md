@@ -15,7 +15,7 @@ This document provides a comprehensive dictionary of all Data Transfer Objects (
 7. [Transcoding Engine Models](#7-transcoding-engine-models)
 8. [Player Settings & Embed Models](#8-player-settings--embed-models)
 9. [Analytics & Telemetry Models](#9-analytics--telemetry-models)
-10. [Subscription & Billing Models](#10-subscription--billing-models)
+10. [Technical Ingestion Safeguards](#10-technical-ingestion-safeguards)
 
 ---
 
@@ -32,7 +32,7 @@ Returned for `401`, `403`, `404`, `413`, and `500` HTTP exceptions.
 | `timestamp` | `string` | Yes | ISO 8601 UTC timestamp of the error | `2026-10-27T12:00:00.000Z` |
 | `path` | `string` | Yes | Request URI path that generated the exception | `/api/v1/videos/init` |
 | `error` | `string` | Yes | High-level HTTP error category or exception name | `ForbiddenException` |
-| `message` | `string` | Yes | Human-readable explanation of failure | `Storage quota cap exceeded for current subscription tier` |
+| `message` | `string` | Yes | Human-readable explanation of failure | `Storage quota exceeded. Current active storage plus incoming reservation exceeds storage capacity limit` |
 
 ### `ValidationErrorResponseDto`
 Returned for `400 Bad Request` when class-validator constraints fail on request payloads.
@@ -260,24 +260,13 @@ Aggregated reporting model returned by `GET /api/v1/analytics/metrics`:
 
 ---
 
-## 10. Subscription & Billing Models
+## 10. Technical Ingestion Safeguards
 
-Defined in [`services/src/modules/billing/dto/`](services/src/modules/billing/dto/).
+Vedora operates as a 100% open-source MIT video infrastructure platform without subscription plans, commercial tiers, or billing gates. Technical safeguards are configured centrally in `services/src/config/plans.config.ts`:
 
-### `SubscriptionResponseDto`
-Detailed quota and entitlement record for caller:
-
-| Field | Type | Description | Example |
+| Safeguard | Default Value | Environment Override | Purpose |
 | :--- | :--- | :--- | :--- |
-| `id` | `string` | Stripe subscription record ID | `'sub_rec_1234567890'` |
-| `userId` | `string` | Owner user ID | `'user_2NNEqL2Kz9X4abcdef123456'` |
-| `plan` | `string` | Tier: `'free' \| 'starter' \| 'pro' \| 'business'` | `'pro'` |
-| `displayName` | `string` | Human-readable plan name | `'Pro Plan'` |
-| `status` | `string` | Subscription status | `'active'` |
-| `allocatedMinutes` | `number` | Monthly playback-minute allowance | `10000` |
-| `usedMinutes` | `number` | Minutes consumed in current billing period | `1833` |
-| `remainingMinutes` | `number` | Available balance | `8167` |
-| `usagePercent` | `number` | Percentage consumed (0-100) | `18` |
-| `storageCapBytes` | `string` | Maximum cumulative storage quota in bytes | `'26843545600'` (25 GB) |
-| `currentPeriodStart` | `string` | Period start ISO timestamp | `'2026-10-01T00:00:00.000Z'` |
-| `currentPeriodEnd` | `string` | Period renewal ISO timestamp | `'2026-11-01T00:00:00.000Z'` |
+| `MAX_FILE_SIZE_BYTES` | `10,737,418,240` (10 GiB) | `MAX_FILE_SIZE_BYTES` | Maximum allowed file size for a single uploaded media asset |
+| `USER_STORAGE_CAP_BYTES` | `536,870,912,000` (500 GiB) | `USER_STORAGE_CAP_BYTES` | Maximum cumulative active storage capacity per user |
+| `ALLOWED_RESOLUTIONS` | `['360p', '480p', '720p', '1080p']` | None | Quality ceilings available to all authenticated users |
+| Quota Concurrency | Atomic Advisory Lock | None | Transactional lock (`pg_advisory_xact_lock`) prevents concurrent quota overrun |

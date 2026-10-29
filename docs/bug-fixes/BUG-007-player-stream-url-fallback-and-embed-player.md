@@ -1,4 +1,4 @@
-# Bug Fix: BUG-007 — Missing Stream URL Fallback & Incomplete Embed Video Player Architecture
+﻿# Bug Fix: BUG-007 — Missing Stream URL Fallback & Incomplete Embed Video Player Architecture
 
 ## 1. Metadata
 - **Bug ID**: `BUG-007`

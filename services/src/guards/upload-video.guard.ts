@@ -4,22 +4,19 @@ import {
   ExecutionContext,
   UnauthorizedException,
   BadRequestException,
-  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { AuthenticatedRequest } from './dual-auth.guard';
 import {
-  PLAN_LIMITS,
   SUPPORTED_RESOLUTIONS,
   calculateIncomingReservation,
-  resolveUserPlan,
+  getMaxUploadFileSizeBytes,
+  getUserStorageCapBytes,
   GIB_BYTES,
   TIB_BYTES,
-  UserPlan,
 } from '../config/plans.config';
 
 export interface UploadVideoRequest extends AuthenticatedRequest {
-  userPlan?: UserPlan;
   incomingReservation?: bigint;
   rawSizeBytes?: bigint;
   parsedResolutions?: string[];
@@ -61,11 +58,12 @@ export class UploadVideoGuard implements CanActivate {
       );
     }
 
-    // Maximum single file size sanity check: 100 GB
-    const MAX_SINGLE_FILE_BYTES = 100 * 1024 * 1024 * 1024;
-    if (size > MAX_SINGLE_FILE_BYTES) {
+    // Maximum single file size technical safeguard
+    const maxFileSizeBytes = getMaxUploadFileSizeBytes();
+    if (BigInt(size) > maxFileSizeBytes) {
+      const maxGb = (Number(maxFileSizeBytes) / Number(GIB_BYTES)).toFixed(1);
       throw new BadRequestException(
-        'File size exceeds maximum supported single-file ingestion limit of 100 GiB',
+        `File size exceeds maximum supported single-file ingestion limit of ${maxGb} GiB`,
       );
     }
 
@@ -89,52 +87,30 @@ export class UploadVideoGuard implements CanActivate {
       }
     }
 
-    // 4. Resolve user's actual plan from trusted server-side source
-    const rawPlan =
-      user.plan ||
-      ((user as Record<string, unknown>).publicMetadata &&
-        (
-          (user as Record<string, unknown>).publicMetadata as Record<
-            string,
-            unknown
-          >
-        ).plan);
-    const userPlan = resolveUserPlan(rawPlan);
-    const planConfig = PLAN_LIMITS[userPlan];
-
-    // 5. Reject unsupported resolution requests (e.g. 1080p on Free tier)
-    if (resolutions.includes('1080p') && !planConfig.allow1080p) {
-      throw new ForbiddenException(
-        `1080p resolution is prohibited on the ${planConfig.displayName} plan. Please upgrade to Starter or higher.`,
-      );
-    }
-
-    // 6. Calculate incoming storage reservation with safe BigInt integer math
+    // 4. Calculate incoming storage reservation with safe BigInt integer math
     const rawSizeBytes = BigInt(size);
     const incomingReservation = calculateIncomingReservation(
       rawSizeBytes,
       resolutions,
     );
 
-    // 7. Reject requests that exceed the applicable plan limit
-    if (incomingReservation > planConfig.storageCapBytes) {
+    // 5. Reject requests that exceed the system user storage capacity cap
+    const userStorageCapBytes = getUserStorageCapBytes();
+    if (incomingReservation > userStorageCapBytes) {
       const formattedLimit =
-        planConfig.storageCapBytes >= TIB_BYTES
-          ? `${Number(planConfig.storageCapBytes / TIB_BYTES)} TiB`
-          : `${Number(planConfig.storageCapBytes / GIB_BYTES)} GiB`;
+        userStorageCapBytes >= TIB_BYTES
+          ? `${Number(userStorageCapBytes / TIB_BYTES)} TiB`
+          : `${Number(userStorageCapBytes / GIB_BYTES)} GiB`;
 
       throw new BadRequestException(
         `Incoming file size and transcoded reservation (${(
           Number(incomingReservation) /
-          (1024 * 1024 * 1024)
-        ).toFixed(2)} GiB) exceeds your entire ${
-          planConfig.displayName
-        } plan capacity of ${formattedLimit}.`,
+          Number(GIB_BYTES)
+        ).toFixed(2)} GiB) exceeds user storage capacity limit of ${formattedLimit}.`,
       );
     }
 
-    // 8. Attach validated metadata to request for downstream service use
-    request.userPlan = userPlan;
+    // 6. Attach validated metadata to request for downstream service use
     request.incomingReservation = incomingReservation;
     request.rawSizeBytes = rawSizeBytes;
     request.parsedResolutions = resolutions;

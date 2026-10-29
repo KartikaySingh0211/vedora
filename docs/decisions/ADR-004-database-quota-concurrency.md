@@ -1,4 +1,4 @@
-# ADR-004: Atomic Quota Enforcement via PostgreSQL Advisory Locks
+﻿# ADR-004: Atomic Quota Enforcement via PostgreSQL Advisory Locks
 
 ## Status
 **Accepted** (Implemented in Phase 3)

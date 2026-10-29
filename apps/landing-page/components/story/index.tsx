@@ -35,7 +35,7 @@ const StorySection = () => {
 
 					<ul className="space-y-2 pl-1">
 						{[
-							["Predictable", "flat pricing that scales with you"],
+							["Predictable", "zero vendor markup or subscription fees"],
 							["Transparent", "no hidden fees, ever"],
 							["Effortless", "scale without being punished for growth"],
 						].map(([bold, rest]) => (

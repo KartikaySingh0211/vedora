@@ -1,4 +1,4 @@
-# ADR-009: Segment-Level Playback Analytics and Pseudonymous Telemetry
+﻿# ADR-009: Segment-Level Playback Analytics and Pseudonymous Telemetry
 
 ## Status
 Accepted

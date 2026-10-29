@@ -35,9 +35,9 @@ const faqs = [
 			"Yes! Go to Player Settings to customize the primary color, font, captions appearance, play button icon, and toggle individual player controls.",
 	},
 	{
-		question: "How does billing work?",
+		question: "Is Vedora free and open source?",
 		answer:
-			"Vedora offers Free, Pro, Business, and Enterprise plans. You can manage your subscription and payment methods through the Billing page. All payments are processed securely via Stripe.",
+			"Yes! Vedora is 100% free and open-source under the MIT license. There are no subscription tiers, paid plans, or billing systems.",
 	},
 	{
 		question: "How do I generate subtitles?",

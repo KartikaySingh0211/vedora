@@ -133,26 +133,9 @@ export class PlayerSettingsService {
 
     const settings = await this.getSettings(video.user_id);
 
-    // Fetch subscription plan to determine branding enforcement
-    const [subscription] = await this.db
-      .select()
-      .from(schema.subscriptions)
-      .where(eq(schema.subscriptions.user_id, video.user_id))
-      .limit(1);
-
-    const plan = subscription ? subscription.plan.toLowerCase() : 'free';
-    const isFreeTier = plan === 'free';
-
-    // Free plan: force "Powered by Vedora" watermark
-    // Paid plans (Starter, Pro, Business): allow custom watermark
-    let watermarkUrl: string | null = null;
-    let watermarkText: string | null = null;
-
-    if (isFreeTier) {
-      watermarkText = 'Powered by Vedora';
-    } else {
-      watermarkUrl = settings.watermark_url;
-    }
+    // Open-source branding: users can configure their custom watermark
+    const watermarkUrl = settings.watermark_url || null;
+    const watermarkText = watermarkUrl ? null : 'Powered by Vedora';
 
     // Resolve stream URL for playback:
     // When master_m3u8_key is set (transcoding complete), serve the HLS manifest.
@@ -187,7 +170,7 @@ export class PlayerSettingsService {
         'Volume',
         'Mute',
       ],
-      isFreeTier,
+      isFreeTier: false,
     };
   }
 }

@@ -8,7 +8,6 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import {
 	fetchWithAuth,
-	SubscriptionItem,
 	VideoItem,
 	AnalyticsMetricsResponse,
 } from "../lib/api-client";
@@ -24,17 +23,7 @@ const Page = () => {
 		return "Good Evening";
 	}, []);
 
-	// 1. Fetch current subscription and playback quota
-	const { data: subscription, isLoading: subLoading } = useQuery<SubscriptionItem>({
-		queryKey: ["subscription"],
-		queryFn: async () => {
-			const token = await getToken();
-			return fetchWithAuth<SubscriptionItem>("/billing/subscription", token);
-		},
-		enabled: isLoaded && !!user,
-	});
-
-	// 2. Fetch user's videos to compute active storage and total count
+	// 1. Fetch user's videos to compute active storage and total count
 	const { data: videos, isLoading: videosLoading } = useQuery<VideoItem[]>({
 		queryKey: ["videos"],
 		queryFn: async () => {
@@ -44,7 +33,7 @@ const Page = () => {
 		enabled: isLoaded && !!user,
 	});
 
-	// 3. Fetch aggregated analytics metrics for the last 30 days
+	// 2. Fetch aggregated analytics metrics for the last 30 days
 	const { data: metrics, isLoading: metricsLoading } = useQuery<AnalyticsMetricsResponse>({
 		queryKey: ["analytics-metrics", "30d"],
 		queryFn: async () => {
@@ -58,21 +47,9 @@ const Page = () => {
 	});
 
 	// Derived Bandwidth / Minutes Streamed values
-	const usedMinutes = subscription?.usedMinutes ?? 0;
-	const allocatedMinutes = subscription?.allocatedMinutes ?? 1000;
-	const remainingMinutes =
-		subscription?.remainingMinutes ?? Math.max(0, allocatedMinutes - usedMinutes);
-	const minutesUsagePercent =
-		subscription?.usagePercent ??
-		(allocatedMinutes > 0
-			? Math.min(100, Math.round((usedMinutes / allocatedMinutes) * 100))
-			: 0);
-
-	const formatAllocatedMinutes = (mins: number) => {
-		if (mins >= 1000000) return `${(mins / 1000000).toFixed(0)}M`;
-		if (mins >= 1000) return `${(mins / 1000).toFixed(0)}K`;
-		return `${mins}`;
-	};
+	const totalWatchMinutes =
+		metrics?.totalWatchTimeMinutes ??
+		Math.round((metrics?.totalWatchTimeSeconds ?? 0) / 60);
 
 	// Derived Requests and Growth
 	const totalRequests = metrics?.totalViews ?? 0;
@@ -104,17 +81,7 @@ const Page = () => {
 		}, 0);
 	}, [videoList]);
 
-	const storageCapBytes = useMemo(() => {
-		if (subscription?.storageCapBytes) {
-			try {
-				return Number(BigInt(subscription.storageCapBytes));
-			} catch {
-				return 5 * 1024 * 1024 * 1024;
-			}
-		}
-		return 5 * 1024 * 1024 * 1024;
-	}, [subscription?.storageCapBytes]);
-
+	const storageCapBytes = 500 * 1024 * 1024 * 1024; // 500 GB default storage cap
 	const storageUsagePercent =
 		storageCapBytes > 0
 			? Math.min(100, Math.round((totalStorageBytes / storageCapBytes) * 100))
@@ -155,7 +122,7 @@ const Page = () => {
 		return [];
 	}, [metrics?.topReferrers]);
 
-	const isLoadingAny = subLoading || videosLoading || metricsLoading;
+	const isLoadingAny = videosLoading || metricsLoading;
 
 	if (!isLoaded) {
 		return null;
@@ -249,20 +216,20 @@ const Page = () => {
 					<div>
 						<div className="flex items-center justify-between mb-1">
 							<p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-								Minutes Streamed
+								Watch Time Streamed
 							</p>
 							<span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-								{subscription?.displayName || "Monthly"}
+								Last 30 Days
 							</span>
 						</div>
 						<h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-							{subLoading ? (
+							{metricsLoading ? (
 								<span className="inline-block w-24 h-8 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
 							) : (
 								<>
-									{usedMinutes.toLocaleString()}{" "}
+									{totalWatchMinutes.toLocaleString()}{" "}
 									<span className="text-lg text-gray-400 font-normal">
-										/ {formatAllocatedMinutes(allocatedMinutes)}
+										mins
 									</span>
 								</>
 							)}
@@ -270,17 +237,17 @@ const Page = () => {
 					</div>
 					<div>
 						<div className="flex justify-between text-xs text-gray-500 dark:text-gray-500 mb-2">
-							<span>Usage</span>
-							<span>{minutesUsagePercent}%</span>
+							<span>Audience</span>
+							<span>{(metrics?.uniqueViewers ?? 0).toLocaleString()} viewers</span>
 						</div>
 						<div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-2">
 							<div
 								className="h-full bg-blue-500 rounded-full transition-all duration-500"
-								style={{ width: `${Math.min(100, minutesUsagePercent)}%` }}
+								style={{ width: `${Math.min(100, (metrics?.uniqueViewers ?? 0) > 0 ? 100 : 0)}%` }}
 							/>
 						</div>
 						<div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-							<span>• {remainingMinutes.toLocaleString()} mins remaining</span>
+							<span>• {(metrics?.totalWatchTimeSeconds ?? 0).toLocaleString()} seconds total play duration</span>
 						</div>
 					</div>
 				</div>

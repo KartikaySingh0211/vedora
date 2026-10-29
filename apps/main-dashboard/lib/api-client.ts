@@ -112,21 +112,6 @@ export interface AnalyticsMetricsResponse {
   topReferrers?: TopReferrerItem[];
 }
 
-export interface SubscriptionItem {
-  id: string;
-  userId: string;
-  plan: string;
-  displayName?: string;
-  status: string;
-  allocatedMinutes: number;
-  usedMinutes: number;
-  remainingMinutes?: number;
-  usagePercent?: number;
-  storageCapBytes?: string;
-  currentPeriodStart: string | null;
-  currentPeriodEnd: string | null;
-}
-
 export async function fetchWithAuth<T>(
   endpoint: string,
   token: string | null,

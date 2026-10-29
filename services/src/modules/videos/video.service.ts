@@ -20,9 +20,8 @@ import {
   StorageInitiateResult,
 } from '../../infra/storage/storage.service';
 import {
-  PLAN_LIMITS,
-  UserPlan,
   calculateEstimatedTranscodedSize,
+  getUserStorageCapBytes,
   GIB_BYTES,
 } from '../../config/plans.config';
 import { TranscoderService } from '../transcoder/transcoder.service';
@@ -140,7 +139,6 @@ export class VideoService {
    */
   async initVideo(
     userId: string,
-    userPlan: UserPlan,
     dto: CreateVideoInitDto,
   ): Promise<VideoInitResponse> {
     if (!userId) {
@@ -157,7 +155,7 @@ export class VideoService {
       resolutions,
     );
     const incomingReservation = rawSizeBytes + estimatedTranscodedSize;
-    const planConfig = PLAN_LIMITS[userPlan];
+    const userStorageCapBytes = getUserStorageCapBytes();
 
     return await this.db.transaction(async (tx) => {
       // 1. Transaction-level PostgreSQL advisory lock preventing concurrent quota races
@@ -171,17 +169,17 @@ export class VideoService {
         userId,
       );
 
-      if (currentUsage + incomingReservation > planConfig.storageCapBytes) {
+      if (currentUsage + incomingReservation > userStorageCapBytes) {
         const currentGb = (Number(currentUsage) / Number(GIB_BYTES)).toFixed(2);
         const incomingGb = (
           Number(incomingReservation) / Number(GIB_BYTES)
         ).toFixed(2);
         const capGb = (
-          Number(planConfig.storageCapBytes) / Number(GIB_BYTES)
+          Number(userStorageCapBytes) / Number(GIB_BYTES)
         ).toFixed(0);
 
         throw new BadRequestException(
-          `Storage quota exceeded. Current active storage (${currentGb} GiB) plus incoming reservation (${incomingGb} GiB) exceeds your ${planConfig.displayName} limit of ${capGb} GiB.`,
+          `Storage quota exceeded. Current active storage (${currentGb} GiB) plus incoming reservation (${incomingGb} GiB) exceeds storage capacity limit of ${capGb} GiB.`,
         );
       }
 

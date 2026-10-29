@@ -6,6 +6,7 @@ import {
   deriveKeyDigest,
   keyIdToUuid,
   uuidToKeyId,
+  timingSafeEqualHex,
 } from './api-key.util';
 
 describe('ApiKey Utilities', () => {
@@ -62,5 +63,23 @@ describe('ApiKey Utilities', () => {
     expect(digest1).toBe(digest2);
     expect(digest1).not.toBe(digestDifferentSecret);
     expect(digest1).toHaveLength(64);
+  });
+
+  describe('timingSafeEqualHex', () => {
+    it('should return true for identical hex strings', () => {
+      const hex = '0123456789abcdef0123456789abcdef';
+      expect(timingSafeEqualHex(hex, hex)).toBe(true);
+    });
+
+    it('should return false for different hex strings of same length', () => {
+      const hex1 = '0123456789abcdef0123456789abcdef';
+      const hex2 = '0123456789abcdef0123456789abcdeg';
+      expect(timingSafeEqualHex(hex1, hex2)).toBe(false);
+    });
+
+    it('should return false for different length strings without throwing', () => {
+      expect(timingSafeEqualHex('abcd', 'abcdef')).toBe(false);
+      expect(timingSafeEqualHex('', 'abcd')).toBe(false);
+    });
   });
 });

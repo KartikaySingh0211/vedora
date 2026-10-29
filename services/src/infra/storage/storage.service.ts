@@ -202,10 +202,13 @@ export class StorageService {
         });
         await this.s3Client!.send(completeCmd);
         this.logger.log(`Completed Cloudflare R2 multipart upload for key ${key}`);
+        return { success: true, key };
       } catch (r2Err: unknown) {
-        this.logger.warn(
-          `Cloudflare R2 complete multipart failed: ${(r2Err as Error).message}`,
+        const msg = r2Err instanceof Error ? r2Err.message : String(r2Err);
+        this.logger.error(
+          `Cloudflare R2 complete multipart failed for key ${key}: ${msg}`,
         );
+        throw new Error(`Cloudflare R2 multipart completion failed: ${msg}`);
       }
     }
 
@@ -347,9 +350,11 @@ export class StorageService {
         this.logger.log(`Uploaded direct buffer to Cloudflare R2: ${key}`);
         return { success: true, key };
       } catch (r2Err: unknown) {
-        this.logger.warn(
-          `Cloudflare R2 direct buffer upload failed for ${key}: ${(r2Err as Error).message}`,
+        const msg = r2Err instanceof Error ? r2Err.message : String(r2Err);
+        this.logger.error(
+          `Cloudflare R2 direct buffer upload failed for ${key}: ${msg}`,
         );
+        throw new Error(`Cloudflare R2 direct buffer upload failed: ${msg}`);
       }
     }
 

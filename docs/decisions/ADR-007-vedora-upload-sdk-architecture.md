@@ -1,4 +1,4 @@
-# ADR-007: Vedora Upload SDK Architecture and Multipart Pipeline
+﻿# ADR-007: Vedora Upload SDK Architecture and Multipart Pipeline
 
 ## Status
 Accepted

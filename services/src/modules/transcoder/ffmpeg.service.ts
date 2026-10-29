@@ -344,47 +344,54 @@ export class FfmpegService {
       ADAPTIVE_LADDER_CEILINGS[ceiling] || ['360p', '480p', '720p'];
 
     const matched: RenditionConfig[] = [];
+    const isPortrait = probe.height > probe.width;
 
-    // 3. Filter candidate renditions that do NOT upscale source height
+    // 3. Filter candidate renditions that do NOT upscale source height/width
     for (const name of candidateNames) {
       const standard = STANDARD_RENDITION_LADDER[name];
-      if (standard && standard.height <= probe.height) {
-        matched.push({
-          ...standard,
-          fps: Math.min(standard.fps, probe.fps),
-        });
+      if (!standard) continue;
+
+      const targetWidth = isPortrait
+        ? Math.min(standard.width, standard.height)
+        : standard.width;
+      const targetHeight = isPortrait
+        ? Math.max(standard.width, standard.height)
+        : standard.height;
+
+      // Ensure no upscaling on the limiting dimension
+      const maxDim = Math.max(probe.width, probe.height);
+      const targetMaxDim = Math.max(targetWidth, targetHeight);
+
+      if (targetHeight <= probe.height || targetMaxDim <= maxDim) {
+        if (targetWidth <= probe.width && targetHeight <= probe.height) {
+          matched.push({
+            ...standard,
+            width: targetWidth % 2 === 0 ? targetWidth : targetWidth - 1,
+            height: targetHeight % 2 === 0 ? targetHeight : targetHeight - 1,
+            fps: Math.min(standard.fps, probe.fps),
+          });
+        }
       }
     }
 
-    // 4. If source is smaller than lowest candidate (e.g. 240p), transcode matching source resolution
+    // 4. If source is smaller than lowest candidate (e.g. 240p or odd aspect ratio), transcode matching source resolution directly
     if (matched.length === 0) {
-      const available = Object.values(STANDARD_RENDITION_LADDER)
-        .filter((r) => r.height <= probe.height)
-        .sort((a, b) => b.height - a.height);
-
-      if (available.length > 0) {
-        matched.push({
-          ...available[0],
-          fps: Math.min(available[0].fps, probe.fps),
-        });
-      } else {
-        const evenWidth =
-          probe.width % 2 === 0 ? probe.width : Math.max(2, probe.width - 1);
-        const evenHeight =
-          probe.height % 2 === 0 ? probe.height : Math.max(2, probe.height - 1);
-        matched.push({
-          name: `${evenHeight}p`,
-          width: evenWidth,
-          height: evenHeight,
-          videoBitrateKbps: Math.min(
-            600,
-            Math.round((probe.bitrate || 600000) / 1000),
-          ),
-          audioBitrateKbps: 64,
-          fps: probe.fps,
-          segmentDurationSec: 4,
-        });
-      }
+      const evenWidth =
+        probe.width % 2 === 0 ? probe.width : Math.max(2, probe.width - 1);
+      const evenHeight =
+        probe.height % 2 === 0 ? probe.height : Math.max(2, probe.height - 1);
+      matched.push({
+        name: `${evenHeight}p`,
+        width: evenWidth,
+        height: evenHeight,
+        videoBitrateKbps: Math.min(
+          600,
+          Math.round((probe.bitrate || 600000) / 1000),
+        ),
+        audioBitrateKbps: 64,
+        fps: probe.fps,
+        segmentDurationSec: 4,
+      });
     }
 
     // Sort descending by resolution height (e.g. 1080p, 720p, 480p, 360p)
@@ -428,11 +435,15 @@ export class FfmpegService {
         '-y',
         '-i',
         inputPath,
-        // Scale with aspect ratio preservation and even dimensions padding
+        // Scale with aspect ratio preservation and even dimensions padding for portrait, landscape, and unusual aspect ratios
         '-vf',
-        `scale=w=${rend.width}:h=${rend.height}:force_original_aspect_ratio=decrease,pad=${rend.width}:${rend.height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p`,
+        `scale='if(gt(a,${rend.width}/${rend.height}),${rend.width},-2)':'if(gt(a,${rend.width}/${rend.height}),-2,${rend.height})',pad=${rend.width}:${rend.height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p`,
         '-c:v',
         'libx264',
+        '-profile:v',
+        'main',
+        '-level',
+        '3.1',
         '-preset',
         'veryfast',
         '-crf',
@@ -531,7 +542,10 @@ export class FfmpegService {
     }
 
     // Generate root master.m3u8 manifest
-    const masterPlaylistContent = this.buildMasterPlaylistContent(renditions);
+    const masterPlaylistContent = this.buildMasterPlaylistContent(
+      renditions,
+      probe.hasAudio,
+    );
     const masterPlaylistPath = path.join(outputDir, 'master.m3u8');
     fs.writeFileSync(masterPlaylistPath, masterPlaylistContent, 'utf-8');
 
@@ -560,18 +574,25 @@ export class FfmpegService {
   /**
    * Builds an RFC 8216 compliant HLS Master Playlist referencing active renditions.
    */
-  private buildMasterPlaylistContent(renditions: RenditionConfig[]): string {
+  public buildMasterPlaylistContent(
+    renditions: RenditionConfig[],
+    hasAudio = true,
+  ): string {
     const lines = [
       '#EXTM3U',
       '#EXT-X-VERSION:3',
       '# Generated by Vedora FFmpeg Engine',
     ];
 
+    const codecAttr = hasAudio
+      ? 'avc1.4d401f,mp4a.40.2'
+      : 'avc1.4d401f';
+
     for (const rend of renditions) {
       const bandwidth =
         (rend.videoBitrateKbps + rend.audioBitrateKbps) * 1000;
       lines.push(
-        `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},RESOLUTION=${rend.width}x${rend.height},FRAME-RATE=${rend.fps}`,
+        `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},RESOLUTION=${rend.width}x${rend.height},FRAME-RATE=${rend.fps},CODECS="${codecAttr}"`,
       );
       lines.push(`${rend.name}/index.m3u8`);
     }

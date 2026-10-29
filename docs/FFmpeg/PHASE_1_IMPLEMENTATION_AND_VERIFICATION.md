@@ -1,4 +1,4 @@
-# Vedora Phase 1 — Real FFmpeg Video Transcoding: Implementation & Verification Report
+﻿# Vedora Phase 1 — Real FFmpeg Video Transcoding: Implementation & Verification Report
 
 ## 1. Executive Summary
 

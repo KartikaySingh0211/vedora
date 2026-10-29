@@ -1,4 +1,4 @@
-# ADR-006: Plan-Based Storage Quotas and Concurrency-Safe Direct-to-Cloud Uploads
+﻿# ADR-006: Plan-Based Storage Quotas and Concurrency-Safe Direct-to-Cloud Uploads
 
 ## Status
 Accepted

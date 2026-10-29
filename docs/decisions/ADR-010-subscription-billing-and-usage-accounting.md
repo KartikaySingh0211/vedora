@@ -1,36 +1,27 @@
 # ADR-010: Subscription Billing Engine, Playback-Minute Accounting, and Quota Resets
 
 ## Status
-Accepted
+Superseded (Replaced by 100% Open-Source Architecture & Technical Ingestion Safeguards)
 
 ## Context
-Vedora offers tiered pricing plans (Free, Starter, Pro, Business) governed by storage caps and playback-minute allowances. Subscription management, webhook synchronization from Stripe, usage attribution, and billing cycle resets must be resilient, idempotent, and accurate. Crucially, monthly billing renewal must reset accumulated playback minutes without resetting or wiping accrued storage usage.
+Originally, Vedora was modeled with tiered commercial plans (Free, Starter, Pro, Business) integrated with Stripe subscriptions and billing cycle crons. However, Vedora has transitioned into a pure open-source MIT developer platform with zero monetization, zero recurring vendor costs, and no third-party payment infrastructure.
 
 ## Decision
-1. **Centralized Plan Entitlements & Allocation Architecture**:
-   - Plan limits defined in `plans.config.ts`:
-     - **Free**: 1,000 playback minutes / 5 GiB storage cap / 720p max resolution.
-     - **Starter**: 10,000 playback minutes / 250 GiB storage cap / 720p max resolution.
-     - **Pro**: 22,000 playback minutes / 600 GiB storage cap / 1080p max resolution.
-     - **Business**: 50,000 playback minutes / 2 TiB storage cap / 1080p max resolution.
-   - Database schema persists subscription status, plan identifier, customer IDs, and usage counters in `subscriptions` table. Default active Free tier record is provisioned on demand.
+1. **Complete Removal of Stripe & Subscription Billing**:
+   - Dropped the `subscriptions` database table via migration `0005_bouncy_boomerang.sql`.
+   - Removed the `stripe` npm dependency, `BillingModule`, `BillingController`, `BillingService`, and `BillingCycleCron`.
+   - Removed billing routes (`/billing`), Stripe webhook endpoints (`POST /api/v1/billing/webhook`), and plan upgrade UI flows across the dashboard and landing page.
 
-2. **Stripe Webhook Synchronization**:
-   - Webhook controller (`POST /api/v1/billing/webhook`) validates Stripe signatures using `stripe.webhooks.constructEvent` (or cryptographic HMAC fallback in test/mock environments).
-   - Handles `customer.subscription.updated`, `customer.subscription.deleted`, and `invoice.paid`.
-   - Webhooks are idempotent: duplicate event IDs or repeated subscription deliveries update the single authoritative subscription record without side effects.
-   - Direct client modification of subscription plans is strictly disallowed; billing state is entirely server-authoritative.
+2. **Transition to Technical Ingestion Safeguards (`plans.config.ts`)**:
+   - Replaced commercial plan tier limits with configurable operational safeguards:
+     - `MAX_FILE_SIZE_BYTES`: Defaults to 10 GiB per file.
+     - `USER_STORAGE_CAP_BYTES`: Defaults to 500 GiB active storage per user.
+     - `ALLOWED_RESOLUTIONS`: All users have access to the full adaptive ladder up to 1080p.
+   - Enforced atomically during upload initialization via PostgreSQL transaction advisory locks (`pg_advisory_xact_lock`).
 
-3. **Playback-Minute Accounting**:
-   - Validated watch duration from the analytics ingestion pipeline is attributed to the video owner's subscription.
-   - Partial minutes are converted using ceiling seconds (`ceil(seconds / 60)`).
-   - Usage is incremented in `subscriptions.used_minutes` with concurrent atomic SQL updates (`used_minutes = used_minutes + :addedMinutes`).
-
-4. **Monthly Playback Reset via UTC Scheduled Cron**:
-   - Scheduled cron job (`BillingCycleCron`) configured with `@Cron('0 0 1 * *', { timeZone: 'UTC' })` executing at midnight on the first day of every month.
-   - Iterates through subscriptions, archives prior period usage, and resets `used_minutes = 0`.
-   - **Storage Preservation Rule**: Accrued raw video storage (`videos.size_bytes`) and transcoded storage (`videos.transcoded_size`) are strictly preserved and never reset, ensuring storage accounting remains accurate across billing periods.
+3. **Telemetry & Watch Duration**:
+   - Playback duration and unique viewer telemetry remain fully functional for analytics and creator dashboards, without deducting from artificial commercial minute allowances.
 
 ## Consequences
-- **Positive**: Single source of truth for billing and plan limits; seamless synchronization with Stripe webhooks; accurate usage accounting; storage is permanently protected from monthly reset cycles.
-- **Negative**: Manual customer support intervention required if a customer exceeds minute allocations and overage charging is disabled.
+- **Positive**: Zero vendor lock-in or recurring service costs; simplified operational maintenance; completely independent open-source platform; clean technical safeguards prevent resource exhaustion.
+- **Negative**: Commercial monetization requires external billing wrappers or custom API extensions.

@@ -66,7 +66,7 @@ export class VideoController {
   @ApiOperation({
     summary: 'Initialize direct-to-cloud video upload',
     description:
-      'Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + 1.5x estimated transcoding overhead), and returns multipart presigned upload URLs. Enforces plan-based file size limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB).',
+      'Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + estimated transcoding overhead), and returns multipart presigned upload URLs.',
   })
   @ApiCreatedResponse({
     description:
@@ -81,14 +81,9 @@ export class VideoController {
     description: 'Authentication required',
     type: ErrorResponseDto,
   })
-  @ApiForbiddenResponse({
-    description:
-      'Account storage capacity cap exceeded or requested features (e.g. 1080p, watermark) require upgraded subscription plan',
-    type: ErrorResponseDto,
-  })
   @ApiPayloadTooLargeResponse({
     description:
-      'Video file size exceeds maximum single file upload limit for active plan',
+      'Video file size exceeds maximum single file ingestion limit',
     type: ErrorResponseDto,
   })
   async initVideo(
@@ -96,8 +91,7 @@ export class VideoController {
     @Req() req: UploadVideoRequest,
     @Body() dto: CreateVideoInitDto,
   ): Promise<VideoInitResponse> {
-    const userPlan = req.userPlan || 'free';
-    return await this.videoService.initVideo(userId, userPlan, dto);
+    return await this.videoService.initVideo(userId, dto);
   }
 
   /**
@@ -109,7 +103,7 @@ export class VideoController {
   @ApiOperation({
     summary: 'Complete video upload and trigger transcoding',
     description:
-      'Completes multipart upload session, marks video status as "uploaded", and automatically enqueues BullMQ background HLS transcoding job.',
+      'Completes multipart upload session, marks video status as "uploaded", and automatically enqueues background HLS transcoding job.',
   })
   @ApiOkResponse({
     description: 'Video upload confirmed and processing job queued',

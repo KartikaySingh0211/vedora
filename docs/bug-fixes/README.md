@@ -20,6 +20,7 @@ This directory serves as the centralized, immutable engineering ledger for all b
 | [BUG-010](./BUG-010-oneminute-bucket-zero-files-and-fallback-flower-video.md) | 2026-10-25 | Storage / Embed Player / SDK | High | OneMinute Cloud bucket zero files & fallback flower video playback | Resolved |
 | [BUG-011](./BUG-011-cloudflare-r2-cors-and-non-blocking-upload-queue.md) | 2026-10-28 | Storage / Cloudflare R2 / Frontend | High | Cloudflare R2 presigned multipart PUT CORS preflight rejection & blocking modal upload UX | Resolved |
 | [BUG-012](./BUG-012-dashboard-static-data-replaced-with-live-telemetry.md) | 2026-10-29 | Frontend / Dashboard & Analytics | Medium | Home dashboard page displayed static hardcoded placeholder stats instead of live user data | Resolved |
+| [BUG-013](./BUG-013-production-readiness-audit-remediation.md) | 2026-10-29 | Storage / Transcoder / Queue / Driver / Auth | High | Production audit remediation: R2 errors, CORS, FFmpeg portrait scaling, queue recovery, dual DB drivers | Resolved |
 
 ---
 

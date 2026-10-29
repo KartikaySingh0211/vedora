@@ -1,4 +1,4 @@
-# Bug Fix: BUG-009 — Discarded Mock Upload Payloads & Unexpected 10-Minute Video Playback
+﻿# Bug Fix: BUG-009 — Discarded Mock Upload Payloads & Unexpected 10-Minute Video Playback
 
 ## 1. Metadata
 - **Bug ID**: `BUG-009`

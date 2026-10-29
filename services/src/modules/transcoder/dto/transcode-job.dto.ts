@@ -7,4 +7,5 @@ export interface TranscodeJobData {
   title: string;
   slug: string;
   duration?: number;
+  attempts?: number;
 }

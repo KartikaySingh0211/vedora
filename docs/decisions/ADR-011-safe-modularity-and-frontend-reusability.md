@@ -1,4 +1,4 @@
-# ADR-011: Safe Modularity, Cross-Cutting Cache Keys, and Reusable Frontend Components
+﻿# ADR-011: Safe Modularity, Cross-Cutting Cache Keys, and Reusable Frontend Components
 
 ## Status
 **Accepted** (Implemented in Safe Modularity Refactor - 2026-10-27)

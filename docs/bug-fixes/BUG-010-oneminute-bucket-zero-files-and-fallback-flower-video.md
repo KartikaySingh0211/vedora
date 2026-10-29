@@ -1,4 +1,4 @@
-# BUG-010: OneMinute Cloud Bucket Zero Files & Fallback Flower Video Playback
+﻿# BUG-010: OneMinute Cloud Bucket Zero Files & Fallback Flower Video Playback
 
 ## Metadata
 - **Bug ID**: BUG-010

@@ -1,4 +1,4 @@
-# BUG-004: Direct-to-Cloud Video Upload Initiate 500/502 Bad Gateway
+﻿# BUG-004: Direct-to-Cloud Video Upload Initiate 500/502 Bad Gateway
 
 - **ID**: BUG-004
 - **Date**: 2026-10-24

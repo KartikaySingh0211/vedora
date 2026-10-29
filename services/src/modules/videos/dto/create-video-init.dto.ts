@@ -43,7 +43,7 @@ export class CreateVideoInitDto {
 
   @ApiProperty({
     description:
-      'Raw source file size in bytes. Must be greater than 0 and within user plan limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB)',
+      'Raw source file size in bytes. Must be greater than 0 and within technical ingestion limits',
     example: 104857600,
     minimum: 1,
   })
@@ -65,7 +65,7 @@ export class CreateVideoInitDto {
 
   @ApiPropertyOptional({
     description:
-      'Requested maximum output HLS rendition resolution ceiling. Free plan allows up to 720p; Pro/Business allows up to 1080p',
+      'Requested maximum output HLS rendition resolution ceiling (360p, 480p, 720p, 1080p). Automatically generates full ladder up to this ceiling.',
     example: ['720p'],
     type: [String],
     enum: ['360p', '480p', '720p', '1080p'],

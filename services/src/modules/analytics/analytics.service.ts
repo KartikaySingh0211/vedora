@@ -183,7 +183,7 @@ export class AnalyticsService {
   }
 
   /**
-   * Insert batch into PostgreSQL and update subscription used_minutes.
+   * Insert batch into PostgreSQL video_views.
    */
   async persistDirectBatch(events: BufferedAnalyticsEvent[]): Promise<void> {
     if (events.length === 0) return;
@@ -202,28 +202,6 @@ export class AnalyticsService {
     }));
 
     await this.db.insert(schema.video_views).values(records);
-
-    // Sum watch seconds per user to increment subscription used_minutes
-    const userMinutes: Record<string, number> = {};
-    for (const e of events) {
-      userMinutes[e.userId] =
-        (userMinutes[e.userId] || 0) + e.watchDurationSeconds / 60;
-    }
-
-    for (const [userId, mins] of Object.entries(userMinutes)) {
-      const roundedMins = Math.max(1, Math.round(mins));
-      try {
-        await this.db
-          .update(schema.subscriptions)
-          .set({
-            used_minutes: sql`${schema.subscriptions.used_minutes} + ${roundedMins}`,
-            updated_at: new Date(),
-          })
-          .where(eq(schema.subscriptions.user_id, userId));
-      } catch {
-        // tolerate if user subscription record doesn't exist yet
-      }
-    }
   }
 
   /**

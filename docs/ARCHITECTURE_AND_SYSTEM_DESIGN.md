@@ -254,7 +254,7 @@ sequenceDiagram
     Browser->>Browser: User selects video file & quality ceiling (e.g. 720p)
     Browser->>Queue: Enqueue upload & redirect user to /my-videos
     Queue->>API: POST /api/v1/videos/init (size, quality ceiling, metadata)
-    API->>API: Advisory Lock, Plan Quota Check & R2 Multipart Initiation
+    API->>API: Advisory Lock, Technical Safeguard Check & R2 Multipart Initiation
     API-->>Queue: Return { videoId, uploadId, key, parts: [presignedUrls] }
 
     loop For Each 5MB-10MB Chunk
@@ -274,7 +274,6 @@ sequenceDiagram
     Worker->>R2: Upload master.m3u8, index.m3u8 files, & .ts segments
     Worker->>API: Transition status to 'ready' with resolutions array
 ```
-```
 
 ### Telemetry Calculation Engine
 To prevent division-by-zero, negative intervals, or `NaN`/`Infinity` artifacts:
@@ -284,3 +283,30 @@ $$\text{SpeedBytesPerSec} = \frac{\text{LoadedBytes}}{\text{ElapsedSeconds}}$$
 $$\text{RemainingSeconds} = \left\lceil \frac{\text{TotalBytes} - \text{LoadedBytes}}{\text{SpeedBytesPerSec}} \right\rceil$$
 
 If progress is $100\%$, the UI transitions immediately to `"Finalizing multipart upload..."` until the provider returns confirmation.
+
+---
+
+## 7. Queue Delivery Guarantees & Crash Recovery
+
+Vedora uses a resilient Redis-backed queue without heavy third-party dependencies:
+
+### 7.1 Delivery Semantics
+- **At-Least-Once Delivery**: Jobs are guaranteed to be processed at least once. Exactly-once processing is NOT claimed at the transport layer; instead, idempotency is enforced at the video state machine (`uploaded` $\to$ `processing` $\to$ `ready`).
+- **Atomic Job Claiming (`RPOPLPUSH`)**: Workers claim jobs from `vedora:transcode:queue` into `vedora:transcode:processing` in a single atomic Redis operation. If a worker crashes or is killed by OS/OOM killer, the job payload is never lost from Redis.
+- **Heartbeat & Lock Renewal**: While active, the transcoder worker periodically renews an execution lock (`vedora:transcode:lock:<videoId>`) with a 60-second TTL.
+- **Automated Stuck-Job Recovery**: A scheduled recovery process (`recoverStuckJobs`) runs periodically to inspect `vedora:transcode:processing`. Any job whose lock has expired and whose video is not `READY` or `FAILED` is recovered, re-enqueued (up to 3 retries), or marked `FAILED` if retries are exhausted. Upon successful completion, the job is removed via `LREM`.
+
+---
+
+## 8. Dual Database Driver Selection Architecture
+
+To enable zero-cloud local developer workflows alongside production serverless deployments, `DatabaseModule` dynamically selects the database driver based on the connection target:
+
+1. **Neon Serverless Driver (`@neondatabase/serverless`)**:
+   - Activated when `DATABASE_URL` contains `neon.tech` or `USE_NEON=true`.
+   - Uses WebSockets over HTTPS (`neonConfig.webSocketConstructor = ws`).
+   - Ideal for serverless scale-to-zero Neon PostgreSQL instances.
+2. **Standard Node-Postgres Driver (`pg.Pool`)**:
+   - Activated when connecting to standard PostgreSQL instances (such as Docker Compose container `vedora-postgres` on `localhost:5432`).
+   - Uses persistent TCP connection pools via `drizzle-orm/node-postgres`.
+   - Guarantees seamless local execution without requiring internet access or Neon credentials.

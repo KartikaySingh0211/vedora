@@ -19,6 +19,7 @@ import {
   verifyApiKeyHash,
   deriveKeyDigest,
   uuidToKeyId,
+  timingSafeEqualHex,
 } from '../../utils/api-key.util';
 
 export interface ApiKeyVerificationResult {
@@ -202,7 +203,7 @@ export class ApiKeyService {
       if (lruRecord.revoked) {
         return null;
       }
-      if (lruRecord.digest === computedDigest) {
+      if (timingSafeEqualHex(lruRecord.digest, computedDigest)) {
         void this.activityService.recordActivity(keyId, uuid);
         return { userId: lruRecord.userId, keyId, uuid };
       }
@@ -215,7 +216,7 @@ export class ApiKeyService {
         this.cacheService.setInLru(keyId, redisRecord);
         return null;
       }
-      if (redisRecord.digest === computedDigest) {
+      if (timingSafeEqualHex(redisRecord.digest, computedDigest)) {
         // Rehydrate LRU cache
         this.cacheService.setInLru(keyId, {
           ...redisRecord,

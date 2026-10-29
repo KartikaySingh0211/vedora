@@ -140,9 +140,9 @@ export default function UploadPage() {
 
     const tags = data.tags
       ? data.tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
       : [];
 
     startUpload({
@@ -166,9 +166,9 @@ export default function UploadPage() {
     const titleVal = watch("title") || "";
     const baseSlug = titleVal
       ? titleVal
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)+/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "")
       : "video";
     const randomSuffix = Math.random().toString(36).substring(2, 7);
     setValue("slug", `${baseSlug}-${randomSuffix}`, { shouldValidate: true });
@@ -347,21 +347,18 @@ export default function UploadPage() {
                         Adaptive streaming automatically generates all supported lower renditions up to this ceiling.
                       </p>
                     </div>
-                    <span className="text-[11px] text-slate-500">1080p requires Starter+</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <button
                       type="button"
                       onClick={() => selectResolutionCeiling("360p")}
-                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                        maxResolution === "360p"
-                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
-                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
-                      }`}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${maxResolution === "360p"
+                        ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                        : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
                     >
                       <div className="flex items-center justify-between w-full mb-1">
                         <span className="text-xs font-semibold">360p (SD)</span>
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
                       </div>
                       <span className="text-[10px] text-slate-500">360p</span>
                     </button>
@@ -369,15 +366,13 @@ export default function UploadPage() {
                     <button
                       type="button"
                       onClick={() => selectResolutionCeiling("480p")}
-                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                        maxResolution === "480p"
-                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
-                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
-                      }`}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${maxResolution === "480p"
+                        ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                        : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
                     >
                       <div className="flex items-center justify-between w-full mb-1">
                         <span className="text-xs font-semibold">480p (SD)</span>
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">All Plans</span>
                       </div>
                       <span className="text-[10px] text-slate-500">360p + 480p</span>
                     </button>
@@ -385,15 +380,13 @@ export default function UploadPage() {
                     <button
                       type="button"
                       onClick={() => selectResolutionCeiling("720p")}
-                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                        maxResolution === "720p"
-                          ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
-                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
-                      }`}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${maxResolution === "720p"
+                        ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 text-blue-500"
+                        : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
                     >
                       <div className="flex items-center justify-between w-full mb-1">
                         <span className="text-xs font-semibold">720p (HD)</span>
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-slate-800 text-slate-400">Default</span>
                       </div>
                       <span className="text-[10px] text-slate-500">360p + 480p + 720p</span>
                     </button>
@@ -401,15 +394,13 @@ export default function UploadPage() {
                     <button
                       type="button"
                       onClick={() => selectResolutionCeiling("1080p")}
-                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                        maxResolution === "1080p"
-                          ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/30 text-purple-400"
-                          : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
-                      }`}
+                      className={`flex flex-col items-start p-3 rounded-lg border text-left cursor-pointer transition-all ${maxResolution === "1080p"
+                        ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/30 text-purple-400"
+                        : "border-slate-300 dark:border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
                     >
                       <div className="flex items-center justify-between w-full mb-1">
                         <span className="text-xs font-semibold">1080p (FHD)</span>
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-purple-900/40 text-purple-300">Paid Plan</span>
                       </div>
                       <span className="text-[10px] text-slate-500">All + 1080p</span>
                     </button>
@@ -448,10 +439,9 @@ export default function UploadPage() {
                 onClick={triggerBrowse}
                 className={`
                   relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all duration-200
-                  ${
-                    isDragging
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-4 ring-blue-500/10"
-                      : "border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                  ${isDragging
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-4 ring-blue-500/10"
+                    : "border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900/50"
                   }
                 `}
               >

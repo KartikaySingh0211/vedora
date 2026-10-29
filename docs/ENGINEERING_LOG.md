@@ -1014,3 +1014,64 @@ The user reported:
 - `npm --prefix services test`: 17 passed suites, 138 passed tests.
 - `npm --prefix sdks/vedora-sdk test`: 3 passed tests.
 - `npm --prefix apps/main-dashboard run build`: Turbopack build succeeded with 16 routes and 0 TypeScript errors.
+
+---
+
+## 2026-10-29: Open-Source De-Monetization, Audit Remediation & Infrastructure Hardening
+
+### 1. Context & Motivation
+1. **Transition to 100% Open-Source MIT Architecture**: Vedora transitioned into a non-monetized, zero-vendor-cost open-source platform. All Stripe dependencies, subscription tables, commercial tiers, and billing UIs were eliminated and replaced with robust, server-enforced technical safeguards.
+2. **Production-Readiness Audit Remediation**: Fixed eight identified security, reliability, media processing, and queue robustness findings across Cloudflare R2, CORS, FFmpeg portrait scaling, local storage 404s, HLS manifest codecs, API-key timing-safe comparisons, queue crash recovery, and Docker PostgreSQL driver compatibility.
+
+### 2. Implementation Details
+
+#### A. Complete Removal of Billing & Subscriptions
+- **Backend Services**:
+  - Uninstalled `stripe` and removed Stripe credentials from `.env.example` and `configuration.ts`.
+  - Deleted `services/src/modules/billing/` (`BillingModule`, `BillingController`, `BillingService`, `BillingCycleCron`, and DTOs).
+  - Dropped `subscriptions` table from `services/src/database/schema.ts` and generated Drizzle migration `0005_bouncy_boomerang.sql` (`DROP TABLE "subscriptions" CASCADE;`).
+  - Removed subscription updates from `AnalyticsService` and plan-based watermark locks from `PlayerSettingsService`.
+- **Frontend Dashboard & Landing Page**:
+  - Deleted `apps/main-dashboard/app/billing/` route.
+  - Updated `apps/main-dashboard/app/page.tsx`: Replaced `/billing/subscription` queries with direct telemetry from `/analytics/metrics` and `/videos`.
+  - Updated `apps/main-dashboard/app/branding/page.tsx`, `components/sidebar.tsx`, and `components/command-menu.tsx` to remove Pro tier badges and upgrade banners.
+  - Updated `apps/landing-page` pricing, CTA, navbar, and hero components to represent a $0 open-source platform.
+- **Technical Ingestion Safeguards (`services/src/config/plans.config.ts`)**:
+  - Replaced commercial plan checks with configurable technical safeguards: `MAX_FILE_SIZE_BYTES` (default 10 GiB), `USER_STORAGE_CAP_BYTES` (default 500 GiB), and unlocked 1080p for all users.
+  - Enforced safeguards atomically using PostgreSQL advisory locks (`pg_advisory_xact_lock`).
+
+#### B. Production-Readiness Audit Fixes
+- **Cloudflare R2 Reliability**:
+  - `StorageService.completeMultipartUpload` and `uploadDirectBuffer` now propagate errors immediately instead of returning false-positive success payloads.
+  - Transcoding pipelines verify all HLS assets are persisted before transitioning video state to `READY`.
+- **CORS Hardening (`main.ts`)**:
+  - Removed wildcard `.endsWith('.vercel.app')` suffix matching.
+  - Restricted browser origins strictly to explicit `corsOrigins`, dashboard URLs, and `localhost`/`127.0.0.1`.
+- **FFmpeg Portrait & Odd-Dimension Processing (`ffmpeg.service.ts`)**:
+  - Implemented dynamic aspect-ratio ladder in `selectRenditions`, inverting dimensions for portrait videos (`height > width`) without upscaling.
+  - Formulated universal aspect-ratio preserving scaling with FFmpeg's `-2` dimension token:
+    `scale='if(gt(a,W/H),W,-2)':'if(gt(a,W/H),-2,H)',pad=W:H:(ow-iw)/2:(oh-ih)/2,format=yuv420p` with `-profile:v main -level 3.1`.
+  - Guaranteed strictly even dimensions across all renditions, fully satisfying `yuv420p` pixel format constraints.
+- **Local Storage Missing-File Behavior (`storage.controller.ts`)**:
+  - Removed fallback redirecting missing video files to Mozilla's external sample video; returns semantic `404 Not Found` JSON error.
+- **RFC 8216 HLS Master Playlist CODECS**:
+  - Dynamically injects RFC 8216 compliant codec strings: `CODECS="avc1.4d401f,mp4a.40.2"` when audio is present, and `CODECS="avc1.4d401f"` when audio is absent.
+- **API-Key Timing-Safe Comparison (`api-key.util.ts`)**:
+  - Implemented `timingSafeEqualHex` using `crypto.timingSafeEqual` with buffer length validation to prevent timing side-channel attacks on cached HMAC-SHA256 digests.
+- **Queue Reliability & Crash Recovery (`redis.service.ts` & `transcoder.service.ts`)**:
+  - Added atomic job claiming via `RPOPLPUSH` from `vedora:transcode:queue` into `vedora:transcode:processing`.
+  - Added heartbeat lock renewal during transcoding and automated stuck job recovery (`recoverStuckJobs`) for worker crashes with up to 3 retries and at-least-once delivery guarantees.
+- **Dual Database Driver Selection (`database.module.ts`)**:
+  - Added dynamic driver selection: `@neondatabase/serverless` for Neon cloud databases, and `pg.Pool` with `drizzle-orm/node-postgres` for standard PostgreSQL (e.g. local Docker container).
+
+### 3. Verification Evidence
+- **Backend Unit & Integration Tests**: `npm --prefix services test`
+  - 16 test suites passed, 139 tests passed (including real FFmpeg transcoding tests, portrait tests, odd dimensions, and OpenAPI validation).
+- **Swagger / OpenAPI Documentation**: `npm --prefix services test -- swagger.spec.ts`
+  - 5 tests passed; regenerated `docs/openapi.json`.
+- **TypeScript SDK**: `npm --prefix sdks/vedora-sdk test` & `npm --prefix sdks/vedora-sdk run build`
+  - 3 tests passed; build succeeded with zero errors.
+- **Dashboard Next.js App**: `npm --prefix apps/main-dashboard run build`
+  - Compiled and prerendered 15 routes cleanly with zero TypeScript errors.
+- **Landing Page Next.js App**: `npm --prefix apps/landing-page run build`
+  - Compiled and prerendered 5 routes cleanly with zero TypeScript errors.

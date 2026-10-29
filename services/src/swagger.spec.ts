@@ -25,7 +25,7 @@ describe('Swagger OpenAPI Documentation Suite', () => {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Vedora API')
       .setDescription(
-        'Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, BullMQ distributed HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and Stripe billing.',
+        'Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, Redis-backed HLS transcoding, pseudonymous telemetry & segment-level analytics, and customizable video player styling.',
       )
       .setVersion('1.0')
       .addBearerAuth(
@@ -92,7 +92,6 @@ describe('Swagger OpenAPI Documentation Suite', () => {
     // Verify Error Responses
     expect(initPath.post.responses['400']).toBeDefined();
     expect(initPath.post.responses['401']).toBeDefined();
-    expect(initPath.post.responses['403']).toBeDefined();
     expect(initPath.post.responses['413']).toBeDefined();
   });
 
@@ -108,7 +107,7 @@ describe('Swagger OpenAPI Documentation Suite', () => {
     expect(completePath.post.responses['404']).toBeDefined();
   });
 
-  it('should document all 10 controllers across paths', () => {
+  it('should document all core platform controllers across paths', () => {
     const paths = Object.keys(document.paths);
     expect(paths).toContain('/api/v1/api-keys');
     expect(paths).toContain('/api/v1/playlists');
@@ -121,8 +120,6 @@ describe('Swagger OpenAPI Documentation Suite', () => {
     expect(paths).toContain('/api/v1/player-settings/public/{videoId}');
     expect(paths).toContain('/api/v1/analytics/segment-ping');
     expect(paths).toContain('/api/v1/analytics/metrics');
-    expect(paths).toContain('/api/v1/billing/webhook');
-    expect(paths).toContain('/api/v1/billing/subscription');
   });
 
   it('should define securitySchemes for bearer and x-api-key', () => {

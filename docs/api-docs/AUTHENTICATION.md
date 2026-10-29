@@ -1,4 +1,4 @@
-# Vedora — Authentication & Authorization Guide
+﻿# Vedora — Authentication & Authorization Guide
 
 This document provides complete implementation specifications for authenticating against the Vedora API, configuring security credentials in Swagger UI, and understanding the backend cryptographic guard architecture.
 

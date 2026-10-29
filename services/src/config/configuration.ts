@@ -21,10 +21,6 @@ export interface AppConfig {
     bucketName?: string;
     publicUrl?: string;
   };
-  billing: {
-    stripeSecretKey?: string;
-    stripeWebhookSecret?: string;
-  };
   transcoder: {
     webhookSecret?: string;
   };
@@ -56,10 +52,6 @@ export default (): AppConfig => ({
     bucketName: process.env.R2_BUCKET_NAME,
     publicUrl: process.env.R2_PUBLIC_URL || process.env.STORAGE_CDN_URL,
   },
-  billing: {
-    stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-  },
   transcoder: {
     webhookSecret: process.env.TRANSCODER_WEBHOOK_SECRET,
   },
@@ -68,5 +60,8 @@ export default (): AppConfig => ({
     'http://localhost:3001',
     process.env.FRONTEND_URL,
     process.env.DASHBOARD_URL,
+    ...(process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+      : []),
   ].filter(Boolean) as string[],
 });

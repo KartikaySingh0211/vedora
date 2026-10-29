@@ -12,7 +12,6 @@ import { VideosModule } from './modules/videos/videos.module';
 import { TranscoderModule } from './modules/transcoder/transcoder.module';
 import { PlayerSettingsModule } from './modules/player-settings/player-settings.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -31,7 +30,6 @@ import { BillingModule } from './modules/billing/billing.module';
     TranscoderModule,
     PlayerSettingsModule,
     AnalyticsModule,
-    BillingModule,
   ],
 })
 export class AppModule {}

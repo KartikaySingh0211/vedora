@@ -50,7 +50,7 @@ async function bootstrap() {
       const isAllowed =
         corsOrigins.includes(origin) ||
         origin.startsWith('http://localhost:') ||
-        origin.endsWith('.vercel.app');
+        origin.startsWith('http://127.0.0.1:');
 
       if (isAllowed) {
         callback(null, true);
@@ -68,7 +68,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Vedora API')
     .setDescription(
-      'Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, BullMQ distributed HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and Stripe billing.',
+      'Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, custom Redis queue HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and open-source video infrastructure.',
     )
     .setVersion('1.0')
     .addBearerAuth(
@@ -120,10 +120,6 @@ async function bootstrap() {
     .addTag(
       'Analytics',
       'Playback heartbeat ping telemetry and aggregated audience metrics',
-    )
-    .addTag(
-      'Billing',
-      'Stripe subscription webhook processing and playback minutes tracking',
     )
     .build();
 

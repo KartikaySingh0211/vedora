@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-138%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-139%20passing%20(16%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -43,8 +43,8 @@ Vedora addresses these challenges with an integrated, developer-first platform: 
    PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) serialize concurrent upload requests per user, guaranteeing that active storage plus incoming reservations never exceed tier caps.
 4. **Automatic Adaptive Rendition Ladder with Quality Ceilings**:
    Users select a maximum quality ceiling (360p, 480p, 720p, 1080p). Vedora automatically encodes all supported lower renditions down to 360p (e.g. 720p $\to$ 360p + 480p + 720p) with strict no-upscaling guarantees, generating RFC 8216 `master.m3u8` manifests and `.ts` media segments. Built-in `<VedoraPlayer />` and `<EmbedVideoModal />` provide adaptive bitrate streaming via `hls.js`.
-5. **Privacy-Preserving Telemetry & Usage-Based Billing**:
-   Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Stripe webhook listeners sync subscription tiers and manage monthly playback-minute resets.
+5. **Privacy-Preserving Telemetry & Technical Ingestion Safeguards**:
+   Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Vedora provides 100% open-source video infrastructure with configurable technical safeguards (10 GiB single-file limit, 500 GiB user storage capacity, 1080p for all users) with zero subscription fees, paid tiers, or proprietary billing lock-in.
 
 ---
 
@@ -133,7 +133,7 @@ User video library displaying lifecycle status badges (`uploading`, `uploaded`, 
 | **Embeddable Player** | `/embed/[videoid]` | Standalone viewport playback, HLS.js adaptive streaming, speed selector, PiP, keyboard shortcuts |
 | **Custom Player Settings**| `/player` | Primary color picker, control bar styling, watermark position/opacity slider, UI control toggles |
 | **Playback Analytics** | `/analytics` | Views, watch minutes, unique viewers, retention curve, device/browser distribution via Recharts |
-| **Subscription Billing** | `/billing` | Active plan tier, allocated vs used playback minutes, renewal dates, Stripe checkout links |
+| **Open-Source Safeguards** | `/settings` | Technical safeguard settings, active storage capacity metrics, 1080p encoding tier display |
 
 ---
 
@@ -277,7 +277,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 | **[ADR-007](docs/decisions/ADR-007-vedora-upload-sdk-architecture.md)** | Standalone TypeScript SDK | Custom `@vedora/sdk` client handling chunking, upload progress calculation, exponential backoff retries, and `AbortSignal` cancellation. |
 | **[ADR-008](docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md)** | Asynchronous HLS Transcoding | Multi-rendition adaptive streaming ladder (360p to 1080p), RFC 8216 master playlist generation, and HMAC webhook verification. |
 | **[ADR-009](docs/decisions/ADR-009-segment-level-analytics-and-pseudonymous-telemetry.md)** | Playback Telemetry Ingestion | Ingests 10-second segment heartbeat pings, pseudonymizes client IP with HMAC-SHA256, buffers in Redis, and batches into PostgreSQL. |
-| **[ADR-010](docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)** | Subscription Billing & Minute Accounting | Integrates Stripe webhooks (`customer.subscription.updated`, `invoice.paid`) and scheduled UTC monthly cron to reset playback minutes while preserving accrued storage. |
+| **[ADR-010](docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)** | Open-Source Safeguards & De-Monetization | Completely removed proprietary Stripe billing and paid tiers in favor of 100% open-source architecture with technical ingestion safeguards (10 GiB single file, 500 GiB user capacity, 1080p open to all). |
 | **[ADR-011](docs/decisions/ADR-011-safe-modularity-and-frontend-reusability.md)** | Frontend Reusability & Embed Player | Encapsulates video streaming into a reusable `<VedoraPlayer />` and `<EmbedVideoModal />` with HLS.js adaptive streaming and native HTML5 fallback. |
 
 ---
@@ -299,9 +299,9 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 3. **Prompt Cache Invalidation**: Revoking or regenerating an API key invalidates both Level 1 (LRU) and Level 2 (Redis) cache entries immediately and guards against concurrent rehydration.
 4. **Server-Side Quotas**: Quotas (e.g., 10 playlists per user, plan storage caps) are enforced in PostgreSQL transactions using advisory locks, preventing quota bypasses from concurrent race conditions.
 5. **Privacy-Preserving Telemetry**: Raw IP addresses are never persisted in analytics records; pseudonymized HMAC hashes are generated with server-side secrets.
-6. **Cryptographic Webhook Signatures**: Transcoding completion and Stripe billing webhooks require verified HMAC signatures before executing state transitions.
-7. **Server-Authoritative Plan Entitlements**: Client applications cannot override watermarks, resolution caps, or subscription tiers; all playback and quota logic is verified server-side.
-8. **Permanent Storage Accounting**: Monthly billing resets refresh playback minutes while preserving accrued storage size to guarantee accurate quota enforcement across billing cycles.
+6. **Cryptographic Webhook Signatures**: Transcoding completion webhooks require verified HMAC-SHA256 signatures before executing state transitions.
+7. **Server-Authoritative Technical Safeguards**: Ingestion safeguards enforce 10 GiB single-file limits and 500 GiB user storage capacity with atomic PostgreSQL advisory locks; 1080p encoding is available to all users.
+8. **Resilient Queue Processing & Crash Recovery**: Atomic job claiming (`RPOPLPUSH`) with processing queue tracking (`vedora:transcode:processing`), heartbeat lock renewal, and stale job recovery for worker crashes with at-least-once delivery guarantees.
 
 ---
 

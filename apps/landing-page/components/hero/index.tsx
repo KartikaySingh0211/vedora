@@ -50,9 +50,9 @@ const Hero = () => {
 
             {/* Description */}
             <p className="text-sm sm:text-base leading-relaxed text-white/70 max-w-lg">
-              Video hosting built for SaaS teams and startups. Upload,
-              transcode, and stream with a lightweight SDK — with transparent
-              pricing and no hidden playback or transcoding surprises.
+              Video hosting built for developers and startups. Upload,
+              transcode, and stream with a lightweight SDK — 100% free and open-source
+              with zero vendor lock-in.
             </p>
 
             {/* Capability Bullets */}
@@ -122,8 +122,7 @@ const Hero = () => {
                   />
                 </svg>
                 <span>
-                  Transparent pricing — storage is yours, playback resets
-                  monthly
+                  100% Free & Open Source — MIT Licensed with zero fees
                 </span>
               </li>
             </ul>

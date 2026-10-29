@@ -1,4 +1,4 @@
-# Bug Fix: BUG-008 — Embed Video Player Infinite Buffering & Invalid Storage Domain DNS Failure
+﻿# Bug Fix: BUG-008 — Embed Video Player Infinite Buffering & Invalid Storage Domain DNS Failure
 
 ## 1. Metadata
 - **Bug ID**: `BUG-008`

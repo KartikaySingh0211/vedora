@@ -1,4 +1,4 @@
-# BUG-003: Player Settings 'Enabled UI Controls' Not Persisting to Database
+﻿# BUG-003: Player Settings 'Enabled UI Controls' Not Persisting to Database
 
 - **ID**: BUG-003
 - **Date**: 2026-10-24

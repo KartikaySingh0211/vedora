@@ -1,4 +1,4 @@
-# BUG-002: Redis Client NOAUTH HELLO Authentication Rejection
+﻿# BUG-002: Redis Client NOAUTH HELLO Authentication Rejection
 
 - **ID**: BUG-002
 - **Date**: 2026-10-24

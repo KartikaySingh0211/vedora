@@ -94,27 +94,29 @@ describe('PlayerSettingsService', () => {
   });
 
   describe('getPublicPlayerConfig', () => {
-    it('should force "Powered by Vedora" for free plan owners', async () => {
+    it('should default to "Powered by Vedora" text when no custom watermark is configured', async () => {
       const video = {
         id: '00000000-0000-0000-0000-000000000001',
-        user_id: 'user_free',
-        title: 'Free Tier Video',
+        user_id: 'user_1',
+        title: 'Video without custom watermark',
         duration: 120,
         status: 'ready',
         master_m3u8_key: 'videos/vid-1/master.m3u8',
       };
 
+      const settingsWithoutWatermark = {
+        ...mockSettings,
+        watermark_url: null,
+      };
+
       // 1. video query
       // 2. settings query
-      // 3. subscription query (free)
       mockDb.limit
         .mockResolvedValueOnce([video])
-        .mockResolvedValueOnce([mockSettings])
-        .mockResolvedValueOnce([{ plan: 'free' }]);
+        .mockResolvedValueOnce([settingsWithoutWatermark]);
 
       const config = await service.getPublicPlayerConfig(video.id);
 
-      expect(config.isFreeTier).toBe(true);
       expect(config.watermarkText).toBe('Powered by Vedora');
       expect(config.watermarkUrl).toBeNull();
       expect(config.streamUrl).toBe(
@@ -122,11 +124,11 @@ describe('PlayerSettingsService', () => {
       );
     });
 
-    it('should allow custom watermark for paid plan owners', async () => {
+    it('should serve custom watermark URL when configured', async () => {
       const video = {
         id: '00000000-0000-0000-0000-000000000002',
-        user_id: 'user_pro',
-        title: 'Pro Video',
+        user_id: 'user_2',
+        title: 'Video with custom watermark',
         duration: 240,
         status: 'ready',
         master_m3u8_key: 'videos/vid-2/master.m3u8',
@@ -134,12 +136,10 @@ describe('PlayerSettingsService', () => {
 
       mockDb.limit
         .mockResolvedValueOnce([video])
-        .mockResolvedValueOnce([mockSettings])
-        .mockResolvedValueOnce([{ plan: 'pro' }]);
+        .mockResolvedValueOnce([mockSettings]);
 
       const config = await service.getPublicPlayerConfig(video.id);
 
-      expect(config.isFreeTier).toBe(false);
       expect(config.watermarkText).toBeNull();
       expect(config.watermarkUrl).toBe('https://cdn.example.com/logo.png');
     });
@@ -147,7 +147,7 @@ describe('PlayerSettingsService', () => {
     it('should fallback to storage_key when master_m3u8_key is null', async () => {
       const video = {
         id: '00000000-0000-0000-0000-000000000003',
-        user_id: 'user_free',
+        user_id: 'user_3',
         title: 'Raw Uploaded Video',
         duration: 60,
         status: 'uploaded',
@@ -157,8 +157,7 @@ describe('PlayerSettingsService', () => {
 
       mockDb.limit
         .mockResolvedValueOnce([video])
-        .mockResolvedValueOnce([mockSettings])
-        .mockResolvedValueOnce([{ plan: 'free' }]);
+        .mockResolvedValueOnce([mockSettings]);
 
       const config = await service.getPublicPlayerConfig(video.id);
 

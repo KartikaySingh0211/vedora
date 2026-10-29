@@ -30,7 +30,7 @@ export class ErrorResponseDto {
 
   @ApiProperty({
     description: 'Human-readable error description or details',
-    example: 'Storage quota exceeded for current subscription tier',
+    example: 'Storage quota exceeded for current user storage capacity limit',
   })
   message: string;
 }

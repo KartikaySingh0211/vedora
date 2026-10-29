@@ -98,7 +98,7 @@ describe('VideoService', () => {
   describe('initVideo', () => {
     it('should throw UnauthorizedException if userId is missing', async () => {
       await expect(
-        service.initVideo('', 'free', {
+        service.initVideo('', {
           title: 'Test',
           slug: 'test',
           size: 1000,
@@ -107,13 +107,13 @@ describe('VideoService', () => {
     });
 
     it('should reject upload if storage quota is exceeded', async () => {
-      // Return active videos using 4.9 GiB on Free plan (5 GiB cap)
+      // Return active videos using 600 GiB exceeding 500 GiB cap
       mockTx.where.mockResolvedValueOnce([
-        { size: 3000000000n, estimatedTranscodedSize: 2200000000n }, // 5.2 GiB > 5 GiB
+        { size: 500000000000n, estimatedTranscodedSize: 100000000000n }, // 600 billion bytes > 536.8 billion bytes (500 GiB)
       ]);
 
       await expect(
-        service.initVideo('user_1', 'free', {
+        service.initVideo('user_1', {
           title: 'Big Video',
           slug: 'big-video',
           size: 200000000,
@@ -127,7 +127,7 @@ describe('VideoService', () => {
         .mockResolvedValueOnce([]); // empty playlist lookup (not found)
 
       await expect(
-        service.initVideo('user_1', 'free', {
+        service.initVideo('user_1', {
           title: 'Video',
           slug: 'video',
           size: 1000,
@@ -140,7 +140,7 @@ describe('VideoService', () => {
       mockTx.where.mockResolvedValueOnce([]); // active videos
       mockTx.returning.mockResolvedValueOnce([sampleDbVideo]);
 
-      const result = await service.initVideo('user_1', 'free', {
+      const result = await service.initVideo('user_1', {
         title: 'Intro Video',
         slug: 'intro-video',
         size: 100000000,

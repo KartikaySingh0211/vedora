@@ -14,6 +14,7 @@ describe('FfmpegService', () => {
   let corruptVideoPath: string;
   let audioOnlyPath: string;
   let hdVideoPath: string;
+  let portraitVideoPath: string;
 
   beforeAll(() => {
     tmpDir = path.join(os.tmpdir(), `vedora-ffmpeg-test-${Date.now()}`);
@@ -24,6 +25,7 @@ describe('FfmpegService', () => {
     silentVideoPath = path.join(tmpDir, 'test-silent.mp4');
     corruptVideoPath = path.join(tmpDir, 'corrupt.mp4');
     audioOnlyPath = path.join(tmpDir, 'test-audio-only.aac');
+    portraitVideoPath = path.join(tmpDir, 'test-portrait.mp4');
 
     // Generate real 1-second synthetic video with audio
     try {
@@ -46,6 +48,26 @@ describe('FfmpegService', () => {
         '-c:a',
         'aac',
         testVideoPath,
+      ]);
+
+      // Generate real 1-second synthetic portrait video with audio
+      cp.execFileSync(ffmpeg.path, [
+        '-y',
+        '-f',
+        'lavfi',
+        '-i',
+        'testsrc=duration=1:size=360x640:rate=30',
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=1000:duration=1',
+        '-c:v',
+        'libx264',
+        '-pix_fmt',
+        'yuv420p',
+        '-c:a',
+        'aac',
+        portraitVideoPath,
       ]);
 
       // Generate real 1-second 720p HD synthetic video with audio
@@ -334,6 +356,115 @@ describe('FfmpegService', () => {
         expect(result[0].height % 2).toBe(0);
       });
     });
+
+    describe('Portrait and odd-dimension handling', () => {
+      const probePortrait1080p: MediaProbeResult = {
+        width: 1080,
+        height: 1920,
+        duration: 30,
+        fps: 30,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        hasVideo: true,
+        hasAudio: true,
+        bitrate: 4500000,
+        formatName: 'mp4',
+      };
+
+      const probeOddDimensions: MediaProbeResult = {
+        width: 1921,
+        height: 1079,
+        duration: 15,
+        fps: 30,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        hasVideo: true,
+        hasAudio: true,
+        bitrate: 3000000,
+        formatName: 'mp4',
+      };
+
+      const probeSmallOddPortrait: MediaProbeResult = {
+        width: 359,
+        height: 641,
+        duration: 10,
+        fps: 30,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        hasVideo: true,
+        hasAudio: true,
+        bitrate: 500000,
+        formatName: 'mp4',
+      };
+
+      it('should invert width/height for portrait 1080x1920 video ladder', () => {
+        const result = service.selectRenditions(probePortrait1080p, ['1080p']);
+        expect(result.map((r) => r.name)).toEqual([
+          '1080p',
+          '720p',
+          '480p',
+          '360p',
+        ]);
+
+        // Portrait 1080p: 1080x1920
+        expect(result[0].width).toBe(1080);
+        expect(result[0].height).toBe(1920);
+
+        // Portrait 720p: 720x1280
+        expect(result[1].width).toBe(720);
+        expect(result[1].height).toBe(1280);
+
+        // Portrait 480p: 480x854
+        expect(result[2].width).toBe(480);
+        expect(result[2].height).toBe(854);
+
+        // Portrait 360p: 360x640
+        expect(result[3].width).toBe(360);
+        expect(result[3].height).toBe(640);
+
+        // All dimensions must be strictly even (divisible by 2)
+        for (const rend of result) {
+          expect(rend.width % 2).toBe(0);
+          expect(rend.height % 2).toBe(0);
+        }
+      });
+
+      it('should ensure all renditions have even dimensions even when source has odd dimensions (1921x1079)', () => {
+        const result = service.selectRenditions(probeOddDimensions, ['1080p']);
+        expect(result.length).toBeGreaterThan(0);
+        for (const rend of result) {
+          expect(rend.width % 2).toBe(0);
+          expect(rend.height % 2).toBe(0);
+        }
+      });
+
+      it('should produce strictly even dimensions for small odd-dimension portrait video (359x641)', () => {
+        const result = service.selectRenditions(probeSmallOddPortrait, ['720p']);
+        expect(result.length).toBe(1);
+        expect(result[0].width % 2).toBe(0);
+        expect(result[0].height % 2).toBe(0);
+        expect(result[0].width).toBeLessThanOrEqual(360);
+        expect(result[0].height).toBeLessThanOrEqual(642);
+      });
+    });
+
+    describe('Master Playlist CODECS attribute compliance (RFC 8216)', () => {
+      it('should include avc1.4d401f and mp4a.40.2 codecs when audio is present', () => {
+        const renditions = service.selectRenditions(probe720p, ['360p']);
+        const manifest = service.buildMasterPlaylistContent(renditions, true);
+
+        expect(manifest).toContain('CODECS="avc1.4d401f,mp4a.40.2"');
+        expect(manifest).not.toContain('avc1.4d401f"');
+      });
+
+      it('should include only avc1.4d401f codec when audio is absent', () => {
+        const renditions = service.selectRenditions(probe720p, ['360p']);
+        const manifest = service.buildMasterPlaylistContent(renditions, false);
+
+        expect(manifest).toContain('CODECS="avc1.4d401f"');
+        expect(manifest).not.toContain('mp4a.40.2');
+      });
+    });
   });
 
   describe('transcodeToHls', () => {
@@ -422,6 +553,37 @@ describe('FfmpegService', () => {
       });
 
       expect(result.masterPlaylistContent).toContain('#EXTM3U');
+      expect(fs.existsSync(path.join(outputDir, '360p', 'index.m3u8'))).toBe(true);
+      expect(fs.existsSync(path.join(outputDir, '360p', 'segment_000.ts'))).toBe(true);
+    });
+
+    it('should transcode real portrait video (360x640) without pixel format or dimension errors', async () => {
+      if (!fs.existsSync(portraitVideoPath)) return;
+
+      const probe = await service.probeMedia(portraitVideoPath);
+      expect(probe.width).toBe(360);
+      expect(probe.height).toBe(640);
+
+      const renditions = service.selectRenditions(probe, ['360p']);
+      expect(renditions.length).toBe(1);
+      expect(renditions[0].width).toBe(360);
+      expect(renditions[0].height).toBe(640);
+
+      const outputDir = path.join(tmpDir, 'hls-portrait-output');
+
+      const result = await service.transcodeToHls({
+        inputPath: portraitVideoPath,
+        outputDir,
+        videoId: 'vid-portrait-01',
+        probe,
+        renditions,
+        timeoutMs: 60000,
+      });
+
+      expect(result.masterPlaylistContent).toContain('#EXTM3U');
+      expect(result.masterPlaylistContent).toContain('RESOLUTION=360x640');
+      expect(result.masterPlaylistContent).toContain('CODECS="avc1.4d401f,mp4a.40.2"');
+      expect(fs.existsSync(path.join(outputDir, 'master.m3u8'))).toBe(true);
       expect(fs.existsSync(path.join(outputDir, '360p', 'index.m3u8'))).toBe(true);
       expect(fs.existsSync(path.join(outputDir, '360p', 'segment_000.ts'))).toBe(true);
     });

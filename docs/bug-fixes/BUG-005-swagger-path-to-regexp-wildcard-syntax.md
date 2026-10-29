@@ -1,4 +1,4 @@
-# BUG-005: NestJS Swagger Bootstrap Failure due to path-to-regexp Wildcard Syntax
+﻿# BUG-005: NestJS Swagger Bootstrap Failure due to path-to-regexp Wildcard Syntax
 
 - **ID**: BUG-005
 - **Date**: 2026-10-25

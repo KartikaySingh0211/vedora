@@ -1,4 +1,4 @@
-# FFmpeg Video Transcoding Engine
+﻿# FFmpeg Video Transcoding Engine
 
 This directory contains the architecture, auditing documentation, implementation logs, and operational guides for Vedora's real FFmpeg-based HLS video transcoding infrastructure.
 

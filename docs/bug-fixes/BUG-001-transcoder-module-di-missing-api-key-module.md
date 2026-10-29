@@ -1,4 +1,4 @@
-# BUG-001: NestJS Dependency Injection Failure in TranscoderModule
+﻿# BUG-001: NestJS Dependency Injection Failure in TranscoderModule
 
 - **ID**: BUG-001
 - **Date**: 2026-10-24

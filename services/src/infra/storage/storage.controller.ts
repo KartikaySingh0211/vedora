@@ -304,10 +304,11 @@ export class StorageController {
       });
     }
 
-    // Fallback: If no local file on disk, stream sample video
-    return res.redirect(
-      307,
-      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-    );
+    // Return 404 Not Found if requested storage asset does not exist
+    return res.status(404).json({
+      statusCode: 404,
+      message: `Storage asset not found for key: ${key}`,
+      error: 'Not Found',
+    });
   }
 }

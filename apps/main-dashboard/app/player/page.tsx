@@ -206,9 +206,8 @@ export default function PlayerSettingsPage() {
                   key={color}
                   onClick={() => setPrimaryColor(color)}
                   style={{ backgroundColor: color }}
-                  className={`w-6 h-6 rounded-full border transition-transform ${
-                    primaryColor === color ? "scale-125 border-white shadow-md ring-2 ring-blue-500" : "border-transparent"
-                  }`}
+                  className={`w-6 h-6 rounded-full border transition-transform ${primaryColor === color ? "scale-125 border-white shadow-md ring-2 ring-blue-500" : "border-transparent"
+                    }`}
                 />
               ))}
             </div>
@@ -271,11 +270,10 @@ export default function PlayerSettingsPage() {
                 <button
                   key={id}
                   onClick={() => setSelectedPlayIcon(id)}
-                  className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-md border transition-all ${
-                    selectedPlayIcon === id
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-md border transition-all ${selectedPlayIcon === id
                       ? "bg-blue-600 text-white border-blue-600 shadow"
                       : "bg-slate-100 dark:bg-slate-800/50 border-slate-300 dark:border-slate-800 text-gray-700 dark:text-gray-300 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   {icon}
                   {label}
@@ -287,10 +285,10 @@ export default function PlayerSettingsPage() {
           {/* Watermark Branding Settings */}
           <div className="bg-white dark:bg-slate-900/50 rounded-md p-4 border border-slate-200 dark:border-slate-900">
             <label className="text-sm font-semibold mb-1 block">
-              Custom Watermark (Starter & Higher Plans)
+              Custom Watermark
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Free plans feature the verified Vedora badge. Paid plans display your custom watermark image.
+              Display your custom watermark image.
             </p>
             <input
               type="url"
@@ -359,11 +357,10 @@ export default function PlayerSettingsPage() {
                   key={control}
                   type="button"
                   onClick={() => toggleControl(control)}
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-all flex items-center gap-1 ${
-                    enabledControls.includes(control)
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-all flex items-center gap-1 ${enabledControls.includes(control)
                       ? "bg-slate-800 text-white border-slate-800"
                       : "bg-slate-100 dark:bg-slate-800 text-gray-500 border-slate-300 dark:border-slate-700"
-                  }`}
+                    }`}
                 >
                   {enabledControls.includes(control) ? (
                     <Check size={12} className="text-green-400" />

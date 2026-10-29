@@ -13,7 +13,7 @@ Vedora exposes an enterprise RESTful API served under `/api/v1`, fully documente
 | 📘 **[Swagger UI & OpenAPI Setup Guide](docs/api-docs/SWAGGER_GUIDE.md)** | Swagger configuration (`main.ts`), interactive UI guide, decorator standards, and automated CI test pipeline. |
 | 📋 **[Schemas & Data Models Reference](docs/api-docs/SCHEMAS_AND_MODELS.md)** | Complete dictionary of all 24 DTOs, request bodies, response models, validation constraints, and examples. |
 | 🔐 **[Authentication & Authorization Guide](docs/api-docs/AUTHENTICATION.md)** | DualAuthGuard internals, Clerk JWTs, Argon2id API key hashing, multi-tier caching (LRU + Redis), and code samples. |
-| ⚡ **[Webhooks & Events Reference](docs/api-docs/WEBHOOKS_AND_EVENTS.md)** | Transcoder HMAC-SHA256 signatures, Stripe billing webhooks, idempotency, and local simulation instructions. |
+| ⚡ **[Webhooks & Events Reference](docs/api-docs/WEBHOOKS_AND_EVENTS.md)** | Transcoder HMAC-SHA256 signatures, idempotency, and local simulation instructions. |
 | 🌐 **[Raw OpenAPI 3.0 Specification](docs/openapi.json)** | Statically exported, version-controlled OpenAPI JSON schema (109 KB). |
 
 ---
@@ -68,7 +68,7 @@ Returned for `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `413 Payload 
   "timestamp": "2026-10-27T12:00:00.000Z",
   "path": "/api/v1/videos/init",
   "error": "ForbiddenException",
-  "message": "Storage quota cap exceeded for current subscription tier"
+  "message": "Storage quota cap exceeded for current capacity limit"
 }
 ```
 
@@ -528,55 +528,13 @@ Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`Upl
 
 ---
 
-### 9. Billing & Subscriptions (`/api/v1/billing`)
+### 9. Open-Source Technical Safeguards
 
-#### `POST /api/v1/billing/webhook`
-- **Auth**: Public endpoint verified via Stripe cryptographic signature ([`ADR-010`](docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)).
-- **Header**: `stripe-signature: t=...,v1=...`
-- **Request Body**: [`BillingWebhookDto`](services/src/modules/billing/dto/billing-webhook.dto.ts)
-  ```json
-  {
-    "type": "customer.subscription.updated",
-    "data": {
-      "object": {
-        "id": "sub_1Q123456789",
-        "customer": "cus_123456789",
-        "status": "active",
-        "current_period_start": 1730000000,
-        "current_period_end": 1732678400
-      }
-    },
-    "id": "evt_1Qabcdef123456"
-  }
-  ```
-- **Response**: `200 OK` — [`BillingWebhookResponseDto`](services/src/modules/billing/dto/subscription-response.dto.ts#L69-L81)
-  ```json
-  {
-    "success": true,
-    "event": "customer.subscription.updated"
-  }
-  ```
-
-#### `GET /api/v1/billing/subscription`
-- **Auth**: Protected.
-- **Summary**: Fetch current plan tier, playback minutes allowance, minutes used, and renewal dates.
-- **Response**: `200 OK` — [`SubscriptionResponseDto`](services/src/modules/billing/dto/subscription-response.dto.ts#L3-L67)
-  ```json
-  {
-    "id": "sub_rec_1234567890",
-    "userId": "user_2NNEqL2Kz9X4abcdef123456",
-    "plan": "pro",
-    "displayName": "Pro Plan",
-    "status": "active",
-    "allocatedMinutes": 10000,
-    "usedMinutes": 1833,
-    "remainingMinutes": 8167,
-    "usagePercent": 18,
-    "storageCapBytes": "26843545600",
-    "currentPeriodStart": "2026-10-01T00:00:00.000Z",
-    "currentPeriodEnd": "2026-11-01T00:00:00.000Z"
-  }
-  ```
+Vedora operates as a 100% open-source MIT video infrastructure platform without subscription plans, paywalls, or billing services:
+- **Single File Upload Limit**: Defaults to 10 GiB per file (configurable via `MAX_FILE_SIZE_BYTES`).
+- **User Storage Capacity**: Defaults to 500 GiB active storage per user (configurable via `USER_STORAGE_CAP_BYTES`).
+- **Resolution Entitlement**: All users have full access to encode up to 1080p full HD adaptive ladders.
+- **Concurrent Quota Locking**: Quotas are enforced atomically using PostgreSQL advisory locks (`pg_advisory_xact_lock`).
 
 ---
 

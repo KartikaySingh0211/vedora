@@ -1,4 +1,4 @@
-# Vedora Phase 2 — End-to-End Reliability and Failure Testing
+﻿# Vedora Phase 2 — End-to-End Reliability and Failure Testing
 
 This document details the reliability audit, failure mode analysis, architectural hardening, and automated test suite expansion conducted for Vedora's real FFmpeg video transcoding and HLS delivery infrastructure.
 

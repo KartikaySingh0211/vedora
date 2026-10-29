@@ -35,7 +35,7 @@ const Navbar = () => {
 						How it works
 					</Link>
 					<Link href="#pricing" className="hover:text-white transition-colors">
-						Pricing
+						Open Source
 					</Link>
 					<Link href="/docs" className="hover:text-white transition-colors">
 						Docs

@@ -56,33 +56,25 @@ describe('UploadVideoGuard', () => {
     expect(() => guard.canActivate(context)).toThrow(BadRequestException);
   });
 
-  it('should reject 1080p resolution on Free plan with ForbiddenException', () => {
+  it('should allow 1080p resolution ceiling for all open-source users', () => {
     const context = createMockContext(
-      { id: 'user_1', plan: 'free' },
-      { size: 1000, resolutions: ['1080p'] },
-    );
-    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-  });
-
-  it('should allow 1080p resolution on Starter or higher plans', () => {
-    const context = createMockContext(
-      { id: 'user_1', plan: 'starter' },
+      { id: 'user_1' },
       { size: 1000, resolutions: ['1080p'] },
     );
     expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('should reject upload when incoming reservation exceeds total plan cap', () => {
-    // 5 GiB is Free cap. Try 4 GiB with 1080p (multi-res reservation: 4 * 2.75 = 11 GiB > 5 GiB)
-    const fourGib = 4 * 1024 * 1024 * 1024;
+  it('should reject upload when single file exceeds maximum upload limit', () => {
+    // 101 GiB exceeds the 100 GiB maximum limit
+    const overLimit = 101 * 1024 * 1024 * 1024;
     const context = createMockContext(
-      { id: 'user_1', plan: 'free' },
-      { size: fourGib, resolutions: ['720p'] }, // 4 * 1.7 = 6.8 GiB > 5 GiB
+      { id: 'user_1' },
+      { size: overLimit, resolutions: ['720p'] },
     );
     expect(() => guard.canActivate(context)).toThrow(BadRequestException);
   });
 
-  it('should accept valid upload within plan cap and populate request metadata', () => {
+  it('should accept valid upload within limits and populate request metadata', () => {
     const request: UploadVideoRequest = {
       user: { id: 'user_1' },
       body: { size: 100 * 1024 * 1024, resolutions: ['720p'] }, // 100 MB
@@ -92,8 +84,8 @@ describe('UploadVideoGuard', () => {
     } as unknown as ExecutionContext;
 
     expect(guard.canActivate(context)).toBe(true);
-    expect(request.userPlan).toBe('free');
     expect(request.rawSizeBytes).toBe(104857600n);
     expect(request.incomingReservation).toBe(178257920n);
+    expect(request.parsedResolutions).toEqual(['720p']);
   });
 });

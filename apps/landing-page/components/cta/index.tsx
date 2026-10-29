@@ -12,8 +12,7 @@ export default function CTASection() {
 					Ready to streamline your video workflow?
 				</h2>
 				<p className="mx-auto max-w-2xl text-lg leading-8 text-slate-400 mb-10">
-					Join thousands of developers building the next generation of video
-					applications with Vedora. Start for free, upgrade as you grow.
+					Join developers building the next generation of video applications with Vedora. 100% free and open source under the MIT license.
 				</p>
 
 				<div className="flex items-center justify-center gap-x-6">
@@ -27,7 +26,7 @@ export default function CTASection() {
 						href="#pricing"
 						className="group text-sm font-semibold leading-6 text-slate-300 hover:text-white flex items-center gap-2 transition-colors"
 					>
-						View pricing{" "}
+						Learn more{" "}
 						<ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
 					</Link>
 				</div>

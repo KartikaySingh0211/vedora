@@ -9,76 +9,22 @@ import {
 
 const plans = [
 	{
-		name: "Free",
+		name: "Open Source",
 		price: "$0",
-		desc: "For side projects and experiments.",
+		desc: "Free forever under the MIT license.",
+		badge: "100% Free",
 		features: [
-			"5GB storage",
-			"only HD (720p) streaming",
-			"1,000 playback minutes / month",
-			"720p resolution encoding",
-			"API access",
-			"Advanced analytics",
-			"Vedora watermark",
-			"Email support",
+			"Unlimited video storage (your R2 or local disk)",
+			"Multi-bitrate adaptive HLS ladder (360p–1080p)",
+			"Full API key & SDK access",
+			"Real-time analytics & telemetry",
+			"Custom player branding & watermarks",
+			"Self-hostable via Docker Compose",
+			"Zero subscription fees or vendor lock-in",
+			"Community-driven & open source",
 		],
-		cta: "Start Free",
-		highlighted: false,
-	},
-	{
-		name: "Starter",
-		price: "$14.99",
-		desc: "For growing apps that need room.",
-		features: [
-			"250GB storage",
-			"10,000 playback minutes / month",
-			"Multi-bitrate adaptive streaming (360p–1080p)",
-			"API access",
-			"Advanced analytics",
-			"Custom watermark",
-			"Automatic Subtitle Generations",
-			"Piracy protection",
-			"Email support",
-		],
-		cta: "Get Started",
-		highlighted: false,
-	},
-	{
-		name: "Pro",
-		price: "$29.99",
-		desc: "For growing SaaS products.",
-		badge: "Most Popular",
-		features: [
-			"600GB storage",
-			"22,000 playback minutes / month",
-			"Multi-bitrate adaptive streaming (360p–1080p)",
-			"API access",
-			"Advanced analytics",
-			"Custom watermark",
-			"Automatic Subtitle Generations",
-			"Piracy protection",
-			"Email support",
-		],
-		cta: "Get Started",
+		cta: "Get Started Free",
 		highlighted: true,
-	},
-	{
-		name: "Business",
-		price: "$69.99",
-		desc: "For high-volume video platforms.",
-		features: [
-			"2TB storage",
-			"50,000 playback minutes / month",
-			"Multi-bitrate adaptive streaming (360p–1080p)",
-			"API access",
-			"Advanced analytics",
-			"Custom watermark",
-			"Automatic Subtitle Generations",
-			"Piracy protection",
-			"Email support",
-		],
-		cta: "Get Started",
-		highlighted: false,
 	},
 ];
 
@@ -92,18 +38,18 @@ const PricingSection = () => {
 				{/* Header */}
 				<div className="text-center max-w-2xl mx-auto mb-14">
 					<div className="text-sm font-semibold tracking-widest text-sky-400 uppercase mb-3">
-						Pricing
+						Open Source
 					</div>
 					<h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-3">
-						Simple. Predictable. Transparent.
+						Free & Open Source Forever
 					</h2>
 					<p className="text-sm sm:text-base text-slate-400">
-						Storage stays. Playback minutes reset every billing cycle.
+						Self-host your video infrastructure with zero subscription costs.
 					</p>
 				</div>
 
 				{/* Plans */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+				<div className="max-w-md mx-auto mb-10">
 					{plans.map((plan) => (
 						<div
 							key={plan.name}
@@ -236,8 +182,7 @@ const PricingSection = () => {
 
 				{/* Microcopy */}
 				<p className="text-center text-xs text-slate-500 font-semibold">
-					Storage is persistent and does not reset. Playback minutes reset
-					monthly with your billing cycle.
+					Free and open source forever under the MIT license. No credit card required.
 				</p>
 			</div>
 		</section>

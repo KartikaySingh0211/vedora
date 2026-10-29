@@ -1,4 +1,4 @@
-# Vedora Phase 1 — Real FFmpeg Video Transcoding: Audit & Architecture Plan
+﻿# Vedora Phase 1 — Real FFmpeg Video Transcoding: Audit & Architecture Plan
 
 ## 1. Executive Summary & Objective
 

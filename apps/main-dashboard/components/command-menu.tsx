@@ -131,12 +131,6 @@ export function CommandMenu({
                 <span>Dashboard Home</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => router.push("/billing"))}
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Billing & Usage</span>
-              </CommandItem>
-              <CommandItem
                 onSelect={() => runCommand(() => router.push("/settings"))}
               >
                 <Settings className="mr-2 h-4 w-4" />

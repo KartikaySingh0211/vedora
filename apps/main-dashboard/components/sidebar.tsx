@@ -108,7 +108,6 @@ const navSections = [
 	{
 		title: "Account",
 		links: [
-			{ title: "Billing", href: "/billing", icon: CreditCard },
 			{ title: "Settings", href: "/settings", icon: Settings },
 			{ title: "Log Out", href: "/logout", icon: LogOut },
 		],
@@ -242,8 +241,8 @@ const Sidebar = () => {
 										user?.emailAddresses[0]?.emailAddress?.split("@")[0] ||
 										"User"}
 								</span>
-								<span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-semibold shrink-0">
-									Free
+								<span className="px-1.5 py-0.5 text-[10px] bg-emerald-600 text-white rounded-full font-semibold shrink-0">
+									Open Source
 								</span>
 							</p>
 							<p className="text-gray-500 dark:text-gray-400 text-xs truncate">
@@ -281,10 +280,10 @@ const Sidebar = () => {
 							/>
 						</div>
 						<Link
-							href={"/billing"}
+							href={"/settings"}
 							className="mt-1 cursor-pointer w-full text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline"
 						>
-							Manage Plan & Usage
+							Manage Settings
 						</Link>
 					</div>
 				)}

@@ -1139,7 +1139,7 @@
     },
     "/api/v1/videos/init": {
       "post": {
-        "description": "Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + 1.5x estimated transcoding overhead), and returns multipart presigned upload URLs. Enforces plan-based file size limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB).",
+        "description": "Creates a pending video record, acquires an atomic PostgreSQL advisory quota lock, reserves storage allowance (raw size + estimated transcoding overhead), and returns multipart presigned upload URLs.",
         "operationId": "VideoController_initVideo_v1",
         "parameters": [],
         "requestBody": {
@@ -1183,18 +1183,8 @@
               }
             }
           },
-          "403": {
-            "description": "Account storage capacity cap exceeded or requested features (e.g. 1080p, watermark) require upgraded subscription plan",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
           "413": {
-            "description": "Video file size exceeds maximum single file upload limit for active plan",
+            "description": "Video file size exceeds maximum single file ingestion limit",
             "content": {
               "application/json": {
                 "schema": {
@@ -1220,7 +1210,7 @@
     },
     "/api/v1/videos/complete": {
       "post": {
-        "description": "Completes multipart upload session, marks video status as \"uploaded\", and automatically enqueues BullMQ background HLS transcoding job.",
+        "description": "Completes multipart upload session, marks video status as \"uploaded\", and automatically enqueues background HLS transcoding job.",
         "operationId": "VideoController_completeVideo_v1",
         "parameters": [],
         "requestBody": {
@@ -1900,106 +1890,11 @@
           "Analytics"
         ]
       }
-    },
-    "/api/v1/billing/webhook": {
-      "post": {
-        "description": "Processes asynchronous Stripe subscription lifecycle events (customer.subscription.updated, customer.subscription.deleted, invoice.paid). Validates stripe-signature header.",
-        "operationId": "BillingController_handleWebhook_v1",
-        "parameters": [
-          {
-            "name": "stripe-signature",
-            "in": "header",
-            "description": "Stripe webhook signature header generated with webhook secret",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "example": "t=1730000000,v1=5257a869e7eca...,v0=6ffbb59..."
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BillingWebhookDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stripe webhook processed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BillingWebhookResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid webhook signature or unrecognized event payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Stripe webhook receiver for subscription events",
-        "tags": [
-          "Billing"
-        ]
-      }
-    },
-    "/api/v1/billing/subscription": {
-      "get": {
-        "description": "Fetches current plan tier (Free, Starter, Pro, Business), allocated playback minutes, used minutes, remaining minutes, usage percent, and storage cap.",
-        "operationId": "BillingController_getSubscription_v1",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Subscription details and playback quota returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SubscriptionResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "x-api-key": []
-          },
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get current user subscription and playback minutes",
-        "tags": [
-          "Billing"
-        ]
-      }
     }
   },
   "info": {
     "title": "Vedora API",
-    "description": "Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, BullMQ distributed HLS transcoding, pseudonymous telemetry & segment-level analytics, customizable video player styling, and Stripe billing.",
+    "description": "Vedora Video Infrastructure Platform API — End-to-end video ingestion, direct-to-cloud upload authorization, multipart S3-compatible chunking, Redis-backed HLS transcoding, pseudonymous telemetry & segment-level analytics, and customizable video player styling.",
     "version": "1.0",
     "contact": {}
   },
@@ -2079,7 +1974,7 @@
           "message": {
             "type": "string",
             "description": "Human-readable error description or details",
-            "example": "Storage quota exceeded for current subscription tier"
+            "example": "Storage quota exceeded for current user storage capacity limit"
           }
         },
         "required": [
@@ -2398,7 +2293,7 @@
           },
           "size": {
             "type": "number",
-            "description": "Raw source file size in bytes. Must be greater than 0 and within user plan limits (Free: 500MB, Starter: 5GB, Pro: 25GB, Business: 100GB)",
+            "description": "Raw source file size in bytes. Must be greater than 0 and within technical ingestion limits",
             "example": 104857600,
             "minimum": 1
           },
@@ -2410,7 +2305,7 @@
           },
           "resolutions": {
             "type": "array",
-            "description": "Requested maximum output HLS rendition resolution ceiling. Free plan allows up to 720p; Pro/Business allows up to 1080p",
+            "description": "Requested maximum output HLS rendition resolution ceiling (360p, 480p, 720p, 1080p). Automatically generates full ladder up to this ceiling.",
             "example": [
               "720p"
             ],
@@ -3359,7 +3254,7 @@
           },
           "totalWatchTimeMinutes": {
             "type": "number",
-            "description": "Total minutes watched (billing consumption metric)",
+            "description": "Total minutes watched across all viewing sessions",
             "example": 1833
           },
           "uniqueViewers": {
@@ -3425,155 +3320,6 @@
           "browserBreakdown",
           "viewsOverTime",
           "topVideos"
-        ]
-      },
-      "BillingWebhookDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Stripe webhook event type name",
-            "example": "customer.subscription.updated",
-            "enum": [
-              "customer.subscription.updated",
-              "customer.subscription.deleted",
-              "invoice.paid"
-            ]
-          },
-          "data": {
-            "type": "object",
-            "description": "Stripe event data payload containing event object",
-            "example": {
-              "object": {
-                "id": "sub_1Q123456789",
-                "customer": "cus_123456789",
-                "status": "active",
-                "current_period_start": 1730000000,
-                "current_period_end": 1732678400
-              }
-            }
-          },
-          "id": {
-            "type": "string",
-            "description": "Unique Stripe event identifier",
-            "example": "evt_1Qabcdef123456"
-          }
-        },
-        "required": [
-          "type",
-          "data"
-        ]
-      },
-      "BillingWebhookResponseDto": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Whether Stripe webhook processing succeeded",
-            "example": true
-          },
-          "event": {
-            "type": "string",
-            "description": "Handled event type or processing action",
-            "example": "customer.subscription.updated"
-          }
-        },
-        "required": [
-          "success",
-          "event"
-        ]
-      },
-      "SubscriptionResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique UUIDv4 identifier of the subscription record",
-            "example": "sub_rec_1234567890"
-          },
-          "userId": {
-            "type": "string",
-            "description": "User ID of the subscriber",
-            "example": "user_2NNEqL2Kz9X4abcdef123456"
-          },
-          "plan": {
-            "type": "string",
-            "description": "Subscription tier name",
-            "example": "pro",
-            "enum": [
-              "free",
-              "starter",
-              "pro",
-              "business"
-            ]
-          },
-          "displayName": {
-            "type": "string",
-            "description": "Display name for the subscription tier",
-            "example": "Pro Plan"
-          },
-          "status": {
-            "type": "string",
-            "description": "Lifecycle status of the subscription",
-            "example": "active",
-            "enum": [
-              "active",
-              "past_due",
-              "canceled",
-              "trialing"
-            ]
-          },
-          "allocatedMinutes": {
-            "type": "number",
-            "description": "Total monthly playback minutes allocated for this tier",
-            "example": 10000
-          },
-          "usedMinutes": {
-            "type": "number",
-            "description": "Total playback minutes consumed by viewers in current billing cycle",
-            "example": 1833
-          },
-          "remainingMinutes": {
-            "type": "number",
-            "description": "Remaining playback minutes available in current billing cycle",
-            "example": 8167
-          },
-          "usagePercent": {
-            "type": "number",
-            "description": "Playback minutes consumption percentage (0 to 100)",
-            "example": 18
-          },
-          "storageCapBytes": {
-            "type": "string",
-            "description": "Storage quota cap in bytes represented as string",
-            "example": "26843545600"
-          },
-          "currentPeriodStart": {
-            "type": "object",
-            "description": "Start date of the current billing cycle period",
-            "nullable": true,
-            "example": "2026-10-01T00:00:00.000Z"
-          },
-          "currentPeriodEnd": {
-            "type": "object",
-            "description": "Renewal or expiration date of current billing period",
-            "nullable": true,
-            "example": "2026-11-01T00:00:00.000Z"
-          }
-        },
-        "required": [
-          "id",
-          "userId",
-          "plan",
-          "displayName",
-          "status",
-          "allocatedMinutes",
-          "usedMinutes",
-          "remainingMinutes",
-          "usagePercent",
-          "storageCapBytes",
-          "currentPeriodStart",
-          "currentPeriodEnd"
         ]
       }
     }

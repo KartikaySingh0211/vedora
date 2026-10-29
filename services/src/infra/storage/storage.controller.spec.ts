@@ -204,4 +204,23 @@ describe('StorageController HLS Delivery', () => {
       }),
     );
   });
+
+  it('should return 404 Not Found rather than redirecting to sample video for non-existent video files', async () => {
+    const mockRes = createMockResponse();
+    const mockReq: any = {
+      url: '/api/v1/storage/stream?key=videos/non-existent.mp4',
+      headers: {},
+    };
+
+    await controller.handleStreamVideo('videos/non-existent.mp4', mockReq, mockRes);
+
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 404,
+        error: 'Not Found',
+      }),
+    );
+    expect(mockRes.redirect).not.toHaveBeenCalled();
+  });
 });

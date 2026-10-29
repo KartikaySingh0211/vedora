@@ -1,4 +1,4 @@
-# ADR-002: Dual-Authentication Guard (Clerk JWT & Vedora API Keys)
+﻿# ADR-002: Dual-Authentication Guard (Clerk JWT & Vedora API Keys)
 
 ## Status
 **Accepted** (Implemented in Phase 2)

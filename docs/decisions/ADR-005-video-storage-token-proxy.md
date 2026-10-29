@@ -1,4 +1,4 @@
-# ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry
+﻿# ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry
 
 ## Status
 **Accepted** (Implemented in Phase 4)

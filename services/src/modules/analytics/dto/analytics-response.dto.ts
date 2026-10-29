@@ -130,7 +130,7 @@ export class MetricsResponseDto {
   totalWatchTimeSeconds: number;
 
   @ApiProperty({
-    description: 'Total minutes watched (billing consumption metric)',
+    description: 'Total minutes watched across all viewing sessions',
     example: 1833,
   })
   totalWatchTimeMinutes: number;

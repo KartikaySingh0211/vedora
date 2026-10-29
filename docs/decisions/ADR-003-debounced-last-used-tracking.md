@@ -1,4 +1,4 @@
-# ADR-003: Debounced Last-Used Activity Tracking with Fault-Tolerant Batching
+﻿# ADR-003: Debounced Last-Used Activity Tracking with Fault-Tolerant Batching
 
 ## Status
 **Accepted** (Implemented in Phase 2)

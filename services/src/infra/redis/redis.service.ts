@@ -285,6 +285,35 @@ export class RedisService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  /**
+   * Atomic transfer of element from source list to destination list.
+   * Guarantees at-least-once delivery by retaining jobs in processing list until acknowledged.
+   */
+  async rpoplpush(source: string, destination: string): Promise<string | null> {
+    if (!this.client || !this.isConnected) return null;
+    try {
+      return await this.client.rpoplpush(source, destination);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis RPOPLPUSH failed: ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Remove occurrences of elements equal to value from the list stored at key.
+   */
+  async lrem(key: string, count: number, value: string): Promise<number> {
+    if (!this.client || !this.isConnected) return 0;
+    try {
+      return await this.client.lrem(key, count, value);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis LREM failed: ${msg}`);
+      return 0;
+    }
+  }
+
   async onApplicationShutdown(): Promise<void> {
     if (this.client) {
       try {

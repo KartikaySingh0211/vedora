@@ -1,43 +1,43 @@
-export type UserPlan = 'free' | 'starter' | 'pro' | 'business';
-
-export interface PlanLimit {
-  storageCapBytes: bigint;
-  allow1080p: boolean;
-  displayName: string;
-  allocatedPlaybackMinutes: number;
-}
-
 export const GIB_BYTES = 1_073_741_824n;
 export const TIB_BYTES = 1_099_511_627_776n;
 
-export const PLAN_LIMITS: Record<UserPlan, PlanLimit> = {
-  free: {
-    storageCapBytes: 5n * GIB_BYTES, // 5,368,709,120 bytes (5 GiB)
-    allow1080p: false,
-    displayName: 'Free',
-    allocatedPlaybackMinutes: 1000,
-  },
-  starter: {
-    storageCapBytes: 250n * GIB_BYTES, // 268,435,456,000 bytes (250 GiB)
-    allow1080p: true,
-    displayName: 'Starter',
-    allocatedPlaybackMinutes: 10000,
-  },
-  pro: {
-    storageCapBytes: 600n * GIB_BYTES, // 644,245,094,400 bytes (600 GiB)
-    allow1080p: true,
-    displayName: 'Pro',
-    allocatedPlaybackMinutes: 22000,
-  },
-  business: {
-    storageCapBytes: 2n * TIB_BYTES, // 2,199,023,255,552 bytes (2 TiB)
-    allow1080p: true,
-    displayName: 'Business',
-    allocatedPlaybackMinutes: 50000,
-  },
-};
+/**
+ * Open-Source Technical Safeguards for Video Ingestion & Quotas
+ * Replaces commercial subscription plans with sensible abuse prevention.
+ */
+export const DEFAULT_MAX_FILE_SIZE_BYTES = 10n * GIB_BYTES; // 10 GiB single file default
+export const ABSOLUTE_MAX_FILE_SIZE_BYTES = 100n * GIB_BYTES; // 100 GiB sanity ceiling
+export const DEFAULT_USER_STORAGE_CAP_BYTES = 500n * GIB_BYTES; // 500 GiB user quota default
 
-export const DEFAULT_PLAN: UserPlan = 'free';
+export function getMaxUploadFileSizeBytes(): bigint {
+  const envVal = process.env.MAX_UPLOAD_FILE_SIZE_BYTES;
+  if (envVal) {
+    try {
+      const parsed = BigInt(envVal);
+      if (parsed > 0n && parsed <= ABSOLUTE_MAX_FILE_SIZE_BYTES) {
+        return parsed;
+      }
+    } catch {
+      // fallback to default
+    }
+  }
+  return DEFAULT_MAX_FILE_SIZE_BYTES;
+}
+
+export function getUserStorageCapBytes(): bigint {
+  const envVal = process.env.MAX_USER_STORAGE_CAP_BYTES;
+  if (envVal) {
+    try {
+      const parsed = BigInt(envVal);
+      if (parsed > 0n) {
+        return parsed;
+      }
+    } catch {
+      // fallback to default
+    }
+  }
+  return DEFAULT_USER_STORAGE_CAP_BYTES;
+}
 
 export const SUPPORTED_RESOLUTIONS = [
   '360p',
@@ -76,17 +76,4 @@ export function calculateIncomingReservation(
     resolutions,
   );
   return rawSizeBytes + estimatedTranscoded;
-}
-
-/**
- * Resolve plan safely from user metadata or fallback to default Free tier
- */
-export function resolveUserPlan(rawPlan?: unknown): UserPlan {
-  if (typeof rawPlan === 'string') {
-    const normalized = rawPlan.toLowerCase().trim();
-    if (normalized in PLAN_LIMITS) {
-      return normalized as UserPlan;
-    }
-  }
-  return DEFAULT_PLAN;
 }

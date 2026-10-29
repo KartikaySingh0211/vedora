@@ -162,30 +162,6 @@ export const video_views = pgTable(
   ],
 );
 
-export const subscriptions = pgTable(
-  'subscriptions',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    user_id: text('user_id').notNull().unique(),
-    stripe_customer_id: text('stripe_customer_id').unique(),
-    stripe_subscription_id: text('stripe_subscription_id'),
-    plan: text('plan').default('free').notNull(),
-    status: text('status').default('active').notNull(),
-    allocated_minutes: integer('allocated_minutes').default(1000).notNull(),
-    used_minutes: integer('used_minutes').default(0).notNull(),
-    current_period_start: timestamp('current_period_start', {
-      withTimezone: true,
-    }),
-    current_period_end: timestamp('current_period_end', {
-      withTimezone: true,
-    }),
-    updated_at: timestamp('updated_at', { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [index('subscriptions_user_id_idx').on(table.user_id)],
-);
-
 export type Video = typeof videos.$inferSelect;
 export type InsertVideo = typeof videos.$inferInsert;
 export type Playlist = typeof playlist.$inferSelect;
@@ -196,5 +172,3 @@ export type PlayerSettings = typeof player_settings.$inferSelect;
 export type InsertPlayerSettings = typeof player_settings.$inferInsert;
 export type VideoView = typeof video_views.$inferSelect;
 export type InsertVideoView = typeof video_views.$inferInsert;
-export type Subscription = typeof subscriptions.$inferSelect;
-export type InsertSubscription = typeof subscriptions.$inferInsert;
