@@ -153,7 +153,7 @@ export default function UploadPage() {
       tags,
       playlistId: data.playlist || undefined,
       resolutions: [maxResolution],
-      generateSubtitles: data.generateSubtitles === "yes",
+      generateSubtitles: false,
       includeWatermark: data.includeWatermark === "yes",
       duration: videoDuration,
     });
@@ -308,7 +308,7 @@ export default function UploadPage() {
 
               {/* Right Column */}
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="playlist">Playlist</Label>
                     <select
@@ -325,15 +325,15 @@ export default function UploadPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="generateSubtitles">
-                      Generate Subtitles?
+                    <Label htmlFor="includeWatermark">
+                      Include Brand Watermark?
                     </Label>
                     <select
-                      {...register("generateSubtitles")}
+                      {...register("includeWatermark")}
                       className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50"
                     >
                       <option value="no">No</option>
-                      <option value="yes">Yes (Whisper AI)</option>
+                      <option value="yes">Yes</option>
                     </select>
                   </div>
                 </div>
@@ -405,19 +405,6 @@ export default function UploadPage() {
                       <span className="text-[10px] text-slate-500">All + 1080p</span>
                     </button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="includeWatermark">
-                    Include Brand Watermark?
-                  </Label>
-                  <select
-                    {...register("includeWatermark")}
-                    className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800/50 dark:bg-slate-900/50"
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
                 </div>
               </div>
             </div>

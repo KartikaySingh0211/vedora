@@ -1086,3 +1086,49 @@ The user reported:
   2. Removed `min-h-75` from the `<table>` element so rows maintain natural, compact vertical padding (`py-3.5`).
   3. Structured the section into a responsive `grid grid-cols-1 lg:grid-cols-12 gap-8 items-start` layout (`lg:col-span-7` for Visitor Countries map and `lg:col-span-5` for Top URLs table). Wrapped both modules in unified `rounded-xl border border-gray-200 dark:border-[#1f2023] bg-white dark:bg-[#101217]` card containers.
 - **Verification**: `npm --prefix apps/main-dashboard run build` compiled and prerendered all 15 routes with 0 errors.
+
+---
+
+## 2026-10-30: AI Subtitle Roadmap References Removal & Documentation Synchronization
+
+### 1. Context & Motivation
+Following the removal of billing and subscriptions in favor of a 100% open-source architecture, a comprehensive audit identified legacy and aspirational references to Whisper AI, automated subtitle generation, and transcription pipelines across the landing page, dashboard, README, and API documentation. Because AI transcription is not implemented in the codebase, these references created misleading claims about platform capabilities.
+
+### 2. Actions Executed
+- **Landing Page (`apps/landing-page/components/features/index.tsx`)**:
+  - Removed `Subtitles` icon import from `lucide-react`.
+  - Removed promotional feature card "AI-Powered Captions" (`Auto-generate accurate subtitles and transcriptions for every video.`).
+- **Dashboard Upload Studio (`apps/main-dashboard/app/uploads/page.tsx`)**:
+  - Removed the non-functional `Generate Subtitles?` form field that included `<option value="yes">Yes (Whisper AI)</option>`.
+  - Re-balanced the upload options grid by pairing `Playlist` and `Include Brand Watermark?` together in a responsive 2-column container.
+  - Set `generateSubtitles: false` in submission payload to preserve backend API contract compatibility without false UI promises.
+- **Support & FAQ (`apps/main-dashboard/app/support/page.tsx`)**:
+  - Removed the FAQ entry claiming "Vedora uses AI to automatically generate accurate subtitles in multiple languages."
+- **Player Settings UI (`apps/main-dashboard/app/player/page.tsx`)**:
+  - Refined description to "Automatically render subtitles track button when subtitle tracks are provided", preserving genuine player caption customization controls while eliminating the automated generation implication.
+- **Backend DTOs & OpenAPI (`services/src/modules/videos/dto/`, `docs/openapi.json`)**:
+  - Updated Swagger description in `create-video-init.dto.ts` from `'Flag indicating whether automated AI subtitle generation should be initiated'` to `'Flag indicating whether subtitle track processing should be enabled'`, and removed obsolete `(Pro/Business tiers)` description.
+  - Updated `video-response.dto.ts` description from `'Whether subtitles should be automatically generated'` to `'Whether subtitle tracks are enabled for this video'`.
+  - Regenerated `docs/openapi.json` via Jest OpenAPI test runner.
+- **API Documentation (`docs/api-docs/SCHEMAS_AND_MODELS.md`)**:
+  - Updated `generateSubtitles` description from `AI subtitle generation flag` to `Subtitle track flag` with `Default: false`.
+- **Project README (`README.md`)**:
+  - Removed roadmap item `- [ ] **AI-Powered Subtitles**: Automated multi-language subtitle generation via Whisper AI worker hooks.`
+  - Corrected test count badge from `(128 tests across 17 suites)` to `(139 tests across 16 suites)` matching actual test suite outputs.
+
+### 3. Empirical Verification Evidence
+- **Backend Unit & Integration Test Suite**: `npm --prefix services test`
+  - 16 test suites passed, 139 tests passed.
+- **Swagger / OpenAPI Generation**: `npm --prefix services test -- swagger.spec.ts`
+  - 5 tests passed; regenerated `docs/openapi.json`.
+- **Dashboard Build**: `npm --prefix apps/main-dashboard run build`
+  - Compiled successfully; 15 static/dynamic routes prerendered cleanly.
+- **Landing Page Build**: `npm --prefix apps/landing-page run build`
+  - Compiled successfully; 5 static/dynamic routes prerendered cleanly.
+- **TypeScript SDK Tests**: `npm --prefix sdks/vedora-sdk test`
+  - 1 suite passed, 3 tests passed.
+- **Git Repository Audit**:
+  - `git grep -in "whisper"`: 0 matches.
+  - `git grep -in "transcrib"`: 0 matches.
+  - `git diff --check`: 0 whitespace issues.
+- **Strict Compliance**: No commits or pushes performed (`git commit` and `git push` withheld per user instructions).

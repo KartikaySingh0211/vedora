@@ -239,7 +239,7 @@ Once the backend is running (via Docker or Node), open the interactive Swagger U
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (128 tests across 17 suites)
+# 1. Backend unit & integration test suite (139 tests across 16 suites)
 cd services
 npm test
 
@@ -321,7 +321,6 @@ To maintain complete technical transparency:
 
 - [x] **Cloudflare R2 Native Storage Driver**: Native S3-compatible driver support with 0 egress fees.
 - [ ] **Distributed FFmpeg Worker Fleet**: Containerized GPU-accelerated video encoding worker pool.
-- [ ] **AI-Powered Subtitles**: Automated multi-language subtitle generation via Whisper AI worker hooks.
 - [ ] **Team & Organization RBAC**: Multi-tenant team workspaces with granular permission tiers.
 - [ ] **Automated CI/CD Pipeline**: GitHub Actions workflows for continuous integration, linting, and automated Docker container builds.
 

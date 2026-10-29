@@ -1,4 +1,4 @@
-import { Eye, FileJson, Globe, Search, Subtitles, Zap } from "lucide-react";
+import { Eye, FileJson, Globe, Search, Zap } from "lucide-react";
 import React from "react";
 
 const features = [
@@ -31,12 +31,6 @@ const features = [
 		color: "text-violet-400 bg-violet-500/10",
 		title: "Global CDN Delivery",
 		desc: "Stream from edge servers worldwide with low latency and adaptive bitrate.",
-	},
-	{
-		icon: Subtitles,
-		color: "text-amber-400 bg-amber-500/10",
-		title: "AI-Powered Captions",
-		desc: "Auto-generate accurate subtitles and transcriptions for every video.",
 	},
 ];
 

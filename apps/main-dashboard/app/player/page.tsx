@@ -330,7 +330,7 @@ export default function PlayerSettingsPage() {
               Subtitles & Closed Captions
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Automatically render subtitles track button when generated or provided.
+              Automatically render subtitles track button when subtitle tracks are provided.
             </p>
             <label className="flex items-center gap-2 cursor-pointer">
               <input

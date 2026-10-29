@@ -2345,12 +2345,12 @@
           },
           "generateSubtitles": {
             "type": "boolean",
-            "description": "Flag indicating whether automated AI subtitle generation should be initiated",
-            "example": true
+            "description": "Flag indicating whether subtitle track processing should be enabled",
+            "example": false
           },
           "includeWatermark": {
             "type": "boolean",
-            "description": "Whether the video playback player should display custom branding watermark (Pro/Business tiers)",
+            "description": "Whether the video playback player should display custom branding watermark",
             "example": false
           }
         },
@@ -2471,8 +2471,8 @@
           },
           "generateSubtitles": {
             "type": "boolean",
-            "description": "Whether subtitles should be automatically generated",
-            "example": true
+            "description": "Whether subtitle tracks are enabled for this video",
+            "example": false
           },
           "includeWatermark": {
             "type": "boolean",

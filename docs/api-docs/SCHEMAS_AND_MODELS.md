@@ -139,7 +139,7 @@ Request body for `POST /api/v1/videos/init`.
 | `playlistId` | `string` | No | Valid UUID | Optional playlist attachment |
 | `description` | `string` | No | Max: 2000 chars | Video description |
 | `tags` | `string[]` | No | Array of strings | Categorization tags |
-| `generateSubtitles` | `boolean` | No | Default: `true` | AI subtitle generation flag |
+| `generateSubtitles` | `boolean` | No | Default: `false` | Subtitle track flag |
 | `includeWatermark` | `boolean` | No | Default: `false` | Custom watermark toggle |
 
 ### `CompleteVideoUploadDto`

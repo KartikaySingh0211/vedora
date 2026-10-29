@@ -159,8 +159,8 @@ export class VideoResponseDto {
   thumbnailUrl: string | null;
 
   @ApiProperty({
-    description: 'Whether subtitles should be automatically generated',
-    example: true,
+    description: 'Whether subtitle tracks are enabled for this video',
+    example: false,
   })
   generateSubtitles: boolean;
 

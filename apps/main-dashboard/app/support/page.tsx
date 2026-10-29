@@ -39,11 +39,6 @@ const faqs = [
 		answer:
 			"Yes! Vedora is 100% free and open-source under the MIT license. There are no subscription tiers, paid plans, or billing systems.",
 	},
-	{
-		question: "How do I generate subtitles?",
-		answer:
-			"When uploading a video, enable the 'Generate Subtitles' option. Vedora uses AI to automatically generate accurate subtitles in multiple languages.",
-	},
 ];
 
 export default function SupportPage() {

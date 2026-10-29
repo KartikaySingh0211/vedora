@@ -112,8 +112,8 @@ export class CreateVideoInitDto {
 
   @ApiPropertyOptional({
     description:
-      'Flag indicating whether automated AI subtitle generation should be initiated',
-    example: true,
+      'Flag indicating whether subtitle track processing should be enabled',
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
@@ -121,7 +121,7 @@ export class CreateVideoInitDto {
 
   @ApiPropertyOptional({
     description:
-      'Whether the video playback player should display custom branding watermark (Pro/Business tiers)',
+      'Whether the video playback player should display custom branding watermark',
     example: false,
   })
   @IsOptional()
