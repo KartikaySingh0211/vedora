@@ -345,90 +345,115 @@ const Page = () => {
 			</div>
 
 			{/* Geo map & Top URLs */}
-			<div className="mt-10 w-full flex items-center justify-between flex-wrap">
-				<div className="md:w-[60%]">
-					<h2 className="text-lg font-semibold mb-1">Top Visitor Countries</h2>
-					<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-						Based on requests served in the last 30 days.
-					</p>
-					<div className="w-full max-w-full overflow-hidden p-4">
+			<div className="mt-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+				{/* Top Visitor Countries */}
+				<div className="lg:col-span-7 flex flex-col">
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+							Top Visitor Countries
+						</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+							Based on requests served in the last 30 days.
+						</p>
+					</div>
+					<div className="rounded-xl border border-gray-200 dark:border-[#1f2023] bg-white dark:bg-[#101217] shadow-sm p-4 overflow-hidden">
 						<GeographicalMap data={geoCountryData} isLoading={metricsLoading} />
 					</div>
 				</div>
 
 				{/* Top URLs Table */}
-				<div className="md:w-[40%]">
-					<h2 className="text-lg font-semibold mb-1">Top Requested URLs</h2>
-					<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-						Pathnames where your videos were most frequently requested in the
-						last 30 days.
-					</p>
-					<div className="rounded! border border-gray-200 dark:border-[#1f2023] bg-white dark:bg-[#101217] shadow-sm">
-						<table className="min-w-full min-h-75 divide-y divide-gray-100 dark:divide-gray-800">
-							<thead>
-								<tr>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide uppercase">
-										#
-									</th>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide uppercase">
-										Pathname
-									</th>
-									<th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide uppercase">
-										Requests
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{metricsLoading && (
-									<tr>
-										<td colSpan={3} className="text-center py-10">
-											<div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-												<Loader2 size={16} className="animate-spin" />
-												Loading real-time requests...
-											</div>
-										</td>
+				<div className="lg:col-span-5 flex flex-col">
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+							Top Requested URLs
+						</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+							Pathnames where your videos were most frequently requested in the
+							last 30 days.
+						</p>
+					</div>
+					<div className="rounded-xl border border-gray-200 dark:border-[#1f2023] bg-white dark:bg-[#101217] shadow-sm overflow-hidden">
+						<div className="overflow-x-auto">
+							<table className="w-full text-left border-collapse">
+								<thead>
+									<tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/75 dark:bg-[#16181d]">
+										<th className="w-14 px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider uppercase">
+											#
+										</th>
+										<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider uppercase">
+											Pathname
+										</th>
+										<th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider uppercase">
+											Requests
+										</th>
 									</tr>
-								)}
-
-								{!metricsLoading && topURLs?.length === 0 && (
-									<tr>
-										<td colSpan={3} className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
-											No requests recorded in the last 30 days.
-										</td>
-									</tr>
-								)}
-
-								{!metricsLoading &&
-									topURLs?.map((row, index) => (
-										<tr
-											key={index}
-											className="group hover:bg-blue-50 dark:hover:bg-[#1c1f23] transition-colors"
-										>
-											{/* Rank */}
-											<td className="px-5 py-3 text-sm font-bold text-gray-400 dark:text-gray-500">
-												{["🥇", "🥈", "🥉"][index] || `${index + 1}`}
-											</td>
-
-											{/* Path with icon */}
-											<td className="px-5 py-3 font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-												<div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
-													{row.pathname.charAt(0).toUpperCase() === "/"
-														? row.pathname.charAt(1)?.toUpperCase() || "/"
-														: row.pathname.charAt(0).toUpperCase()}
+								</thead>
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 text-sm">
+									{metricsLoading && (
+										<tr>
+											<td colSpan={3} className="text-center py-12">
+												<div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+													<Loader2 size={16} className="animate-spin text-blue-500" />
+													Loading real-time requests...
 												</div>
-												<span className="truncate max-w-[200px]" title={row.pathname}>
-													{row.pathname}
-												</span>
-											</td>
-
-											{/* Requests */}
-											<td className="px-5 py-3 text-right font-semibold text-blue-600 dark:text-blue-400">
-												{row.requests.toLocaleString()}
 											</td>
 										</tr>
-									))}
-							</tbody>
-						</table>
+									)}
+
+									{!metricsLoading && topURLs?.length === 0 && (
+										<tr>
+											<td
+												colSpan={3}
+												className="text-center py-12 text-sm text-gray-500 dark:text-gray-400"
+											>
+												No requests recorded in the last 30 days.
+											</td>
+										</tr>
+									)}
+
+									{!metricsLoading &&
+										topURLs?.map((row, index) => (
+											<tr
+												key={index}
+												className="group hover:bg-blue-50/50 dark:hover:bg-[#171a20] transition-colors"
+											>
+												{/* Rank */}
+												<td className="w-14 px-4 py-3.5 text-center text-sm font-bold text-gray-500 dark:text-gray-400 align-middle">
+													{index === 0
+														? "🥇"
+														: index === 1
+														? "🥈"
+														: index === 2
+														? "🥉"
+														: `${index + 1}`}
+												</td>
+
+												{/* Path with icon badge */}
+												<td className="px-4 py-3.5 align-middle">
+													<div className="flex items-center gap-2.5 min-w-0">
+														<div className="w-6 h-6 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-300 shrink-0">
+															{row.pathname.charAt(0) === "/"
+																? row.pathname.charAt(1)?.toUpperCase() || "/"
+																: row.pathname.charAt(0).toUpperCase()}
+														</div>
+														<span
+															className="truncate max-w-[220px] font-medium text-gray-800 dark:text-gray-200"
+															title={row.pathname}
+														>
+															{row.pathname}
+														</span>
+													</div>
+												</td>
+
+												{/* Requests */}
+												<td className="px-5 py-3.5 text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
+													{row.requests.toLocaleString()}
+												</td>
+											</tr>
+										))}
+								</tbody>
+							</table>
+						</div>
 					</div>
 				</div>
 			</div>

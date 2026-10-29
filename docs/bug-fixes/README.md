@@ -21,6 +21,7 @@ This directory serves as the centralized, immutable engineering ledger for all b
 | [BUG-011](./BUG-011-cloudflare-r2-cors-and-non-blocking-upload-queue.md) | 2026-10-28 | Storage / Cloudflare R2 / Frontend | High | Cloudflare R2 presigned multipart PUT CORS preflight rejection & blocking modal upload UX | Resolved |
 | [BUG-012](./BUG-012-dashboard-static-data-replaced-with-live-telemetry.md) | 2026-10-29 | Frontend / Dashboard & Analytics | Medium | Home dashboard page displayed static hardcoded placeholder stats instead of live user data | Resolved |
 | [BUG-013](./BUG-013-production-readiness-audit-remediation.md) | 2026-10-29 | Storage / Transcoder / Queue / Driver / Auth | High | Production audit remediation: R2 errors, CORS, FFmpeg portrait scaling, queue recovery, dual DB drivers | Resolved |
+| [BUG-014](./BUG-014-dashboard-top-requested-urls-table-vertical-misalignment.md) | 2026-10-30 | Frontend / Main Dashboard | Medium | Top Requested URLs table severe vertical misalignment and stretched row heights | Resolved |
 
 ---
 

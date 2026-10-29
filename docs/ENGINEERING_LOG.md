@@ -1075,3 +1075,14 @@ The user reported:
   - Compiled and prerendered 15 routes cleanly with zero TypeScript errors.
 - **Landing Page Next.js App**: `npm --prefix apps/landing-page run build`
   - Compiled and prerendered 5 routes cleanly with zero TypeScript errors.
+
+#### C. Dashboard Top Requested URLs Alignment Fix (`apps/main-dashboard/app/page.tsx`)
+- **Symptoms**: The "Top Requested URLs" table displayed severe vertical misalignment: the pathname cell (`[L] localhost`) snapped to the top of the container while the rank medal (`🥇`) and requests count floated in the middle/bottom.
+- **Root Cause**:
+  1. `display: flex` was placed directly on `<td className="... flex items-center ...">`, breaking native table-cell layout and vertical centering in Chromium/Firefox/WebKit.
+  2. The `<table>` element had `min-h-75` applied directly to it, forcing a single table row to stretch to ~250px tall.
+- **Fix**:
+  1. Replaced direct flex styling on `<td>` with an internal `<div className="flex items-center gap-2.5">`, restoring standard `display: table-cell` with vertical centering (`align-middle`).
+  2. Removed `min-h-75` from the `<table>` element so rows maintain natural, compact vertical padding (`py-3.5`).
+  3. Structured the section into a responsive `grid grid-cols-1 lg:grid-cols-12 gap-8 items-start` layout (`lg:col-span-7` for Visitor Countries map and `lg:col-span-5` for Top URLs table). Wrapped both modules in unified `rounded-xl border border-gray-200 dark:border-[#1f2023] bg-white dark:bg-[#101217]` card containers.
+- **Verification**: `npm --prefix apps/main-dashboard run build` compiled and prerendered all 15 routes with 0 errors.
