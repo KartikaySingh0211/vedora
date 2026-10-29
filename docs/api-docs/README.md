@@ -27,7 +27,7 @@ Vedora exposes an enterprise RESTful API served under `/api/v1`, fully documente
 | **Raw OpenAPI Spec** | [`docs/openapi.json`](docs/openapi.json) (OpenAPI 3.0) |
 | **Default Server Port** | `8080` (configured via `PORT` in `services/.env`) |
 | **API Versioning** | URI-based: `/api/v1/<controller>` |
-| **Architecture** | NestJS 11, TypeScript, Drizzle ORM, Neon PostgreSQL, Redis 7, BullMQ |
+| **Architecture** | NestJS 11, TypeScript, Drizzle ORM, Neon PostgreSQL, Redis 7 (Custom RPOPLPUSH Queue) |
 
 ---
 
@@ -391,7 +391,7 @@ Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`Upl
 
 #### `POST /api/v1/transcoder/process/:videoId`
 - **Auth**: Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts).
-- **Summary**: Enqueue manual background transcode job in BullMQ queue.
+- **Summary**: Enqueue manual background transcode job in Redis transcode queue.
 - **Response**: `202 Accepted` — [`TranscoderProcessResponseDto`](services/src/modules/transcoder/dto/transcoder-response.dto.ts#L18-L31)
   ```json
   {

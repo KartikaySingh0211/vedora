@@ -1,4 +1,4 @@
-﻿# ADR-011: Safe Modularity, Cross-Cutting Cache Keys, and Reusable Frontend Components
+# ADR-011: Safe Modularity, Cross-Cutting Cache Keys, and Reusable Frontend Components
 
 ## Status
 **Accepted** (Implemented in Safe Modularity Refactor - 2026-10-27)
@@ -16,7 +16,7 @@ As the Vedora platform grew across backend microservices and multiple Next.js da
    - Establish `services/src/common/cache-keys.ts` as the single source of truth for:
      - PostgreSQL transaction advisory lock keys (`storageQuotaLock(userId)`, `playlistQuotaLock(userId)`).
      - Redis pub/sub channels and analytics buffers.
-     - BullMQ queue names and prefix constants.
+     - Redis transcode queue keys and prefix constants.
 2. **Pure Utility Modules with Isolated Unit Testing**:
    - Extract `services/src/utils/user-agent.util.ts` (`detectBrowser`, `detectDevice`, `cleanReferrer`).
    - Add unit test coverage in `services/src/utils/user-agent.util.spec.ts` (11 tests).

@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-services:
+    name: Backend Services (Tests & Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: services
+
+    env:
+      TRANSCODER_WEBHOOK_SECRET: ci_deterministic_webhook_secret_32bytes_long!
+      DATABASE_URL: postgres://ci_test_user:ci_test_password@localhost:5432/vedora_ci
+      API_KEY_DIGEST_SECRET: ci_digest_secret_for_unit_tests_32chars!
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: services/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend unit and integration test suites
+        run: npm test
+
+      - name: Run NestJS production build
+        run: npm run build
+
+  typescript-sdk:
+    name: Vedora SDK (Tests & Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: sdks/vedora-sdk
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: sdks/vedora-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK TypeScript declaration & distribution
+        run: npm run build
+
+      - name: Run SDK test suite
+        run: npm test
+
+  main-dashboard:
+    name: Main Dashboard (Production Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_dummy_clerk_secret_key_ci
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            sdks/vedora-sdk/package-lock.json
+            apps/main-dashboard/package-lock.json
+
+      - name: Build SDK dependency
+        working-directory: sdks/vedora-sdk
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install dashboard dependencies
+        working-directory: apps/main-dashboard
+        run: npm ci
+
+      - name: Build Next.js Dashboard
+        working-directory: apps/main-dashboard
+        run: npm run build
+
+  landing-page:
+    name: Landing Page (Lint & Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: apps/landing-page
+
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_dummy_clerk_secret_key_ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/landing-page/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Build Next.js Landing Page
+        run: npm run build

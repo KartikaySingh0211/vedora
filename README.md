@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-139%20passing%20(16%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-158%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -40,11 +40,11 @@ Vedora addresses these challenges with an integrated, developer-first platform: 
 2. **Dual-Layer Authentication & Multi-Tier Caching**:
    `DualAuthGuard` validates either Clerk session JWTs (for dashboard users) or high-entropy API keys (`VDR_<32hex>_<secret>`). Keys are hashed with Argon2id; verification follows a 3-tier sequence (L1 local in-memory LRU, L2 Redis with HMAC-SHA256 digest keys, L3 Neon PostgreSQL).
 3. **Atomic Quota Enforcement via PostgreSQL Advisory Locks**:
-   PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) serialize concurrent upload requests per user, guaranteeing that active storage plus incoming reservations never exceed tier caps.
+   PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) serialize concurrent upload requests per user, guaranteeing that active storage plus incoming reservations never exceed technical safeguard storage caps.
 4. **Automatic Adaptive Rendition Ladder with Quality Ceilings**:
    Users select a maximum quality ceiling (360p, 480p, 720p, 1080p). Vedora automatically encodes all supported lower renditions down to 360p (e.g. 720p $\to$ 360p + 480p + 720p) with strict no-upscaling guarantees, generating RFC 8216 `master.m3u8` manifests and `.ts` media segments. Built-in `<VedoraPlayer />` and `<EmbedVideoModal />` provide adaptive bitrate streaming via `hls.js`.
 5. **Privacy-Preserving Telemetry & Technical Ingestion Safeguards**:
-   Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Vedora provides 100% open-source video infrastructure with configurable technical safeguards (10 GiB single-file limit, 500 GiB user storage capacity, 1080p for all users) with zero subscription fees, paid tiers, or proprietary billing lock-in.
+   Playback heartbeat pings are pseudonymized using HMAC-SHA256, buffered in Redis, and asynchronously persisted to PostgreSQL in batched windows (`7d`, `30d`, `90d`). Vedora provides 100% open-source video infrastructure with configurable technical safeguards (10 GiB single-file limit, 500 GiB per-user storage capacity default controlled by `MAX_USER_STORAGE_CAP_BYTES`, 1080p for all users) with zero subscription fees, paid tiers, or proprietary billing lock-in.
 
 ---
 
@@ -133,7 +133,7 @@ User video library displaying lifecycle status badges (`uploading`, `uploaded`, 
 | **Embeddable Player** | `/embed/[videoid]` | Standalone viewport playback, HLS.js adaptive streaming, speed selector, PiP, keyboard shortcuts |
 | **Custom Player Settings**| `/player` | Primary color picker, control bar styling, watermark position/opacity slider, UI control toggles |
 | **Playback Analytics** | `/analytics` | Views, watch minutes, unique viewers, retention curve, device/browser distribution via Recharts |
-| **Open-Source Safeguards** | `/settings` | Technical safeguard settings, active storage capacity metrics, 1080p encoding tier display |
+| **Open-Source Safeguards** | `/settings` | Technical safeguard settings, active storage capacity metrics, 1080p encoding safeguard display |
 
 ---
 
@@ -239,7 +239,7 @@ Once the backend is running (via Docker or Node), open the interactive Swagger U
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (139 tests across 16 suites)
+# 1. Backend unit & integration test suite (158 tests across 17 suites)
 cd services
 npm test
 
@@ -288,7 +288,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
-- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-012).
+- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-014).
 
 ---
 
@@ -297,10 +297,10 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 1. **Zero Plaintext Storage**: Plaintext API keys (`VDR_<hex>_<secret>`) are returned exactly once upon creation. Only Argon2id hashes are stored in PostgreSQL.
 2. **Dedicated HMAC Digest Cache Keys**: Plaintext keys are never stored in Redis. Only HMAC-SHA256 digests derived with server-side secrets are used for cache validation.
 3. **Prompt Cache Invalidation**: Revoking or regenerating an API key invalidates both Level 1 (LRU) and Level 2 (Redis) cache entries immediately and guards against concurrent rehydration.
-4. **Server-Side Quotas**: Quotas (e.g., 10 playlists per user, plan storage caps) are enforced in PostgreSQL transactions using advisory locks, preventing quota bypasses from concurrent race conditions.
+4. **Server-Side Quotas**: Quotas (e.g., 10 playlists per user, configurable per-user storage capacity default of 500 GiB controlled by `MAX_USER_STORAGE_CAP_BYTES` rather than a global instance limit) are enforced in PostgreSQL transactions using advisory locks, preventing quota bypasses from concurrent race conditions.
 5. **Privacy-Preserving Telemetry**: Raw IP addresses are never persisted in analytics records; pseudonymized HMAC hashes are generated with server-side secrets.
 6. **Cryptographic Webhook Signatures**: Transcoding completion webhooks require verified HMAC-SHA256 signatures before executing state transitions.
-7. **Server-Authoritative Technical Safeguards**: Ingestion safeguards enforce 10 GiB single-file limits and 500 GiB user storage capacity with atomic PostgreSQL advisory locks; 1080p encoding is available to all users.
+7. **Server-Authoritative Technical Safeguards**: Ingestion safeguards enforce 10 GiB single-file limits and 500 GiB per-user storage capacity defaults (configurable via `MAX_USER_STORAGE_CAP_BYTES`) with atomic PostgreSQL advisory locks; 1080p encoding is available to all users.
 8. **Resilient Queue Processing & Crash Recovery**: Atomic job claiming (`RPOPLPUSH`) with processing queue tracking (`vedora:transcode:processing`), heartbeat lock renewal, and stale job recovery for worker crashes with at-least-once delivery guarantees.
 
 ---
@@ -322,7 +322,7 @@ To maintain complete technical transparency:
 - [x] **Cloudflare R2 Native Storage Driver**: Native S3-compatible driver support with 0 egress fees.
 - [ ] **Distributed FFmpeg Worker Fleet**: Containerized GPU-accelerated video encoding worker pool.
 - [ ] **Team & Organization RBAC**: Multi-tenant team workspaces with granular permission tiers.
-- [ ] **Automated CI/CD Pipeline**: GitHub Actions workflows for continuous integration, linting, and automated Docker container builds.
+- [x] **Automated CI/CD Pipeline**: GitHub Actions CI workflow for test suites, SDK verification, and frontend production builds.
 
 ---
 

@@ -11,7 +11,7 @@ const plans = [
 	{
 		name: "Open Source",
 		price: "$0",
-		desc: "Free forever under the MIT license.",
+		desc: "MIT-licensed open-source software. You operate your own self-hosted infrastructure and may incur storage, bandwidth, compute, and hosting costs from your chosen providers.",
 		badge: "100% Free",
 		features: [
 			"Unlimited video storage (your R2 or local disk)",
@@ -79,7 +79,7 @@ const PricingSection = () => {
 									{plan.price}
 									<span className="text-sm text-slate-500 font-normal">
 										{" "}
-										/ month
+										(Software License)
 									</span>
 								</div>
 								<p className="text-sm text-slate-400 mt-1.5">{plan.desc}</p>
@@ -181,8 +181,8 @@ const PricingSection = () => {
 				</div>
 
 				{/* Microcopy */}
-				<p className="text-center text-xs text-slate-500 font-semibold">
-					Free and open source forever under the MIT license. No credit card required.
+				<p className="text-center text-xs text-slate-500 font-normal max-w-xl mx-auto leading-relaxed">
+					Vedora is free and open-source software under the MIT license. Users operate their own self-hosted infrastructure and may incur storage, bandwidth, compute, and hosting costs from their chosen cloud providers.
 				</p>
 			</div>
 		</section>

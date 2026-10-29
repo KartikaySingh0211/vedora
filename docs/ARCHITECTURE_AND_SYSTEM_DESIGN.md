@@ -1,6 +1,6 @@
 # Vedora Architecture & System Design Document
 
-This document provides the canonical architectural specification, security threat models, data flows, and infrastructure blueprints for the **Vedora Video Infrastructure SaaS Platform**.
+This document provides the canonical architectural specification, security threat models, data flows, and infrastructure blueprints for the **Vedora Video Infrastructure Platform** (100% Open-Source).
 
 ---
 

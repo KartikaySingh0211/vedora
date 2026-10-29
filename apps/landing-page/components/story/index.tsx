@@ -50,7 +50,8 @@ const StorySection = () => {
 					</ul>
 
 					<p className="text-white font-medium pt-2">
-						Vedora is built to make video hosting simple, smart, and
+						Vedora is an open-source, developer-first video infrastructure platform
+						built to make self-hosted video streaming simple, smart, and
 						predictable.
 					</p>
 				</div>

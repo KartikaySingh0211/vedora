@@ -1132,3 +1132,50 @@ Following the removal of billing and subscriptions in favor of a 100% open-sourc
   - `git grep -in "transcrib"`: 0 matches.
   - `git diff --check`: 0 whitespace issues.
 - **Strict Compliance**: No commits or pushes performed (`git commit` and `git push` withheld per user instructions).
+
+---
+
+## 2026-10-30: Phase 1 & Phase 2 Stabilization Hardening, CI/CD Pipeline & Documentation Reconcile
+
+### 1. Context & Motivation
+Following the stabilization roadmap outlined in `docs/STABILIZATION_ROADMAP.md`, Phase 1 and Phase 2 focused on hardening critical backend infrastructure (transcoder webhooks, queue recovery, mock removal) and establishing repository credibility through automated CI/CD workflows and synchronized documentation.
+
+### 2. Actions Executed
+
+#### Phase 1: Security and Reliability Fixes (Commit `f81d680`)
+- **Webhook Secret Validation (`services/src/modules/transcoder/transcoder.service.ts`)**:
+  - Enforced mandatory startup and runtime validation of `TRANSCODER_WEBHOOK_SECRET` requiring a minimum length of 32 characters after trimming whitespace.
+  - Removed all unsafe hardcoded fallbacks and secondary digest secrets (`apiKeyDigestSecret`).
+  - Updated `services/.env.example` with clear non-functional placeholders.
+- **Raw-Body HMAC Verification (`services/src/main.ts`, `services/src/modules/transcoder/transcoder.controller.ts`)**:
+  - Configured NestJS `rawBody: true` and routed exact raw request buffers through `req.rawBody` for HMAC-SHA256 calculation.
+  - Enforced `crypto.timingSafeEqual` with zero leakage or secret logging.
+- **Mock Fallback Removal & Queue Reliability (`services/src/modules/transcoder/transcoder.service.ts`, `services/src/infra/redis/redis.service.ts`)**:
+  - Eliminated mock/dev execution branches that prematurely marked videos `ready` without genuine transcoding.
+  - Replaced ad-hoc Redis compatibility hacks with robust command detection.
+  - Implemented reliable stalled job recovery (`vedora:transcode:processing` tracking and heartbeat timeout renewal) preventing job abandonment.
+  - Added comprehensive regression test suite (`transcoder-phase1-regression.spec.ts`).
+
+#### Phase 2: Project Credibility & GitHub Actions CI Workflow
+- **Automated CI Workflow (`.github/workflows/ci.yml`)**:
+  - Created automated GitHub Actions matrix covering 4 parallel jobs: `backend-services`, `typescript-sdk`, `main-dashboard`, and `landing-page`.
+  - Configured jobs to run on pull requests and pushes to `main`.
+  - Added build step dependencies ensuring the SDK compiles before dashboard consumption.
+  - Supplied mock/dummy CI environment variables to test builds without external cloud access.
+- **Documentation & Positioning Reconciliation**:
+  - **`README.md`**: Updated test badge to 158 passing tests across 17 suites; updated bug fix ledger to BUG-014; clarified that 500 GiB storage capacity is a configurable per-user default (`MAX_USER_STORAGE_CAP_BYTES`) rather than a global instance limit; marked CI/CD roadmap item as completed.
+  - **`apps/landing-page/components/pricing/index.tsx`**: Replaced `$0 / month` with `$0 (Software License)` and added explicit copy clarifying that Vedora is MIT-licensed open-source software, but self-hosting users incur storage, bandwidth, and compute costs directly from their cloud providers.
+  - **`apps/landing-page/components/story/index.tsx`**: Refined story copy to emphasize self-hosted, 100% open-source video infrastructure.
+  - **`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`**: Synchronized platform title to 100% open-source video infrastructure platform.
+  - **`docs/api-docs/README.md` & `docs/decisions/ADR-011-safe-modularity-and-frontend-reusability.md`**: Reconciled legacy BullMQ mentions with the Redis 7 custom `RPOPLPUSH` transcode queue keys.
+  - **`docs/STABILIZATION_ROADMAP.md`**: Updated Phase 1 and Phase 2 status to `Completed` with verification evidence.
+
+### 3. Empirical Verification Evidence
+- **Backend Test Suite (`npm --prefix services test`)**: 17 test suites passed, 158 tests passed.
+- **Backend Build (`npm --prefix services run build`)**: TypeScript compiled cleanly with exit code 0.
+- **SDK Test Suite (`npm --prefix sdks/vedora-sdk test`)**: 1 suite passed, 3 tests passed.
+- **SDK Build (`npm --prefix sdks/vedora-sdk run build`)**: TypeScript compiled cleanly with exit code 0.
+- **Main Dashboard Build (`npm --prefix apps/main-dashboard run build`)**: All 15 routes compiled and prerendered cleanly with exit code 0.
+- **Landing Page Lint & Build (`npm --prefix apps/landing-page run lint && npm --prefix apps/landing-page run build`)**: ESLint passed; all 5 routes compiled with exit code 0.
+- **CI Workflow Validation**: `.github/workflows/ci.yml` validated via `js-yaml` with 0 syntax errors.
+- **Whitespace & Diff Verification**: `git diff --check` passed with 0 errors.
