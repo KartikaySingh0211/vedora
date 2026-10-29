@@ -3,7 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { TranscoderService, RENDITION_LADDER } from './transcoder.service';
+import { FfmpegService } from './ffmpeg.service';
 import { DRIZZLE_DB } from '../../database/database.module';
 import { RedisService } from '../../infra/redis/redis.service';
 import { StorageService } from '../../infra/storage/storage.service';
@@ -14,6 +18,7 @@ describe('TranscoderService', () => {
   let mockRedisService: any;
   let mockStorageService: any;
   let mockConfigService: any;
+  let mockFfmpegService: any;
 
   const testSecret = 'test_webhook_secret_key_32chars!';
 
@@ -36,15 +41,33 @@ describe('TranscoderService', () => {
     };
 
     mockRedisService = {
+      isHealthy: jest.fn().mockReturnValue(true),
+      ping: jest.fn().mockResolvedValue(true),
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(true),
+      del: jest.fn().mockResolvedValue(true),
+      setnxWithExpiry: jest.fn().mockResolvedValue(true),
+      releaseLock: jest.fn().mockResolvedValue(true),
+      renewLock: jest.fn().mockResolvedValue(true),
+      hset: jest.fn().mockResolvedValue(true),
+      hgetall: jest.fn().mockResolvedValue({}),
+      hdel: jest.fn().mockResolvedValue(true),
       rpush: jest.fn().mockResolvedValue(1),
       lpop: jest.fn().mockResolvedValue(null),
+      lrange: jest.fn().mockResolvedValue([]),
+      ltrim: jest.fn().mockResolvedValue(true),
       llen: jest.fn().mockResolvedValue(0),
-      setnxWithExpiry: jest.fn().mockResolvedValue(true),
-      del: jest.fn().mockResolvedValue(true),
-      isHealthy: jest.fn().mockReturnValue(true),
+      rpoplpush: jest.fn().mockResolvedValue(null),
+      lrem: jest.fn().mockResolvedValue(1),
     };
 
     mockStorageService = {
+      downloadObjectToFile: jest
+        .fn()
+        .mockImplementation(async (key: string, filePath: string) => {
+          fs.writeFileSync(filePath, 'dummy content');
+          return true;
+        }),
       uploadDirectBuffer: jest
         .fn()
         .mockResolvedValue({ success: true, key: 'test-key' }),
@@ -64,6 +87,50 @@ describe('TranscoderService', () => {
       }),
     };
 
+    mockFfmpegService = {
+      probeMedia: jest.fn().mockResolvedValue({
+        duration: 20,
+        width: 1280,
+        height: 720,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: true,
+      }),
+      selectRenditions: jest.fn().mockReturnValue([
+        {
+          name: '720p',
+          width: 1280,
+          height: 720,
+          videoBitrateKbps: 2800,
+          audioBitrateKbps: 128,
+          fps: 30,
+          segmentDurationSec: 4,
+        },
+      ]),
+      transcodeToHls: jest.fn().mockImplementation(async () => {
+        const dummyFile = path.join(
+          os.tmpdir(),
+          `dummy-test-${Date.now()}.m3u8`,
+        );
+        fs.writeFileSync(dummyFile, '#EXTM3U\n');
+        return {
+          masterPlaylistPath: dummyFile,
+          masterPlaylistContent:
+            '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2928000\n720p/index.m3u8\n',
+          generatedFiles: [
+            {
+              relativePath: 'master.m3u8',
+              absolutePath: dummyFile,
+              sizeBytes: 50,
+              contentType: 'application/vnd.apple.mpegurl',
+            },
+          ],
+          totalTranscodedBytes: 50n,
+          probedDuration: 20,
+        };
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TranscoderService,
@@ -71,6 +138,7 @@ describe('TranscoderService', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: FfmpegService, useValue: mockFfmpegService },
       ],
     }).compile();
 

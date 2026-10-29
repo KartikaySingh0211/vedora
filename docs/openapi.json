@@ -1522,7 +1522,7 @@
     },
     "/api/v1/transcoder/process/{videoId}": {
       "post": {
-        "description": "Submits an asynchronous HLS transcoding job to the BullMQ transcode queue for a previously uploaded video.",
+        "description": "Submits an asynchronous HLS transcoding job to the Redis transcode queue for a previously uploaded video.",
         "operationId": "TranscoderController_triggerProcessing_v1",
         "parameters": [
           {

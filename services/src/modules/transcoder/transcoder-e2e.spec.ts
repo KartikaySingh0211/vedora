@@ -92,17 +92,28 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
     mockRedisService = {
       rpush: jest.fn().mockResolvedValue(1),
       lpop: jest.fn().mockResolvedValue(null),
+      rpoplpush: jest.fn().mockResolvedValue(null),
+      lrem: jest.fn().mockResolvedValue(1),
+      lrange: jest.fn().mockResolvedValue([]),
+      ltrim: jest.fn().mockResolvedValue(true),
       llen: jest.fn().mockResolvedValue(0),
       setnxWithExpiry: jest.fn().mockResolvedValue(true),
       releaseLock: jest.fn().mockResolvedValue(true),
       renewLock: jest.fn().mockResolvedValue(true),
       del: jest.fn().mockResolvedValue(true),
       get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(true),
       isHealthy: jest.fn().mockReturnValue(true),
+      ping: jest.fn().mockResolvedValue(true),
+      hset: jest.fn().mockResolvedValue(true),
+      hgetall: jest.fn().mockResolvedValue({}),
+      hdel: jest.fn().mockResolvedValue(true),
     };
 
     const mockConfigService = {
       get: jest.fn((key: string, defaultVal?: any) => {
+        if (key === 'transcoder.webhookSecret')
+          return 'test_webhook_secret_key_32chars!';
         if (key === 'port') return 8080;
         return defaultVal;
       }),

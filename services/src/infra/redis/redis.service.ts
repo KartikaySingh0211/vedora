@@ -7,8 +7,29 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
+export interface IRedisService {
+  isHealthy(): boolean;
+  ping(): Promise<boolean>;
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttlSeconds?: number): Promise<boolean>;
+  del(key: string): Promise<boolean>;
+  setnxWithExpiry(key: string, value: string, ttlSeconds: number): Promise<boolean>;
+  releaseLock(key: string, token: string): Promise<boolean>;
+  renewLock(key: string, token: string, ttlSeconds: number): Promise<boolean>;
+  hset(hash: string, field: string, value: string): Promise<boolean>;
+  hgetall(hash: string): Promise<Record<string, string>>;
+  hdel(hash: string, fields: string[]): Promise<boolean>;
+  rpush(key: string, value: string): Promise<number>;
+  lpop(key: string): Promise<string | null>;
+  lrange(key: string, start: number, stop: number): Promise<string[]>;
+  ltrim(key: string, start: number, stop: number): Promise<boolean>;
+  llen(key: string): Promise<number>;
+  rpoplpush(source: string, destination: string): Promise<string | null>;
+  lrem(key: string, count: number, value: string): Promise<number>;
+}
+
 @Injectable()
-export class RedisService implements OnModuleInit, OnApplicationShutdown {
+export class RedisService implements OnModuleInit, OnApplicationShutdown, IRedisService {
   private readonly logger = new Logger(RedisService.name);
   private client: Redis | null = null;
   private isConnected = false;

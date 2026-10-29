@@ -7,6 +7,8 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  RawBody,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -70,8 +72,10 @@ export class TranscoderController {
   async handleWebhook(
     @Headers('x-transcoder-signature') signature: string | undefined,
     @Body() dto: TranscoderWebhookDto,
+    @Req() req?: any,
+    @RawBody() rawBody?: Buffer,
   ): Promise<TranscoderWebhookResponseDto> {
-    const rawPayload = JSON.stringify(dto);
+    const rawPayload = rawBody ?? (req?.rawBody as Buffer | undefined);
     return await this.transcoderService.handleWebhook(
       signature,
       rawPayload,
@@ -87,7 +91,7 @@ export class TranscoderController {
   @ApiOperation({
     summary: 'Trigger manual transcoding for an uploaded video',
     description:
-      'Submits an asynchronous HLS transcoding job to the BullMQ transcode queue for a previously uploaded video.',
+      'Submits an asynchronous HLS transcoding job to the Redis transcode queue for a previously uploaded video.',
   })
   @ApiParam({
     name: 'videoId',

@@ -56,16 +56,30 @@ export class TranscoderService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
-    @Optional() private readonly ffmpegService?: FfmpegService,
+    private readonly ffmpegService: FfmpegService,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    this.validateWebhookConfig();
     try {
       await this.recoverStuckJobs();
     } catch (err: unknown) {
       this.logger.warn(
         `Could not run startup recovery of stuck jobs: ${(err as Error).message}`,
       );
+    }
+  }
+
+  validateWebhookConfig(): void {
+    const webhookSecret = this.configService.get<string>(
+      'transcoder.webhookSecret',
+    );
+    const trimmed = webhookSecret?.trim();
+    if (!trimmed || trimmed.length < 32) {
+      const errorMsg =
+        'TRANSCODER_WEBHOOK_SECRET is required and must be at least 32 characters long. Application cannot start safely without a configured webhook secret.';
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
   }
 
@@ -98,14 +112,11 @@ export class TranscoderService implements OnModuleInit {
       return false;
     }
 
-    let rawJob: string | null = null;
-    if (typeof this.redisService.rpoplpush === 'function') {
-      rawJob = await this.redisService.rpoplpush(
-        QUEUE_KEY,
-        PROCESSING_QUEUE_KEY,
-      );
-    }
-    if (!rawJob && typeof this.redisService.lpop === 'function') {
+    let rawJob = await this.redisService.rpoplpush(
+      QUEUE_KEY,
+      PROCESSING_QUEUE_KEY,
+    );
+    if (!rawJob) {
       rawJob = await this.redisService.lpop(QUEUE_KEY);
     }
 
@@ -119,9 +130,7 @@ export class TranscoderService implements OnModuleInit {
       jobData = JSON.parse(rawJob) as TranscodeJobData;
     } catch {
       this.logger.error(`Malformed job in transcode queue: ${rawJob}`);
-      if (typeof this.redisService.lrem === 'function') {
-        await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
-      }
+      await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
       this.isProcessing = false;
       return false;
     }
@@ -137,9 +146,7 @@ export class TranscoderService implements OnModuleInit {
       await this.markVideoFailed(jobData.videoId, sanitized);
     } finally {
       // Remove successfully completed or permanently failed job from processing queue
-      if (typeof this.redisService.lrem === 'function') {
-        await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
-      }
+      await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
       this.isProcessing = false;
       // Check if more jobs are in queue
       const remaining = await this.redisService.llen(QUEUE_KEY);
@@ -164,15 +171,12 @@ export class TranscoderService implements OnModuleInit {
     // 1. Distributed lock with ownership token to prevent duplicate worker execution
     const lockKey = CACHE_KEYS.transcodeLock(videoId);
     const lockToken = crypto.randomUUID();
-    let acquired = true;
-    if (typeof this.redisService.setnxWithExpiry === 'function') {
-      acquired = await this.redisService.setnxWithExpiry(
-        lockKey,
-        lockToken,
-        600,
-      );
-    }
-    if (!acquired && typeof this.redisService.isHealthy === 'function' && this.redisService.isHealthy()) {
+    const acquired = await this.redisService.setnxWithExpiry(
+      lockKey,
+      lockToken,
+      600,
+    );
+    if (!acquired && this.redisService.isHealthy()) {
       this.logger.warn(
         `Transcoding job for video ${videoId} is already running in another worker. Skipping.`,
       );
@@ -181,7 +185,7 @@ export class TranscoderService implements OnModuleInit {
 
     // Active lock renewal heartbeat: extends 600s TTL every 30s during long transcoding
     let renewalTimer: NodeJS.Timeout | null = null;
-    if (acquired && typeof this.redisService.renewLock === 'function') {
+    if (acquired) {
       renewalTimer = setInterval(() => {
         void this.redisService.renewLock(lockKey, lockToken, 600);
       }, 30_000);
@@ -207,11 +211,7 @@ export class TranscoderService implements OnModuleInit {
       if (renewalTimer) {
         clearInterval(renewalTimer);
       }
-      if (typeof this.redisService.releaseLock === 'function') {
-        await this.redisService.releaseLock(lockKey, lockToken);
-      } else if (typeof this.redisService.del === 'function') {
-        await this.redisService.del(lockKey);
-      }
+      await this.redisService.releaseLock(lockKey, lockToken);
       return;
     }
 
@@ -234,166 +234,108 @@ export class TranscoderService implements OnModuleInit {
     let cleanupNeeded = false;
 
     try {
-      // 4. Execute real FFmpeg transcoding if FfmpegService is available and storageKey is specified
-      if (this.ffmpegService && storageKey) {
-        fs.mkdirSync(jobDir, { recursive: true });
-        cleanupNeeded = true;
-        const inputPath = path.join(jobDir, 'source.mp4');
+      if (!this.ffmpegService) {
+        throw new Error('FfmpegService is not available for video transcoding');
+      }
 
-        // Retrieve source video through storage abstraction
-        let hasInput = await this.storageService.downloadObjectToFile(
-          storageKey,
-          inputPath,
+      if (!storageKey) {
+        throw new Error(
+          `Cannot transcode video ${videoId}: storageKey is missing`,
         );
-
-        if (!hasInput) {
-          const fallbackPath = path.join(
-            process.cwd(),
-            'storage_local',
-            'objects',
-            storageKey.replace(/[/\\]/g, '_'),
-          );
-          if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).size > 0) {
-            fs.copyFileSync(fallbackPath, inputPath);
-            hasInput = true;
-          }
-        }
-
-        if (
-          hasInput &&
-          fs.existsSync(inputPath) &&
-          fs.statSync(inputPath).size > 0
-        ) {
-          // Probe source video metadata
-          const probe = await this.ffmpegService.probeMedia(inputPath);
-          const targetRenditions = this.ffmpegService.selectRenditions(
-            probe,
-            resolutions,
-          );
-
-          // Transcode renditions to genuine HLS output
-          const outputDir = path.join(jobDir, 'hls');
-          const transcodeResult = await this.ffmpegService.transcodeToHls({
-            inputPath,
-            outputDir,
-            videoId,
-            probe,
-            renditions: targetRenditions,
-          });
-
-          // Upload real generated HLS files to storage
-          for (const file of transcodeResult.generatedFiles) {
-            const fileBuf = fs.readFileSync(file.absolutePath);
-            const uploadKey = `videos/${videoId}/${file.relativePath}`;
-            await this.storageService.uploadDirectBuffer(
-              uploadKey,
-              fileBuf,
-              file.contentType,
-            );
-          }
-
-          const masterManifestKey = `videos/${videoId}/master.m3u8`;
-
-          // Verify master playlist was generated
-          if (!transcodeResult.masterPlaylistContent) {
-            throw new Error(
-              'Master playlist content missing after FFmpeg execution',
-            );
-          }
-
-          // Transition to ready with verified output metadata
-          await this.db
-            .update(schema.videos)
-            .set({
-              status: 'ready',
-              master_m3u8_key: masterManifestKey,
-              transcoded_size: transcodeResult.totalTranscodedBytes,
-              duration: transcodeResult.probedDuration || jobData.duration || 0,
-              resolutions: targetRenditions.map((r) => r.name),
-              updated_at: new Date(),
-            })
-            .where(eq(schema.videos.id, videoId));
-
-          this.logger.log(
-            `FFmpeg transcoding completed successfully for video ${videoId}. Status: ready. Master key: ${masterManifestKey}`,
-          );
-          return;
-        } else {
-          throw new Error(
-            `Video source file not found in storage for key: ${storageKey}`,
-          );
-        }
       }
 
-      // 5. Fallback for mock unit test suites without FfmpegService:
-      let ceiling = '720p';
-      if (resolutions && resolutions.length > 0) {
-        let highestRank = 0;
-        for (const res of resolutions) {
-          const rank = RESOLUTION_RANKS[res] || 0;
-          if (rank > highestRank) {
-            highestRank = rank;
-            ceiling = res;
-          }
-        }
-      }
+      fs.mkdirSync(jobDir, { recursive: true });
+      cleanupNeeded = true;
+      const inputPath = path.join(jobDir, 'source.mp4');
 
-      const candidateLadder =
-        ADAPTIVE_LADDER_CEILINGS[ceiling] || ['360p', '480p', '720p'];
-      const targetRenditions = candidateLadder.filter((r) =>
-        Boolean(RENDITION_LADDER[r]),
+      // Retrieve source video through storage abstraction
+      let hasInput = await this.storageService.downloadObjectToFile(
+        storageKey,
+        inputPath,
       );
+
+      if (!hasInput) {
+        const fallbackPath = path.join(
+          process.cwd(),
+          'storage_local',
+          'objects',
+          storageKey.replace(/[/\\]/g, '_'),
+        );
+        if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).size > 0) {
+          fs.copyFileSync(fallbackPath, inputPath);
+          hasInput = true;
+        }
+      }
+
+      if (
+        !hasInput ||
+        !fs.existsSync(inputPath) ||
+        fs.statSync(inputPath).size === 0
+      ) {
+        throw new Error(
+          `Video source file not found in storage for key: ${storageKey}`,
+        );
+      }
+
+      // Probe source video metadata
+      const probe = await this.ffmpegService.probeMedia(inputPath);
+      const targetRenditions = this.ffmpegService.selectRenditions(
+        probe,
+        resolutions,
+      );
+
+      // Transcode renditions to genuine HLS output
+      const outputDir = path.join(jobDir, 'hls');
+      const transcodeResult = await this.ffmpegService.transcodeToHls({
+        inputPath,
+        outputDir,
+        videoId,
+        probe,
+        renditions: targetRenditions,
+      });
+
+      // Upload real generated HLS files to storage
+      for (const file of transcodeResult.generatedFiles) {
+        const fileBuf = fs.readFileSync(file.absolutePath);
+        const uploadKey = `videos/${videoId}/${file.relativePath}`;
+        const uploadRes = await this.storageService.uploadDirectBuffer(
+          uploadKey,
+          fileBuf,
+          file.contentType,
+        );
+        if (!uploadRes || uploadRes.success === false) {
+          throw new Error(
+            `Failed to upload transcoded asset to storage: ${uploadKey}`,
+          );
+        }
+      }
 
       const masterManifestKey = `videos/${videoId}/master.m3u8`;
-      const masterPlaylistContent = this.generateMasterPlaylist(
-        videoId,
-        targetRenditions,
-      );
 
-      let totalTranscodedBytes = 0n;
-      const duration =
-        jobData.duration && jobData.duration > 0 ? jobData.duration : 60;
-
-      for (const rend of targetRenditions) {
-        const config = RENDITION_LADDER[rend];
-        const variantContent = this.generateVariantPlaylist(rend, duration);
-        const variantKey = `videos/${videoId}/${rend}/index.m3u8`;
-
-        await this.storageService.uploadDirectBuffer(
-          variantKey,
-          Buffer.from(variantContent, 'utf-8'),
-          'application/vnd.apple.mpegurl',
+      // Verify master playlist was generated
+      if (!transcodeResult.masterPlaylistContent) {
+        throw new Error(
+          'Master playlist content missing after FFmpeg execution',
         );
-
-        const totalBitrateBps =
-          (config.videoBitrateKbps + config.audioBitrateKbps) * 1000;
-        const renditionBytes = BigInt(
-          Math.floor((totalBitrateBps * duration) / 8),
-        );
-        totalTranscodedBytes += renditionBytes;
       }
 
-      await this.storageService.uploadDirectBuffer(
-        masterManifestKey,
-        Buffer.from(masterPlaylistContent, 'utf-8'),
-        'application/vnd.apple.mpegurl',
-      );
-
+      // Transition to ready with verified output metadata
       await this.db
         .update(schema.videos)
         .set({
           status: 'ready',
           master_m3u8_key: masterManifestKey,
-          transcoded_size: totalTranscodedBytes,
-          duration: duration,
-          resolutions: targetRenditions,
+          transcoded_size: transcodeResult.totalTranscodedBytes,
+          duration: transcodeResult.probedDuration || jobData.duration || 0,
+          resolutions: targetRenditions.map((r) => r.name),
           updated_at: new Date(),
         })
         .where(eq(schema.videos.id, videoId));
 
       this.logger.log(
-        `Transcoding fallback completed for video ${videoId}. Status: ready.`,
+        `FFmpeg transcoding completed successfully for video ${videoId}. Status: ready. Master key: ${masterManifestKey}`,
       );
+      return;
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : String(err);
       const sanitized = this.sanitizeErrorMessage(rawMsg);
@@ -415,11 +357,7 @@ export class TranscoderService implements OnModuleInit {
           );
         }
       }
-      if (typeof this.redisService.releaseLock === 'function') {
-        await this.redisService.releaseLock(lockKey, lockToken);
-      } else if (typeof this.redisService.del === 'function') {
-        await this.redisService.del(lockKey);
-      }
+      await this.redisService.releaseLock(lockKey, lockToken);
     }
   }
 
@@ -489,9 +427,19 @@ export class TranscoderService implements OnModuleInit {
    */
   async handleWebhook(
     signature: string | undefined,
-    rawPayload: string,
+    rawPayload: Buffer | string | undefined,
     dto: TranscoderWebhookDto,
   ): Promise<{ success: boolean; message: string }> {
+    if (
+      !rawPayload ||
+      (Buffer.isBuffer(rawPayload) && rawPayload.length === 0) ||
+      (typeof rawPayload === 'string' && rawPayload.trim().length === 0)
+    ) {
+      throw new BadRequestException(
+        'Missing raw request body for webhook signature verification',
+      );
+    }
+
     // Verify signature
     this.verifyWebhookSignature(signature, rawPayload);
 
@@ -544,30 +492,50 @@ export class TranscoderService implements OnModuleInit {
   }
 
   /**
-   * Verify HMAC-SHA256 signature for cloud transcoder webhooks.
+   * Verify HMAC-SHA256 signature for cloud transcoder webhooks against the raw request body.
    */
   verifyWebhookSignature(
     signatureHeader: string | undefined,
-    rawPayload: string,
+    rawPayload: Buffer | string | undefined,
   ): void {
-    const webhookSecret =
-      this.configService.get<string>('transcoder.webhookSecret') ||
-      this.configService.get<string>('apiKeyDigestSecret') ||
-      'vedora_transcoder_default_secret_32bytes!';
+    const webhookSecret = this.configService.get<string>(
+      'transcoder.webhookSecret',
+    );
+    const trimmed = webhookSecret?.trim();
+
+    if (!trimmed || trimmed.length < 32) {
+      throw new UnauthorizedException(
+        'Transcoder webhook secret is not configured or does not meet minimum length requirement',
+      );
+    }
 
     if (!signatureHeader) {
       throw new UnauthorizedException('Missing x-transcoder-signature header');
     }
 
+    if (
+      !rawPayload ||
+      (Buffer.isBuffer(rawPayload) && rawPayload.length === 0) ||
+      (typeof rawPayload === 'string' && rawPayload.trim().length === 0)
+    ) {
+      throw new BadRequestException(
+        'Missing raw request body for webhook signature verification',
+      );
+    }
+
+    const payloadBuffer = Buffer.isBuffer(rawPayload)
+      ? rawPayload
+      : Buffer.from(rawPayload, 'utf8');
+
     const computed = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawPayload)
+      .createHmac('sha256', trimmed)
+      .update(payloadBuffer)
       .digest('hex');
 
-    const signature = signatureHeader.replace(/^sha256=/, '');
+    const signature = signatureHeader.replace(/^sha256=/, '').trim();
 
-    const bufA = Buffer.from(computed);
-    const bufB = Buffer.from(signature);
+    const bufA = Buffer.from(computed, 'utf8');
+    const bufB = Buffer.from(signature, 'utf8');
 
     if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
       throw new UnauthorizedException('Invalid transcoder webhook signature');
@@ -610,62 +578,60 @@ export class TranscoderService implements OnModuleInit {
     const recoveredIds: string[] = [];
 
     // 1. Recover interrupted jobs from Redis processing queue
-    if (typeof this.redisService.lrange === 'function') {
-      try {
-        const inFlight = await this.redisService.lrange(
-          PROCESSING_QUEUE_KEY,
-          0,
-          -1,
-        );
-        for (const rawJob of inFlight) {
-          try {
-            const jobData = JSON.parse(rawJob) as TranscodeJobData;
-            const lockKey = CACHE_KEYS.transcodeLock(jobData.videoId);
-            const hasLock = Boolean(await this.redisService.get(lockKey));
+    try {
+      const inFlight = await this.redisService.lrange(
+        PROCESSING_QUEUE_KEY,
+        0,
+        -1,
+      );
+      for (const rawJob of inFlight) {
+        try {
+          const jobData = JSON.parse(rawJob) as TranscodeJobData;
+          const lockKey = CACHE_KEYS.transcodeLock(jobData.videoId);
+          const hasLock = Boolean(await this.redisService.get(lockKey));
 
-            if (!hasLock) {
-              // No active lock: worker terminated mid-execution
-              const [videoRecord] = await this.db
-                .select({ status: schema.videos.status })
-                .from(schema.videos)
-                .where(eq(schema.videos.id, jobData.videoId))
-                .limit(1);
+          if (!hasLock) {
+            // No active lock: worker terminated mid-execution
+            const [videoRecord] = await this.db
+              .select({ status: schema.videos.status })
+              .from(schema.videos)
+              .where(eq(schema.videos.id, jobData.videoId))
+              .limit(1);
 
-              if (videoRecord?.status === 'ready' || videoRecord?.status === 'failed') {
+            if (videoRecord?.status === 'ready' || videoRecord?.status === 'failed') {
+              await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
+            } else {
+              const attempts = jobData.attempts || 1;
+              if (attempts < 3) {
+                jobData.attempts = attempts + 1;
                 await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
+                await this.redisService.rpush(
+                  QUEUE_KEY,
+                  JSON.stringify(jobData),
+                );
+                this.logger.log(
+                  `Recovered interrupted job for video ${jobData.videoId}, re-enqueued attempt ${jobData.attempts}`,
+                );
+                recoveredIds.push(jobData.videoId);
               } else {
-                const attempts = jobData.attempts || 1;
-                if (attempts < 3) {
-                  jobData.attempts = attempts + 1;
-                  await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
-                  await this.redisService.rpush(
-                    QUEUE_KEY,
-                    JSON.stringify(jobData),
-                  );
-                  this.logger.log(
-                    `Recovered interrupted job for video ${jobData.videoId}, re-enqueued attempt ${jobData.attempts}`,
-                  );
-                  recoveredIds.push(jobData.videoId);
-                } else {
-                  await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
-                  await this.markVideoFailed(
-                    jobData.videoId,
-                    'Transcoding job exceeded maximum 3 retry attempts',
-                  );
-                  recoveredIds.push(jobData.videoId);
-                }
+                await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
+                await this.markVideoFailed(
+                  jobData.videoId,
+                  'Transcoding job exceeded maximum 3 retry attempts',
+                );
+                recoveredIds.push(jobData.videoId);
               }
             }
-          } catch {
-            // Malformed job payload in processing queue, remove safely
-            await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
           }
+        } catch {
+          // Malformed job payload in processing queue, remove safely
+          await this.redisService.lrem(PROCESSING_QUEUE_KEY, 1, rawJob);
         }
-      } catch (queueErr: unknown) {
-        this.logger.warn(
-          `Error reading processing queue for recovery: ${(queueErr as Error).message}`,
-        );
       }
+    } catch (queueErr: unknown) {
+      this.logger.warn(
+        `Error reading processing queue for recovery: ${(queueErr as Error).message}`,
+      );
     }
 
     // 2. Recover database records stuck in 'processing' past threshold without lock
@@ -689,11 +655,8 @@ export class TranscoderService implements OnModuleInit {
 
       for (const video of stuckVideos) {
         const lockKey = CACHE_KEYS.transcodeLock(video.id);
-        let hasLock = false;
-        if (typeof this.redisService.get === 'function') {
-          const lockVal = await this.redisService.get(lockKey);
-          hasLock = Boolean(lockVal);
-        }
+        const lockVal = await this.redisService.get(lockKey);
+        const hasLock = Boolean(lockVal);
 
         if (!hasLock) {
           this.logger.warn(
