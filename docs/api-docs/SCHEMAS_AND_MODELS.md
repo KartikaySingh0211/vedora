@@ -255,6 +255,8 @@ Aggregated reporting model returned by `GET /api/v1/analytics/metrics`:
 - `browserBreakdown`: Shares for Chrome, Safari, Firefox, Edge
 - `viewsOverTime`: Date-indexed time-series datapoints
 - `topVideos`: Ranked list of top performing media
+- `countryBreakdown`: Unique visitors grouped by geographic country
+- `topReferrers`: Request counts grouped by originating domain or pathname
 
 ---
 

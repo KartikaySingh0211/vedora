@@ -3306,6 +3306,44 @@
           "avgDurationSeconds"
         ]
       },
+      "CountryBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "Two-letter ISO country code or country name",
+            "example": "US"
+          },
+          "visitors": {
+            "type": "number",
+            "description": "Unique visitors count from this country",
+            "example": 45
+          }
+        },
+        "required": [
+          "country",
+          "visitors"
+        ]
+      },
+      "TopReferrerDto": {
+        "type": "object",
+        "properties": {
+          "pathname": {
+            "type": "string",
+            "description": "Originating domain or pathname where videos were requested",
+            "example": "example.com/tutorials"
+          },
+          "requests": {
+            "type": "number",
+            "description": "Total request count from this referrer",
+            "example": 120
+          }
+        },
+        "required": [
+          "pathname",
+          "requests"
+        ]
+      },
       "MetricsResponseDto": {
         "type": "object",
         "properties": {
@@ -3360,6 +3398,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TopVideoMetricDto"
+            }
+          },
+          "countryBreakdown": {
+            "description": "Audience breakdown by geographic visitor country",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryBreakdownDto"
+            }
+          },
+          "topReferrers": {
+            "description": "Top requested domains or referrers",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopReferrerDto"
             }
           }
         },

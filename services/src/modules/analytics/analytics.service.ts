@@ -46,6 +46,8 @@ export interface MetricsResult {
     watchTimeMinutes: number;
     avgDurationSeconds: number;
   }[];
+  countryBreakdown: { country: string; visitors: number }[];
+  topReferrers: { pathname: string; requests: number }[];
 }
 
 @Injectable()
@@ -357,6 +359,42 @@ export class AnalyticsService {
       });
     }
 
+    // 6. Country Breakdown
+    const countryRaw = await this.db
+      .select({
+        country: schema.video_views.country,
+        visitors: sql<number>`count(distinct ${schema.video_views.viewer_session_id})::int`,
+      })
+      .from(schema.video_views)
+      .where(and(...conditions))
+      .groupBy(schema.video_views.country)
+      .orderBy(
+        desc(sql`count(distinct ${schema.video_views.viewer_session_id})`),
+      )
+      .limit(20);
+
+    const countryBreakdown = countryRaw.map((c) => ({
+      country: c.country || 'Unknown',
+      visitors: c.visitors || 0,
+    }));
+
+    // 7. Top Referrers
+    const referrersRaw = await this.db
+      .select({
+        pathname: schema.video_views.referrer,
+        requests: sql<number>`count(*)::int`,
+      })
+      .from(schema.video_views)
+      .where(and(...conditions))
+      .groupBy(schema.video_views.referrer)
+      .orderBy(desc(sql`count(*)`))
+      .limit(10);
+
+    const topReferrers = referrersRaw.map((r) => ({
+      pathname: r.pathname || 'direct',
+      requests: r.requests || 0,
+    }));
+
     return {
       totalViews,
       totalWatchTimeSeconds,
@@ -373,6 +411,8 @@ export class AnalyticsService {
           : [{ browser: 'Chrome', share: 100 }],
       viewsOverTime: timeSeries,
       topVideos,
+      countryBreakdown,
+      topReferrers,
     };
   }
 }

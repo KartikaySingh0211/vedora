@@ -971,3 +971,46 @@ To ensure zero documentation drift across the lifetime of the Vedora project, th
 3. **Git Configuration & Privacy Boundary (`.gitignore`)**:
    - Configured `.gitignore` to explicitly ignore `.agents/` and `GEMINI.md` so that AI assistant configuration, local agent artifacts, and agent rules remain strictly local to the workspace and are never pushed to the public/remote Git repository.
    - Removed `.agents/` and `GEMINI.md` from Git index tracking (`git rm --cached`).
+
+
+---
+
+## [2026-10-29] - Run #13: Replaced Static Dashboard Mock Data with Live Telemetry, Quota & Video Storage Aggregations
+
+### 1. Context & User Directive
+The user reported:
+> "the dashboard is showing static data, fix this"
+
+### 2. Technical Findings
+1. `apps/main-dashboard/app/page.tsx` was relying on hardcoded placeholder constants:
+   - Minutes streamed card: `129 / 1K` and `12.9%` usage.
+   - Total requests card: `129` with `96 Avg / Day` and `+12% Growth`.
+   - Storage used card: `3.2 GB / 5 GB Total` with `2 Videos` and `1.8 GB Free`.
+   - `GeographicalMap`: rendered an internal static `countryData` constant.
+   - Top requested URLs table: rendered dummy paths (`/portfolio`, `/projects`, `/course/javascript`).
+2. The backend `/analytics/metrics` endpoint did not aggregate geographic country visitors or request referrers from PostgreSQL `video_views`.
+
+### 3. Implementation
+1. **Backend Analytics (`services/src/modules/analytics/`)**:
+   - Extended `MetricsResponseDto` with `CountryBreakdownDto` and `TopReferrerDto`.
+   - Added database aggregations in `AnalyticsService.getMetrics` for `countryBreakdown` (distinct viewer sessions per country) and `topReferrers` (request counts per referrer).
+   - Regenerated `docs/openapi.json` and updated `docs/api-docs/SCHEMAS_AND_MODELS.md`.
+2. **Dashboard API Client (`apps/main-dashboard/lib/api-client.ts`)**:
+   - Added `CountryBreakdownItem` and `TopReferrerItem` interfaces.
+   - Updated `AnalyticsMetricsResponse` and `SubscriptionItem` types.
+3. **Dynamic Geographical Map (`apps/main-dashboard/components/charts/geoMap.tsx`)**:
+   - Replaced internal static array with `data?: GeoCountryData[]` and `isLoading?: boolean` props.
+   - Added ISO-2 country code to full name mapping for SVG geography matching.
+   - Added empty state indicator for accounts with no recorded viewer traffic yet.
+4. **Live Root Dashboard Page (`apps/main-dashboard/app/page.tsx`)**:
+   - Integrated TanStack Query hooks fetching `/billing/subscription`, `/videos`, and `/analytics/metrics?window=30d`.
+   - Dynamically computed minutes streamed, real-time requests, and active storage consumption (raw size + estimated transcoded size).
+   - Rendered Getting Started onboarding guides when user has zero videos, transitioning seamlessly to live statistics upon video upload.
+   - Handled empty states and loading skeletons cleanly.
+5. **Bug Logging (`docs/bug-fixes/`)**:
+   - Authored `BUG-012-dashboard-static-data-replaced-with-live-telemetry.md` and updated `docs/bug-fixes/README.md`.
+
+### 4. Verification Evidence
+- `npm --prefix services test`: 17 passed suites, 138 passed tests.
+- `npm --prefix sdks/vedora-sdk test`: 3 passed tests.
+- `npm --prefix apps/main-dashboard run build`: Turbopack build succeeded with 16 routes and 0 TypeScript errors.

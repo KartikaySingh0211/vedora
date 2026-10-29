@@ -1,36 +1,77 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { motion, AnimatePresence } from "framer-motion";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-const countryData = [
-  { name: "United States of America", visitors: 50 },
-  { name: "India", visitors: 120 },
-  { name: "Bangladesh", visitors: 90 },
-  { name: "Malaysia", visitors: 10 },
-  { name: "South Africa", visitors: 10 },
-  { name: "Japan", visitors: 10 },
-  { name: "Chile", visitors: 21 },
-  { name: "Colombia", visitors: 21 },
-  { name: "Algeria", visitors: 21 },
-  { name: "Turkey", visitors: 21 },
-  { name: "S. Sudan", visitors: 21 },
-  { name: "Mongolia", visitors: 21 },
-  { name: "United Kingdom", visitors: 85 },
-  { name: "Germany", visitors: 70 },
-  { name: "Canada", visitors: 60 },
-];
-
-const getColor = (countryName: string) => {
-  const country = countryData.find((c) => c.name === countryName);
-  if (!country) return "#1e293b";
-  return "oklch(62.3% 0.214 259.815)";
+const ISO2_TO_COUNTRY_NAME: Record<string, string> = {
+  US: "United States of America",
+  IN: "India",
+  GB: "United Kingdom",
+  CA: "Canada",
+  DE: "Germany",
+  FR: "France",
+  AU: "Australia",
+  JP: "Japan",
+  BR: "Brazil",
+  SG: "Singapore",
+  NL: "Netherlands",
+  ES: "Spain",
+  IT: "Italy",
+  MX: "Mexico",
+  AE: "United Arab Emirates",
+  KR: "South Korea",
+  CN: "China",
+  ID: "Indonesia",
+  PK: "Pakistan",
+  NG: "Nigeria",
+  BD: "Bangladesh",
+  RU: "Russia",
+  ZA: "South Africa",
+  TR: "Turkey",
+  SA: "Saudi Arabia",
+  EG: "Egypt",
+  TH: "Thailand",
+  VN: "Vietnam",
+  PH: "Philippines",
+  MY: "Malaysia",
+  CO: "Colombia",
+  AR: "Argentina",
+  PL: "Poland",
+  SE: "Sweden",
+  CH: "Switzerland",
+  BE: "Belgium",
+  AT: "Austria",
+  CL: "Chile",
+  NZ: "New Zealand",
+  IE: "Ireland",
+  PT: "Portugal",
+  NO: "Norway",
+  FI: "Finland",
+  DK: "Denmark",
+  CZ: "Czech Republic",
+  GR: "Greece",
+  IL: "Israel",
+  KE: "Kenya",
+  UA: "Ukraine",
 };
 
-const GeographicalMap = () => {
+export interface GeoCountryData {
+  name: string;
+  visitors: number;
+}
+
+interface GeographicalMapProps {
+  data?: GeoCountryData[];
+  isLoading?: boolean;
+}
+
+const GeographicalMap: React.FC<GeographicalMapProps> = ({
+  data = [],
+  isLoading = false,
+}) => {
   const [hovered, setHovered] = useState<{
     name: string;
     visitors: number;
@@ -38,66 +79,104 @@ const GeographicalMap = () => {
 
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
+  // Normalize incoming country codes and names
+  const normalizedCountryMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of data) {
+      const codeOrName = item.name.trim();
+      const codeUpper = codeOrName.toUpperCase();
+      const resolvedName = ISO2_TO_COUNTRY_NAME[codeUpper] || codeOrName;
+      map.set(resolvedName.toLowerCase(), item.visitors);
+      map.set(codeOrName.toLowerCase(), item.visitors);
+    }
+    return map;
+  }, [data]);
+
+  const getColor = (countryName: string) => {
+    const visitors = normalizedCountryMap.get(countryName.toLowerCase());
+    if (!visitors || visitors <= 0) return "#1e293b";
+    return "oklch(62.3% 0.214 259.815)";
+  };
+
+  const hasTraffic = data.length > 0 && data.some((d) => d.visitors > 0);
+
   return (
     <div className="relative w-full -ml-[5%] px-0 py-5 overflow-visible">
-      <ComposableMap
-        projection="geoEqualEarth"
-        projectionConfig={{ scale: 230, center: [0, 10] }}
-        width={1400}
-        height={500}
-        viewBox="0 0 1400 500"
-        preserveAspectRatio="xMidYMid slice"
-        style={{
-          width: "100%",
-          height: "35vh",
-          background: "transparent",
-          margin: 0,
-          padding: 0,
-          display: "block",
-        }}
-      >
-        <Geographies geography={geoUrl}>
-          {({ geographies }) =>
-            geographies.map((geo) => {
-              const countryName = geo.properties.name;
-              const match = countryData.find((c) => c.name === countryName);
-              const baseColor = getColor(countryName);
+      {isLoading ? (
+        <div className="w-full h-[35vh] flex items-center justify-center text-sm text-gray-500 animate-pulse">
+          Loading geography data...
+        </div>
+      ) : (
+        <>
+          <ComposableMap
+            projection="geoEqualEarth"
+            projectionConfig={{ scale: 230, center: [0, 10] }}
+            width={1400}
+            height={500}
+            viewBox="0 0 1400 500"
+            preserveAspectRatio="xMidYMid slice"
+            style={{
+              width: "100%",
+              height: "35vh",
+              background: "transparent",
+              margin: 0,
+              padding: 0,
+              display: "block",
+            }}
+          >
+            <Geographies geography={geoUrl}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
+                  const countryName = geo.properties.name;
+                  const visitors =
+                    normalizedCountryMap.get(countryName.toLowerCase()) || 0;
+                  const baseColor = getColor(countryName);
 
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  onMouseEnter={(e) => {
-                    setTooltipPosition({ x: e.pageX, y: e.pageY });
-                    setHovered({
-                      name: countryName,
-                      visitors: match?.visitors || 0,
-                    });
-                  }}
-                  onMouseMove={(e) => {
-                    setTooltipPosition({ x: e.pageX, y: e.pageY });
-                  }}
-                  onMouseLeave={() => setHovered(null)}
-                  fill={baseColor}
-                  stroke="#334155"
-                  style={{
-                    default: {
-                      outline: "none",
-                      transition: "fill 0.3s ease-in-out",
-                    },
-                    hover: {
-                      fill: match ? baseColor : "#facc15",
-                      outline: "none",
-                      transition: "fill 0.3s ease-in-out",
-                    },
-                    pressed: { fill: "#ef4444", outline: "none" },
-                  }}
-                />
-              );
-            })
-          }
-        </Geographies>
-      </ComposableMap>
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      onMouseEnter={(e) => {
+                        setTooltipPosition({ x: e.pageX, y: e.pageY });
+                        setHovered({
+                          name: countryName,
+                          visitors,
+                        });
+                      }}
+                      onMouseMove={(e) => {
+                        setTooltipPosition({ x: e.pageX, y: e.pageY });
+                      }}
+                      onMouseLeave={() => setHovered(null)}
+                      fill={baseColor}
+                      stroke="#334155"
+                      style={{
+                        default: {
+                          outline: "none",
+                          transition: "fill 0.3s ease-in-out",
+                        },
+                        hover: {
+                          fill: visitors > 0 ? baseColor : "#334155",
+                          outline: "none",
+                          transition: "fill 0.3s ease-in-out",
+                        },
+                        pressed: { fill: "#ef4444", outline: "none" },
+                      }}
+                    />
+                  );
+                })
+              }
+            </Geographies>
+          </ComposableMap>
+
+          {!hasTraffic && (
+            <div className="text-center mt-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1a1c22] px-3 py-1 rounded-full border border-gray-200 dark:border-gray-800">
+                No visitor traffic recorded yet
+              </span>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Tooltip with animation */}
       <AnimatePresence>

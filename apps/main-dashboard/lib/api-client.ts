@@ -89,6 +89,16 @@ export interface PublicPlayerConfig {
   isFreeTier: boolean;
 }
 
+export interface CountryBreakdownItem {
+  country: string;
+  visitors: number;
+}
+
+export interface TopReferrerItem {
+  pathname: string;
+  requests: number;
+}
+
 export interface AnalyticsMetricsResponse {
   totalViews: number;
   totalWatchTimeSeconds: number;
@@ -98,15 +108,21 @@ export interface AnalyticsMetricsResponse {
   deviceBreakdown: { name: string; value: number; color?: string }[];
   browserBreakdown: { browser: string; share: number }[];
   viewsOverTime: { date: string; views: number }[];
+  countryBreakdown?: CountryBreakdownItem[];
+  topReferrers?: TopReferrerItem[];
 }
 
 export interface SubscriptionItem {
   id: string;
   userId: string;
   plan: string;
+  displayName?: string;
   status: string;
   allocatedMinutes: number;
   usedMinutes: number;
+  remainingMinutes?: number;
+  usagePercent?: number;
+  storageCapBytes?: string;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
 }

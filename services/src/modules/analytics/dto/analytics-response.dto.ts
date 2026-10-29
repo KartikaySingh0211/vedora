@@ -88,6 +88,34 @@ export class TopVideoMetricDto {
   avgDurationSeconds: number;
 }
 
+export class CountryBreakdownDto {
+  @ApiProperty({
+    description: 'Two-letter ISO country code or country name',
+    example: 'US',
+  })
+  country: string;
+
+  @ApiProperty({
+    description: 'Unique visitors count from this country',
+    example: 45,
+  })
+  visitors: number;
+}
+
+export class TopReferrerDto {
+  @ApiProperty({
+    description: 'Originating domain or pathname where videos were requested',
+    example: 'example.com/tutorials',
+  })
+  pathname: string;
+
+  @ApiProperty({
+    description: 'Total request count from this referrer',
+    example: 120,
+  })
+  requests: number;
+}
+
 export class MetricsResponseDto {
   @ApiProperty({
     description: 'Total views across user videos in the requested time window',
@@ -142,4 +170,18 @@ export class MetricsResponseDto {
     type: [TopVideoMetricDto],
   })
   topVideos: TopVideoMetricDto[];
+
+  @ApiProperty({
+    description: 'Audience breakdown by geographic visitor country',
+    type: [CountryBreakdownDto],
+    required: false,
+  })
+  countryBreakdown?: CountryBreakdownDto[];
+
+  @ApiProperty({
+    description: 'Top requested domains or referrers',
+    type: [TopReferrerDto],
+    required: false,
+  })
+  topReferrers?: TopReferrerDto[];
 }
