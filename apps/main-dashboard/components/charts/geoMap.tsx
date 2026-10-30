@@ -127,10 +127,16 @@ const GeographicalMap: React.FC<GeographicalMapProps> = ({
             <Geographies geography={geoUrl}>
               {({ geographies }) =>
                 geographies.map((geo) => {
-                  const countryName = geo.properties.name;
+                  const countryName = geo.properties?.name || "Unknown";
                   const visitors =
                     normalizedCountryMap.get(countryName.toLowerCase()) || 0;
                   const baseColor = getColor(countryName);
+                  const isHovered = hovered?.name === countryName;
+                  const fillColor = isHovered
+                    ? visitors > 0
+                      ? baseColor
+                      : "#334155"
+                    : baseColor;
 
                   return (
                     <Geography
@@ -147,19 +153,13 @@ const GeographicalMap: React.FC<GeographicalMapProps> = ({
                         setTooltipPosition({ x: e.pageX, y: e.pageY });
                       }}
                       onMouseLeave={() => setHovered(null)}
-                      fill={baseColor}
+                      fill={fillColor}
                       stroke="#334155"
+                      className="focus:outline-none active:fill-[#ef4444]"
                       style={{
-                        default: {
-                          outline: "none",
-                          transition: "fill 0.3s ease-in-out",
-                        },
-                        hover: {
-                          fill: visitors > 0 ? baseColor : "#334155",
-                          outline: "none",
-                          transition: "fill 0.3s ease-in-out",
-                        },
-                        pressed: { fill: "#ef4444", outline: "none" },
+                        outline: "none",
+                        transition: "fill 0.3s ease-in-out",
+                        cursor: "pointer",
                       }}
                     />
                   );
