@@ -292,7 +292,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 🎬 **[End-to-End Walkthrough Demonstration (`docs/assets/demo/README.md`)](docs/assets/demo/README.md)**: Complete lifecycle walkthrough and gallery from presigned upload to Cloudflare R2 bucket storage and `<VedoraPlayer />` playback.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
-- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-015).
+- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-016).
 
 ---
 

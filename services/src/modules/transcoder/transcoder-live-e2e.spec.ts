@@ -309,17 +309,37 @@ describe('TranscoderService Synthetic Live E2E Pipeline (Phase 3)', () => {
       expect(variantContent).toContain('segment_000.ts');
       expect(variantContent).toContain('#EXT-X-ENDLIST');
 
-      // 6. Assert media segments and verify MPEG-TS sync byte
+      // 6. Assert media segments and verify MPEG-TS sync byte and packet alignment
       const segmentKey = `videos/${videoId}/360p/segment_000.ts`;
       expect(capturedUploads[segmentKey]).toBeDefined();
       const segmentBuffer = capturedUploads[segmentKey];
       expect(segmentBuffer.length).toBeGreaterThan(1000); // Realistic video chunk
-      // MPEG-2 Transport Stream packets must begin with sync byte 0x47 (71 decimal)
-      expect(segmentBuffer[0]).toBe(0x47);
+      // MPEG-2 Transport Stream packets must be 188-byte aligned and begin with sync byte 0x47 (71 decimal)
+      expect(segmentBuffer.length % 188).toBe(0);
+      let syncPacketCount = 0;
+      for (let offset = 0; offset + 188 <= segmentBuffer.length; offset += 188) {
+        if (segmentBuffer[offset] === 0x47) {
+          syncPacketCount++;
+        }
+      }
+      expect(syncPacketCount).toBe(segmentBuffer.length / 188);
+      expect(syncPacketCount).toBeGreaterThan(50);
 
-      // 7. Empirical probe of the generated .ts segment via FFprobe
+      // 7. Empirical probe of the generated media stream
+      // Note: Standalone .ts chunks can trigger a known SIGSEGV inside static Linux ffprobe 4.x binaries.
+      // Remuxing to MP4 container via ffmpeg -c copy preserves exact elementary bitstreams while enabling clean cross-platform probing.
       const tempSegmentPath = path.join(tmpBaseDir, 'probe-verify.ts');
+      const tempRemuxPath = path.join(tmpBaseDir, 'probe-verify.mp4');
       fs.writeFileSync(tempSegmentPath, segmentBuffer);
+
+      cp.execFileSync(ffmpegBinPath, [
+        '-y',
+        '-i',
+        tempSegmentPath,
+        '-c',
+        'copy',
+        tempRemuxPath,
+      ]);
 
       const probeOutput = cp.execFileSync(ffprobeBinPath, [
         '-v',
@@ -328,7 +348,7 @@ describe('TranscoderService Synthetic Live E2E Pipeline (Phase 3)', () => {
         'json',
         '-show_format',
         '-show_streams',
-        tempSegmentPath,
+        tempRemuxPath,
       ]);
 
       const probeJson = JSON.parse(probeOutput.toString('utf8'));

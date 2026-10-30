@@ -1264,3 +1264,45 @@ ERROR [AllExceptionsFilter] [GET] /api/v1/player-settings/public/<videoId> - Sta
 - `npm --prefix services test -- player-settings.service.spec.ts`: 1 suite passed, 8 tests passed.
 - `npm --prefix services test`: 18 suites passed, 161 tests passed.
 - `git diff --check`: 0 whitespace errors.
+
+
+---
+
+## 2026-10-30 — Incident Resolution: BUG-016 Static Linux FFprobe SIGSEGV on MPEG-TS Segment Probing in CI
+
+### 1. Context & Incident Diagnosis
+Following push of commit `466ecdc` to `origin/main`, GitHub Actions CI failed in the `Backend Services (Tests & Build)` job on step `Run backend unit and integration test suites`:
+```text
+FAIL src/modules/transcoder/transcoder-live-e2e.spec.ts
+● TranscoderService Synthetic Live E2E Pipeline (Phase 3) › Synthetic Live Video Ingestion & HLS Packaging › should complete queue dispatch, ffprobe media inspection, and HLS variant generation without mocks
+
+Command failed: /home/runner/work/vedora/vedora/services/node_modules/@ffprobe-installer/linux-x64/ffprobe -v quiet -print_format json -show_format -show_streams /tmp/vedora-phase3-live-e2e-1793372938828/probe-verify.ts
+    at Object.<anonymous> (modules/transcoder/transcoder-live-e2e.spec.ts:324:30)
+```
+
+### 2. Root Cause
+1. `@ffprobe-installer/linux-x64` provides a static FFmpeg/FFprobe 4.1 Linux x86_64 binary compiled in 2018 (John Van Sickle build).
+2. When this static binary's MPEG-TS demuxer processes standalone `.ts` files on modern Linux kernels (Ubuntu 24.04 GitHub Actions runner with glibc 2.39+), it crashes with `SIGSEGV` (signal 11, Segmentation fault).
+3. The generated MPEG-TS stream itself is completely valid (222 packets, all 188-byte aligned, starting with sync byte `0x47`). On Windows, the bundled binary did not crash, masking the platform-specific demuxer defect during local development.
+
+### 3. Implementation Details
+1. **Buffer-Level Packet Validation**:
+   - Added strict 188-byte MPEG-TS packet boundary alignment checks (`segmentBuffer.length % 188 === 0`).
+   - Verified sync byte `0x47` across all 188-byte packet offsets in Node.js buffer memory.
+2. **Container Remuxing for FFprobe Media Inspection**:
+   - Prior to invoking `ffprobe`, remuxed the standalone `.ts` chunk into an `.mp4` container via `ffmpeg -y -i probe-verify.ts -c copy probe-verify.mp4`.
+   - Remuxing takes <10ms, preserves elementary video/audio bitstreams bit-for-bit without transcoding, and bypasses the static Linux demuxer `SIGSEGV`.
+   - `ffprobe` successfully probes the remuxed container and verifies video streams (`h264`, `640x360`).
+3. **Documentation**:
+   - Created `docs/bug-fixes/BUG-016-static-linux-ffprobe-segfault-ts-segment-probe-ci.md`.
+   - Registered `BUG-016` in `docs/bug-fixes/README.md`.
+   - Updated `README.md` bug ledger summary count.
+
+### 4. Verification Evidence
+- Clean Linux container diagnostic: Reproduced `.ts` probe `SIGSEGV`, confirmed remuxed MP4 probe exited with 0 and valid streams JSON.
+- `npm --prefix services test -- transcoder-live-e2e.spec.ts`: Passed (2/2 tests, 6.18s).
+- `npm --prefix services test`: 18/18 test suites passed, 161/161 tests passed.
+- `npm --prefix services run build`: Passed with exit code 0.
+- `npm --prefix sdks/vedora-sdk test`: Passed (3/3 tests).
+- `npm --prefix apps/main-dashboard run build`: All 15 routes compiled cleanly with exit code 0.
+- `git diff --check`: 0 whitespace errors.

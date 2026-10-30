@@ -23,6 +23,7 @@ This directory serves as the centralized, immutable engineering ledger for all b
 | [BUG-013](./BUG-013-production-readiness-audit-remediation.md) | 2026-10-29 | Storage / Transcoder / Queue / Driver / Auth | High | Production audit remediation: R2 errors, CORS, FFmpeg portrait scaling, queue recovery, dual DB drivers | Resolved |
 | [BUG-014](./BUG-014-dashboard-top-requested-urls-table-vertical-misalignment.md) | 2026-10-30 | Frontend / Main Dashboard | Medium | Top Requested URLs table severe vertical misalignment and stretched row heights | Resolved |
 | [BUG-015](./BUG-015-stale-docker-image-player-settings-subscriptions-query-500.md) | 2026-10-30 | Backend / Player Settings & Docker | High | Public player config endpoint 500 error from stale Docker container querying dropped subscriptions table | Resolved |
+| [BUG-016](./BUG-016-static-linux-ffprobe-segfault-ts-segment-probe-ci.md) | 2026-10-30 | CI / Live E2E Transcoder Test / FFprobe | Medium | Linux static ffprobe binary SIGSEGV on standalone MPEG-TS segment probing in GitHub Actions CI | Resolved |
 
 ---
 
