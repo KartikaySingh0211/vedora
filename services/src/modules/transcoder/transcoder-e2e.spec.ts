@@ -76,19 +76,34 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockImplementation(() =>
+        Promise.resolve([
+          {
+            id: 'test-video-id-01',
+            attempt: 1,
+          },
+        ]),
+      ),
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue([
-        {
-          id: 'test-video-id-01',
-          user_id: 'user_1',
-          status: 'uploaded',
-          master_m3u8_key: null,
-          transcoded_size: null,
-        },
-      ]),
+      limit: jest.fn().mockImplementation((n?: number) => {
+        if (n === 1) {
+          return Promise.resolve([
+            {
+              id: 'test-video-id-01',
+              user_id: 'user_1',
+              status: 'uploaded',
+              attempt: 1,
+              master_m3u8_key: null,
+              transcoded_size: null,
+            },
+          ]);
+        }
+        return Promise.resolve([]);
+      }),
     };
 
+    const inMemoryLocks = new Map<string, string>();
     mockRedisService = {
       rpush: jest.fn().mockResolvedValue(1),
       lpop: jest.fn().mockResolvedValue(null),
@@ -97,11 +112,26 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
       lrange: jest.fn().mockResolvedValue([]),
       ltrim: jest.fn().mockResolvedValue(true),
       llen: jest.fn().mockResolvedValue(0),
-      setnxWithExpiry: jest.fn().mockResolvedValue(true),
-      releaseLock: jest.fn().mockResolvedValue(true),
+      setnxWithExpiry: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          inMemoryLocks.set(k, v);
+          return Promise.resolve(true);
+        }),
+      releaseLock: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          if (inMemoryLocks.get(k) === v) inMemoryLocks.delete(k);
+          return Promise.resolve(true);
+        }),
       renewLock: jest.fn().mockResolvedValue(true),
-      del: jest.fn().mockResolvedValue(true),
-      get: jest.fn().mockResolvedValue(null),
+      del: jest.fn().mockImplementation((k: string) => {
+        inMemoryLocks.delete(k);
+        return Promise.resolve(1);
+      }),
+      get: jest.fn().mockImplementation((k: string) => {
+        return Promise.resolve(inMemoryLocks.get(k) || null);
+      }),
       set: jest.fn().mockResolvedValue(true),
       isHealthy: jest.fn().mockReturnValue(true),
       ping: jest.fn().mockResolvedValue(true),
@@ -300,13 +330,17 @@ describe('TranscoderService Real FFmpeg Pipeline', () => {
   });
 
   it('should recover stranded jobs in processing status when no active lock exists', async () => {
-    mockDb.where.mockResolvedValueOnce([
-      {
-        id: 'stranded-vid-99',
-        status: 'processing',
-        updated_at: new Date(Date.now() - 3600000), // 1 hour old
-      },
-    ]);
+    mockDb.limit
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'stranded-vid-99',
+          status: 'processing',
+          attempt: 3,
+          updated_at: new Date(Date.now() - 3600000), // 1 hour old
+        },
+      ]);
     mockRedisService.get.mockResolvedValueOnce(null); // No active Redis lock
 
     const recovered = await service.recoverStuckJobs(15 * 60 * 1000);

@@ -281,6 +281,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 | **[ADR-009](docs/decisions/ADR-009-segment-level-analytics-and-pseudonymous-telemetry.md)** | Playback Telemetry Ingestion | Ingests 10-second segment heartbeat pings, pseudonymizes client IP with HMAC-SHA256, buffers in Redis, and batches into PostgreSQL. |
 | **[ADR-010](docs/decisions/ADR-010-subscription-billing-and-usage-accounting.md)** | Open-Source Safeguards & De-Monetization | Completely removed proprietary Stripe billing and paid tiers in favor of 100% open-source architecture with technical ingestion safeguards (10 GiB single file, 500 GiB user capacity, 1080p open to all). |
 | **[ADR-011](docs/decisions/ADR-011-safe-modularity-and-frontend-reusability.md)** | Frontend Reusability & Embed Player | Encapsulates video streaming into a reusable `<VedoraPlayer />` and `<EmbedVideoModal />` with HLS.js adaptive streaming and native HTML5 fallback. |
+| **[ADR-012](docs/decisions/ADR-012-worker-process-decoupling.md)** | Headless Worker Decoupling & Database Fencing | Decouples video ingestion (`APP_ROLE=api`) from transcoding execution (`APP_ROLE=worker`), introduces monotonic database fencing (`WHERE attempt = :attempt`), durable Redis queue options, and safe child process termination. |
 
 ---
 

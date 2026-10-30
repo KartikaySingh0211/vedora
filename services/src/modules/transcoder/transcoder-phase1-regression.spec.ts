@@ -38,27 +38,55 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      from: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue([
+      returning: jest.fn().mockResolvedValue([
         {
           id: videoId,
-          user_id: 'user_1',
-          status: 'processing',
-          master_m3u8_key: null,
-          transcoded_size: null,
+          attempt: 1,
         },
       ]),
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockImplementation((n?: number) => {
+        if (n === 1) {
+          return Promise.resolve([
+            {
+              id: videoId,
+              user_id: 'user_1',
+              status: 'processing',
+              attempt: 1,
+              master_m3u8_key: null,
+              transcoded_size: null,
+            },
+          ]);
+        }
+        return Promise.resolve([]);
+      }),
     };
 
+    const inMemoryLocks = new Map<string, string>();
     mockRedisService = {
       isHealthy: jest.fn().mockReturnValue(true),
       ping: jest.fn().mockResolvedValue(true),
-      get: jest.fn().mockResolvedValue(null),
+      get: jest.fn().mockImplementation((k: string) => {
+        return Promise.resolve(inMemoryLocks.get(k) || null);
+      }),
       set: jest.fn().mockResolvedValue(true),
-      del: jest.fn().mockResolvedValue(true),
-      setnxWithExpiry: jest.fn().mockResolvedValue(true),
-      releaseLock: jest.fn().mockResolvedValue(true),
+      del: jest.fn().mockImplementation((k: string) => {
+        inMemoryLocks.delete(k);
+        return Promise.resolve(1);
+      }),
+      setnxWithExpiry: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          inMemoryLocks.set(k, v);
+          return Promise.resolve(true);
+        }),
+      releaseLock: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          if (inMemoryLocks.get(k) === v) inMemoryLocks.delete(k);
+          return Promise.resolve(true);
+        }),
       renewLock: jest.fn().mockResolvedValue(true),
       hset: jest.fn().mockResolvedValue(true),
       hgetall: jest.fn().mockResolvedValue({}),
@@ -94,6 +122,7 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
     };
 
     mockFfmpegService = {
+      terminateActiveProcess: jest.fn().mockResolvedValue(true),
       probeMedia: jest.fn().mockResolvedValue({
         duration: 30,
         width: 1280,
@@ -222,6 +251,7 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
       renditions: ['720p'],
       transcodedSize: 1200000,
       status: 'completed',
+      attempt: 1,
     };
     const rawBodyBuffer = Buffer.from(JSON.stringify(sampleDto), 'utf8');
 
@@ -309,6 +339,7 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
         transcodedSize: 0,
         status: 'failed',
         errorMessage: 'Media decoding error in cloud fleet',
+        attempt: 1,
       };
       const rawFailed = Buffer.from(JSON.stringify(failedDto), 'utf8');
       const validSig = createValidSignature(rawFailed);
@@ -411,9 +442,6 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
       };
       mockRedisService.lrange.mockResolvedValueOnce([JSON.stringify(strandedJob)]);
       mockRedisService.get.mockResolvedValueOnce(null); // No active lock
-      mockDb.limit.mockResolvedValueOnce([
-        { status: 'processing' },
-      ]);
 
       const recovered = await service.recoverStuckJobs();
 
@@ -438,9 +466,6 @@ describe('Transcoder Phase 1 Security & Reliability Regressions', () => {
       };
       mockRedisService.lrange.mockResolvedValueOnce([JSON.stringify(maxRetriedJob)]);
       mockRedisService.get.mockResolvedValueOnce(null); // No active lock
-      mockDb.limit.mockResolvedValueOnce([
-        { status: 'processing' },
-      ]);
 
       const recovered = await service.recoverStuckJobs();
 

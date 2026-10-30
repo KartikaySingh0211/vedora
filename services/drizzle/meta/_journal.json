@@ -43,6 +43,13 @@
       "when": 1793294374939,
       "tag": "0005_bouncy_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793379827563,
+      "tag": "0006_chunky_firebrand",
+      "breakpoints": true
     }
   ]
 }

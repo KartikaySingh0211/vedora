@@ -27,6 +27,12 @@ describe('TranscoderService', () => {
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockResolvedValue([
+        {
+          id: '00000000-0000-0000-0000-000000000001',
+          attempt: 1,
+        },
+      ]),
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue([
@@ -40,14 +46,30 @@ describe('TranscoderService', () => {
       ]),
     };
 
+    const inMemoryLocks = new Map<string, string>();
     mockRedisService = {
       isHealthy: jest.fn().mockReturnValue(true),
       ping: jest.fn().mockResolvedValue(true),
-      get: jest.fn().mockResolvedValue(null),
+      get: jest.fn().mockImplementation((k: string) => {
+        return Promise.resolve(inMemoryLocks.get(k) || null);
+      }),
       set: jest.fn().mockResolvedValue(true),
-      del: jest.fn().mockResolvedValue(true),
-      setnxWithExpiry: jest.fn().mockResolvedValue(true),
-      releaseLock: jest.fn().mockResolvedValue(true),
+      del: jest.fn().mockImplementation((k: string) => {
+        inMemoryLocks.delete(k);
+        return Promise.resolve(1);
+      }),
+      setnxWithExpiry: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          inMemoryLocks.set(k, v);
+          return Promise.resolve(true);
+        }),
+      releaseLock: jest
+        .fn()
+        .mockImplementation((k: string, v: string) => {
+          if (inMemoryLocks.get(k) === v) inMemoryLocks.delete(k);
+          return Promise.resolve(true);
+        }),
       renewLock: jest.fn().mockResolvedValue(true),
       hset: jest.fn().mockResolvedValue(true),
       hgetall: jest.fn().mockResolvedValue({}),
@@ -88,6 +110,7 @@ describe('TranscoderService', () => {
     };
 
     mockFfmpegService = {
+      terminateActiveProcess: jest.fn().mockResolvedValue(true),
       probeMedia: jest.fn().mockResolvedValue({
         duration: 20,
         width: 1280,
@@ -243,6 +266,7 @@ describe('TranscoderService', () => {
       renditions: ['720p'],
       transcodedSize: 50000000,
       status: 'completed' as const,
+      attempt: 1,
     };
     const rawPayload = JSON.stringify(payloadDto);
 

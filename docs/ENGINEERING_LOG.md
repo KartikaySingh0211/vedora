@@ -1306,3 +1306,160 @@ Command failed: /home/runner/work/vedora/vedora/services/node_modules/@ffprobe-i
 - `npm --prefix sdks/vedora-sdk test`: Passed (3/3 tests).
 - `npm --prefix apps/main-dashboard run build`: All 15 routes compiled cleanly with exit code 0.
 - `git diff --check`: 0 whitespace errors.
+
+---
+
+## 2026-10-30 — Phase 4: Headless Worker Process Decoupling, Monotonic Database Fencing, and Queue Durability
+
+### 1. Context & Architectural Objectives
+Following the approved Phase 4 roadmap (`docs/STABILIZATION_ROADMAP.md` and `docs/decisions/ADR-012-worker-process-decoupling.md`), the objective was to decouple background transcoding execution from the HTTP REST API while guaranteeing strict consistency, concurrency boundaries, and data durability:
+1. Support distinct `APP_ROLE` modes (`api`, `worker`, `monolith`), defaulting to `monolith` for zero-friction local developer experience.
+2. Introduce monotonic database fencing (`attempt: integer`) in PostgreSQL to eliminate ghost write hazards where stale workers revived from GC pauses or network partitions could overwrite newer ready records.
+3. Replace speculative queue checks with PostgreSQL-backed atomic enqueue markers (`enqueue_state`: `'pending' | 'enqueued' | 'processing'`), deterministic job IDs (`vdr_job_<videoId>_<attempt>`), and dispatch leases.
+4. Bounded worker concurrency strictly pinned to 1 initially, with explicit child-process tracking (`activeProcesses: Map<string, ChildProcess>`) and graceful shutdown lifecycle (`SIGTERM` -> 10s timeout -> `SIGKILL` -> scratch directory purge -> lock release).
+5. Queue durability hardening in Redis via `--maxmemory-policy noeviction` and `--appendonly yes`.
+6. Safe retry exhaustion at attempt 3 with terminal `failed` state and manual retry capability (`POST /api/v1/videos/:id/retry`).
+
+### 2. Implementation Details
+
+#### Task 4.1: Database Schema Migration & Backfill (`services/drizzle/0006_chunky_firebrand.sql`)
+- Added columns to `schema.videos`:
+  - `active_job_id: text` (unique stable job identifier).
+  - `attempt: integer default 1 not null` (monotonic database fencing token).
+  - `enqueue_state: text default 'pending' not null` (tracked lifecycle enum).
+  - `enqueued_at: timestamp with time zone` (dispatch lease tracking).
+  - `heartbeat_lease: timestamp with time zone` (active worker lease tracking).
+  - `last_error: text` (sanitized failure reason).
+  - Created composite index `videos_enqueue_state_idx` on `(enqueue_state, status, updated_at)`.
+- Applied Drizzle migration with idempotent backfill preserving all existing ready, uploaded, and processing records.
+
+#### Task 4.2: FfmpegService Child Process Tracking & Graceful Termination (`services/src/modules/transcoder/ffmpeg.service.ts`)
+- Added `activeProcesses: Map<string, cp.ChildProcess>` tracking child FFmpeg processes.
+- Implemented `terminateActiveProcess(videoId, timeoutMs)` returning a promise that awaits process exit:
+  - Dispatches `SIGTERM` to the active child process.
+  - Awaits `'close'` event.
+  - If process fails to exit within `timeoutMs` (default 10s), escalates to `SIGKILL`.
+  - Cleans map reference only after process closure is confirmed.
+
+#### Task 4.3: Transcoder Service Enqueue & Database Fencing (`services/src/modules/transcoder/transcoder.service.ts`)
+- **Atomic Enqueue Marker**: `enqueueTranscodeJob` executes atomic PostgreSQL update on `enqueue_state = 'pending'` -> `'enqueued'`. Duplicate concurrent enqueue calls return `false` and skip Redis push. Reverts to `'pending'` on Redis write failure.
+- **Claim Fencing**: `executeTranscoding` claims row with `WHERE id = :videoId AND attempt = :targetAttempt`. Fenced out if attempt mismatch.
+- **Heartbeat & Cancellation**: Active 30-second interval extends Redis lock (600s TTL) and updates database `heartbeat_lease`. If renewal fails, execution immediately halts, child process is terminated, and storage uploads are aborted.
+- **Ready Fencing**: Final commit transitions status to `'ready'` strictly guarded by `WHERE id = :videoId AND attempt = :targetAttempt AND status = 'processing'`. Stale workers whose attempt was incremented are rejected with 0 rows updated and abort without corrupting state.
+- **Stuck-Job Reconciliation (`recoverStuckJobs`)**:
+  - Reconciles stale dispatches (`enqueue_state = 'enqueued'` past 15m).
+  - Reconciles stranded uploads (`status = 'uploaded' AND enqueue_state = 'pending'` past 10s).
+  - Reconciles expired worker leases (`status = 'processing' AND heartbeat_lease < NOW()`), re-enqueuing attempts up to 3 with matching `jobId = vdr_job_<videoId>_<attempt>`, or transitioning to terminal `'failed'`.
+
+#### Task 4.4: Headless Worker Process & Docker Compose Topology (`services/src/worker.ts`, `docker-compose.yml`)
+- Created `services/src/worker.ts` and `services/src/worker.module.ts` booting a pure headless NestJS application context (zero HTTP controllers or routes).
+- Updated `services/package.json` with scripts:
+  - `start:worker`: `APP_ROLE=worker nest start`
+  - `start:worker:prod`: `APP_ROLE=worker node dist/worker`
+- Updated root `docker-compose.yml` and `services/docker-compose.yml`:
+  - Redis 7 configured with `--maxmemory-policy noeviction --appendonly yes`.
+  - `api` container configured with `APP_ROLE=api`.
+  - `vedora-worker` container added running `node dist/worker` with `APP_ROLE=worker`.
+
+#### Task 4.5: Manual Retry Endpoint (`services/src/modules/videos/video.controller.ts`)
+- Exposed `POST /api/v1/videos/:id/retry` allowing authenticated users to safely retry videos in terminal failed state.
+- Resets video status to `uploaded`, `enqueue_state` to `pending`, and re-enqueues transcode job with attempt 1.
+- Documented in OpenAPI specification (`docs/openapi.json`).
+
+#### Task 4.6: Comprehensive Test Suites & Decoupling Invariants
+- Created `services/src/modules/transcoder/transcoder-decoupling.spec.ts` (24 tests) verifying:
+  - `APP_ROLE=api` disables queue polling and sweeper; `APP_ROLE=worker` enables them.
+  - Atomic enqueue marker transitions and duplicate rejection.
+  - Claim fencing and ready fencing preventing stale worker writes.
+  - Heartbeat renewal failure process cancellation.
+  - Graceful shutdown child process await.
+  - Expired lease recovery up to 3 attempts, then terminal failure.
+  - P0.1 Database Fencing on `markVideoFailed`: matching attempt requirement and protection of ready videos.
+  - P0.2 Graceful shutdown job recovery, attempt and jobId preservation, and queue entry requeueing.
+  - P1.1 Concurrent sweeper recovery fencing via atomic database returning clauses.
+  - P1.2 Continuous distributed lock verification prior to and during R2 storage uploads.
+- Updated `transcoder-e2e.spec.ts`, `transcoder-live-e2e.spec.ts`, `transcoder-phase1-regression.spec.ts`, and `video.service.spec.ts`.
+
+### 3. Empirical Verification Evidence
+- **Backend Test Suite (`npm --prefix services test`)**: 19 test suites passed, 188 tests passed (100% passing across all unit, integration, and E2E suites).
+- **Backend Build (`npm --prefix services run build`)**: TypeScript compiled cleanly into `dist/main.js` and `dist/worker.js` with exit code 0.
+- **TypeScript SDK Tests (`npm --prefix sdks/vedora-sdk test`)**: 1 suite passed, 3 tests passed.
+- **Main Dashboard Build (`npm --prefix apps/main-dashboard run build`)**: All 15 routes compiled and prerendered cleanly with exit code 0.
+- **Landing Page Build (`npm --prefix apps/landing-page run build`)**: ESLint passed; all 5 routes compiled and prerendered cleanly with exit code 0.
+- **Architecture Documentation & ADR**: Created `docs/decisions/ADR-012-worker-process-decoupling.md` and updated `docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md` and `README.md`.
+
+---
+
+## Run 14: Phase 4 Implementation Audit Remediation (P0.1, P0.2, P1.1, P1.2, P2)
+
+- **Date**: 2026-10-30
+- **Scope**: Rigorous remediation of all findings from the Phase 4 architecture audit across failure fencing, graceful shutdown queue recovery, concurrent sweeper races, and continuous lock ownership verification.
+
+### 1. Remediations Implemented
+1. **P0.1 Database Fencing on `markVideoFailed` (`services/src/modules/transcoder/transcoder.service.ts`)**:
+   - Monotonically gated failure updates on strictly three conditions: `id = :videoId AND attempt = :attempt AND status = 'processing'` (rejecting `status != 'ready'`).
+   - Added atomic `ownerToken` validation in PostgreSQL via `active_job_id = :lockToken`, preventing stale same-attempt workers from marking videos as failed after another worker claims the lease.
+   - Returns boolean indicating whether failure registration succeeded or was fenced out.
+   - Verified that `uploaded`, `ready`, already-`failed` records, and stale-worker tokens cannot overwrite active state.
+   - Updated all callers (including `handleWebhook`) to pass authoritative `attempt`.
+2. **P0.2 Graceful Shutdown Job Recovery (`services/src/modules/transcoder/transcoder.service.ts`)**:
+   - Distinguishes intentional shutdown from actual job failure: does not call `markVideoFailed`.
+   - Preserves `attempt` and `jobId`, resetting `status = 'uploaded'` and `enqueue_state = 'enqueued'` with owner token match.
+   - In `processNextJob`, requeues `rawJob` to `QUEUE_KEY` before `LREM` from `PROCESSING_QUEUE_KEY` with try/catch to protect against Redis connection crashes during teardown.
+   - Idempotent signal handling in `shutdown()`: duplicate signals safely no-op.
+   - Child process termination awaited before releasing distributed lock.
+3. **P1.1 Concurrent Sweeper Recovery Fencing (`services/src/modules/transcoder/transcoder.service.ts`)**:
+   - Enforced conditional database updates with `.returning({ id: schema.videos.id })` across ALL recovery steps (Step 1 stale dispatches, Step 3 expired leases, Step 4 processing queue recovery) strictly BEFORE any Redis enqueueing.
+   - Only the winning sweeper instance that successfully claims the database transition pushes payloads to Redis.
+4. **P1.2 Distributed Lock Verification Pre and During R2 Uploads (`services/src/modules/transcoder/transcoder.service.ts`)**:
+   - Explicitly queries `redisService.get(lockKey)` with try/catch fallback and checks equality with worker's `lockToken` immediately before beginning HLS uploads and within the segment upload loop.
+   - Redis unavailability or connection failure safely treats ownership as lost, aborting R2 uploads immediately.
+5. **P2 Cleanup (`services/src/modules/transcoder/dto/transcode-job.dto.ts`)**:
+   - Deprecated legacy `attempts` field in `TranscodeJobData`, standardizing on monotonic `attempt`.
+
+### 2. Empirical Verification Evidence
+- **Services Unit & Integration Tests**: 19 suites passed, 194 tests passed in 18.08s (`npm --prefix services test`).
+- **Services TypeScript Build**: Exit code 0 (`npm --prefix services run build`).
+- **SDK Test Suite**: 3 tests passed in 184ms (`npm --prefix sdks/vedora-sdk test`).
+- **Main Dashboard Build**: 15 routes compiled and prerendered cleanly with exit code 0 (`npm --prefix apps/main-dashboard run build`).
+- **Landing Page Lint & Build**: ESLint passed with 0 errors; all routes compiled with exit code 0 (`npm --prefix apps/landing-page run lint; npm --prefix apps/landing-page run build`).
+- **Git Diff Hygiene**: 0 whitespace errors or conflict markers (`git diff --check`).
+
+---
+
+## Run 15: Phase 4 Mandatory Owner-Token Enforcement & Concurrency Hardening
+
+- **Date**: 2026-10-31
+- **Scope**: Final code-level audit and adversarial concurrency review of Phase 4 addressing mandatory owner-token enforcement, the Redis/PostgreSQL ownership transition race, `active_job_id` semantic harmonization, and accurate Redis recovery claims.
+
+### 1. Code Hardening & Architectural Decisions
+1. **Mandatory Owner-Token Enforcement (`markWorkerJobFailed`)**:
+   - Refactored worker failure transitions into `markWorkerJobFailed(videoId, reason, attempt, ownerToken: string)`.
+   - `ownerToken` is strictly mandatory (rejects empty/whitespace tokens with `false` and error log without DB queries).
+   - Removed redundant, un-fenced `markVideoFailed` call from `processNextJob` error catch block.
+   - Guarded failure transitions with atomic database condition: `WHERE id = :videoId AND attempt = :attempt AND status = 'processing' AND active_job_id = :ownerToken AND heartbeat_lease > NOW()`.
+   - Retained `markVideoFailed(videoId, reason, attempt, ownerToken: string)` as a strongly-typed forwarding method.
+2. **Dedicated External Webhook & Sweeper Failure & Success Handling**:
+   - Implemented `markWebhookJobFailed(videoId, reason, attempt)` specifically for external cloud callbacks (`handleWebhook`). Protects active local workers: only executes if `status = 'processing'` and `(heartbeat_lease IS NULL OR heartbeat_lease < NOW())`.
+   - Hardened `handleWebhook` success transition: prevents webhook from marking video `ready` while an active local worker holds the distributed lock and an active database lease (`heartbeat_lease > NOW()`). Added atomic database condition: `WHERE id = :videoId AND attempt = :targetAttempt AND status = 'processing' AND (heartbeat_lease IS NULL OR heartbeat_lease < NOW())`.
+   - Made `attempt` strictly mandatory in `TranscoderWebhookDto` (`@IsNotEmpty`, `@IsInt`, `@Min(1)`) and rejected missing, non-integer, or non-positive attempts in `handleWebhook` with `400 Bad Request`. Eliminated silent fallback to `video.attempt`, preventing stale webhooks from inheriting the current database attempt and bypassing monotonic fencing.
+   - Preserved local worker's full output verification, chunk upload validation, and ready fencing before status commit.
+   - Implemented `markSweeperJobFailed(videoId, reason, attempt)` specifically for sweeper terminal retries (`recoverStuckJobs` Steps 3 & 4), preventing sweepers from clobbering active worker leases.
+3. **Redis/PostgreSQL Ownership Transition Race Hardening**:
+   - **Pre-flight Redis Check**: In `executeTranscoding` catch block, worker verifies `redisService.get(lockKey) === lockToken` before attempting failure registration.
+   - **Heartbeat Lease Fencing**: If Worker A's lock expired and Worker B acquired Redis, Worker A's DB heartbeat lease has expired (>60s vs 600s TTL). Database condition `heartbeat_lease > NOW()` fences Worker A out even if Worker B has not yet committed its claim in PostgreSQL.
+   - **Worker Claim Predicate Hardening**: Hardened claim predicate in `executeTranscoding` to `WHERE id = :videoId AND attempt = :targetAttempt AND (status = 'uploaded' OR (status = 'processing' AND (heartbeat_lease IS NULL OR heartbeat_lease < NOW())))`. Worker B can never claim already-`ready` or already-`failed` videos, nor steal from an actively processing worker with a valid lease.
+4. **`active_job_id` Semantics Harmonized**:
+   - Standardized column state-machine without database schema alterations:
+     - `enqueue_state = 'enqueued'`: Holds dispatch lease identifier `vdr_job_<videoId>_<attempt>`.
+     - `enqueue_state = 'processing'`: Holds worker lease token `lockToken`.
+     - Terminal/Idle (`ready`, `failed`, `pending`): Holds `null`.
+5. **Strictly Accurate Recovery Guarantees**:
+   - Clarified that concurrent sweepers are prevented from duplicate pushes by atomic row-level `.returning({ id })`.
+   - Documented distributed boundary crash windows (e.g., process kill between Redis push and DB commit or vice-versa), demonstrating how monotonic `attempt` fencing safely drops stale redeliveries on worker claim.
+
+### 2. Empirical Verification Evidence
+- **Services Unit & Integration Tests**: 19 suites passed, 205 tests passed in 14.32s (`npm --prefix services test`).
+- **Services TypeScript Build**: Clean compilation with exit code 0 (`npm --prefix services run build`).
+- **SDK Test Suite**: 3 tests passed in 142ms (`npm --prefix sdks/vedora-sdk test`).
+- **Git Diff Hygiene**: 0 whitespace errors or conflict markers (`git diff --check`).

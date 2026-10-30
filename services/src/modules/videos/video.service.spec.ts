@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { VideoService } from './video.service';
+import { TranscoderService } from '../transcoder/transcoder.service';
 import { StorageService } from '../../infra/storage/storage.service';
 import { DRIZZLE_DB } from '../../database/database.module';
 
@@ -26,6 +27,10 @@ describe('VideoService', () => {
       success: true,
       key: 'raw/bucket/test.mp4',
     }),
+  };
+
+  const mockTranscoderService = {
+    enqueueTranscodeJob: jest.fn().mockResolvedValue(true),
   };
 
   const sampleDbVideo = {
@@ -71,6 +76,10 @@ describe('VideoService', () => {
     select: jest.fn().mockReturnThis(),
     from: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockResolvedValue([]),
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    returning: jest.fn().mockResolvedValue([]),
     orderBy: jest.fn().mockResolvedValue([]),
     delete: jest.fn().mockReturnThis(),
   };
@@ -88,6 +97,10 @@ describe('VideoService', () => {
         {
           provide: StorageService,
           useValue: mockStorageService,
+        },
+        {
+          provide: TranscoderService,
+          useValue: mockTranscoderService,
         },
       ],
     }).compile();
@@ -263,6 +276,47 @@ describe('VideoService', () => {
       await expect(
         service.deleteVideo('user_1', 'vid-missing'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('retryTranscode', () => {
+    it('should throw NotFoundException if video does not exist or belongs to another user', async () => {
+      mockDb.limit.mockResolvedValueOnce([]);
+      await expect(
+        service.retryTranscode('vid-missing', 'user_1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if video status is not failed', async () => {
+      mockDb.limit.mockResolvedValueOnce([
+        { ...sampleDbVideo, status: 'ready' },
+      ]);
+      await expect(
+        service.retryTranscode('vid-uuid-1', 'user_1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reset video status to uploaded and enqueue transcode job with attempt 1', async () => {
+      const failedVideo = { ...sampleDbVideo, status: 'failed' as const };
+      const resetVideo = {
+        ...failedVideo,
+        status: 'uploaded' as const,
+        enqueue_state: 'pending' as const,
+        attempt: 0,
+        last_error: null,
+      };
+
+      mockDb.limit.mockResolvedValueOnce([failedVideo]);
+      mockDb.returning.mockResolvedValueOnce([resetVideo]);
+
+      const result = await service.retryTranscode('vid-uuid-1', 'user_1');
+      expect(result.id).toBe('vid-uuid-1');
+      expect(mockTranscoderService.enqueueTranscodeJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          videoId: 'vid-uuid-1',
+          attempt: 1,
+        }),
+      );
     });
   });
 });

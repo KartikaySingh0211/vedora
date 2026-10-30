@@ -1456,6 +1456,68 @@
         ]
       }
     },
+    "/api/v1/videos/{id}/retry": {
+      "post": {
+        "description": "Resets attempt accounting and enqueues a fresh transcoding job for a video currently in terminal failed status.",
+        "operationId": "VideoController_retryTranscode_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "UUIDv4 identifier of the video to retry",
+            "schema": {
+              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcoding job re-enqueued successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Video is not in failed status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video not found or not owned by caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retry failed video transcoding",
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
     "/api/v1/transcoder/webhook": {
       "post": {
         "description": "Receives job completion or failure callbacks from external transcoding workers. Verifies authenticity using HMAC-SHA256 signature in x-transcoder-signature header.",
@@ -2716,6 +2778,12 @@
             ],
             "example": "completed"
           },
+          "attempt": {
+            "type": "number",
+            "description": "Execution attempt number of the transcode job",
+            "example": 1,
+            "minimum": 1
+          },
           "errorMessage": {
             "type": "string",
             "description": "Error diagnostics message if status is failed",
@@ -2728,7 +2796,8 @@
           "totalDuration",
           "renditions",
           "transcodedSize",
-          "status"
+          "status",
+          "attempt"
         ]
       },
       "TranscoderWebhookResponseDto": {

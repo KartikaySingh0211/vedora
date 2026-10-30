@@ -194,6 +194,41 @@ export class VideoController {
   }
 
   /**
+   * POST /api/v1/videos/:id/retry
+   * Safely retries a failed video transcode job
+   */
+  @Post(':id/retry')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retry failed video transcoding',
+    description:
+      'Resets attempt accounting and enqueues a fresh transcoding job for a video currently in terminal failed status.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'UUIDv4 identifier of the video to retry',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+  })
+  @ApiOkResponse({
+    description: 'Transcoding job re-enqueued successfully',
+    type: VideoResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Video is not in failed status',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Video not found or not owned by caller',
+    type: ErrorResponseDto,
+  })
+  async retryTranscode(
+    @CurrentUser('id') userId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) videoId: string,
+  ): Promise<VideoResponse> {
+    return await this.videoService.retryTranscode(videoId, userId);
+  }
+
+  /**
    * DELETE /api/v1/videos/:id
    * Delete video, release storage quota, and update playlist counts
    */

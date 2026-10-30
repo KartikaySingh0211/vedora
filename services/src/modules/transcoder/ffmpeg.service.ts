@@ -129,6 +129,7 @@ export class FfmpegService {
   private readonly logger = new Logger(FfmpegService.name);
   private cachedFfmpegPath: string | null = null;
   private cachedFfprobePath: string | null = null;
+  private readonly activeProcesses = new Map<string, cp.ChildProcess>();
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -497,7 +498,7 @@ export class FfmpegService {
         `Executing FFmpeg for rendition ${rend.name} on video ${videoId}`,
       );
 
-      await this.runProcessWithTimeout(ffmpegPath, args, timeoutMs);
+      await this.runProcessWithTimeout(ffmpegPath, args, timeoutMs, videoId);
 
       // Verify variant index.m3u8 was created
       const variantIndexFile = path.join(rendDir, 'index.m3u8');
@@ -601,17 +602,95 @@ export class FfmpegService {
   }
 
   /**
+   * Gracefully terminates an active FFmpeg child process for a given videoId:
+   * 1. Sends SIGTERM.
+   * 2. Waits up to timeoutMs for the OS 'close' event.
+   * 3. Escalates to SIGKILL if the process fails to exit within the window.
+   * 4. Guarantees the child process is confirmed dead before resolving.
+   */
+  async terminateActiveProcess(
+    videoId: string,
+    timeoutMs = 10000,
+  ): Promise<boolean> {
+    const child = this.activeProcesses.get(videoId);
+    if (!child || child.killed || child.exitCode !== null) {
+      this.activeProcesses.delete(videoId);
+      return false;
+    }
+
+    this.logger.log(
+      `Terminating active FFmpeg process for video ${videoId} (PID: ${child.pid})...`,
+    );
+
+    return new Promise<boolean>((resolve) => {
+      let resolved = false;
+
+      const cleanupAndResolve = () => {
+        if (!resolved) {
+          resolved = true;
+          this.activeProcesses.delete(videoId);
+          clearTimeout(killTimer);
+          resolve(true);
+        }
+      };
+
+      child.once('close', () => {
+        this.logger.log(
+          `Active FFmpeg process for video ${videoId} successfully exited.`,
+        );
+        cleanupAndResolve();
+      });
+
+      // Issue SIGTERM first
+      try {
+        child.kill('SIGTERM');
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to send SIGTERM to FFmpeg process ${child.pid}: ${(err as Error).message}`,
+        );
+      }
+
+      // Escalate to SIGKILL if not closed within bounded window
+      const killTimer = setTimeout(() => {
+        if (!resolved && child.exitCode === null) {
+          this.logger.warn(
+            `FFmpeg process for video ${videoId} did not terminate within ${timeoutMs / 1000}s. Escalating to SIGKILL.`,
+          );
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            // Ignored if already terminated
+          }
+        }
+      }, timeoutMs);
+
+      if (typeof killTimer.unref === 'function') {
+        killTimer.unref();
+      }
+    });
+  }
+
+  getActiveProcessCount(): number {
+    return this.activeProcesses.size;
+  }
+
+  /**
    * Spawns a child process with timeout protection and SIGKILL on timeout.
    */
   private async runProcessWithTimeout(
     executable: string,
     args: string[],
     timeoutMs: number,
+    processKey?: string,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const child = cp.spawn(executable, args, {
         stdio: ['ignore', 'ignore', 'pipe'],
       });
+
+      if (processKey) {
+        this.activeProcesses.set(processKey, child);
+      }
 
       let stderrOutput = '';
       child.stderr.on('data', (chunk: Buffer) => {
@@ -634,12 +713,18 @@ export class FfmpegService {
       child.on('error', (err) => {
         if (!isTerminated) {
           clearTimeout(timer);
+          if (processKey) {
+            this.activeProcesses.delete(processKey);
+          }
           reject(new Error(`Failed to start FFmpeg: ${err.message}`));
         }
       });
 
       child.on('close', (code) => {
         clearTimeout(timer);
+        if (processKey) {
+          this.activeProcesses.delete(processKey);
+        }
         if (isTerminated) return;
 
         if (code === 0) {

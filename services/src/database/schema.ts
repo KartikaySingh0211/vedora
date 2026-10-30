@@ -19,6 +19,9 @@ export const VideoStatusEnum = [
 ] as const;
 export type VideoStatus = (typeof VideoStatusEnum)[number];
 
+export const EnqueueStateEnum = ['pending', 'enqueued', 'processing'] as const;
+export type EnqueueState = (typeof EnqueueStateEnum)[number];
+
 export const api_key = pgTable(
   'api_key',
   {
@@ -80,6 +83,22 @@ export const videos = pgTable(
     include_watermark: boolean('include_watermark').default(false).notNull(),
     master_m3u8_key: text('master_m3u8_key'),
     transcoded_size: bigint('transcoded_size', { mode: 'bigint' }),
+    /**
+     * Dual-state active job tracking identifier:
+     * - 'pending': null (no active dispatch or worker execution)
+     * - 'enqueued': holds stable dispatch identifier (vdr_job_<videoId>_<attempt>) to prevent duplicate enqueueing
+     * - 'processing': holds active worker's private UUID lockToken to fence out stale worker writes and lease renewals
+     * - 'ready' / 'failed': null (terminal states)
+     */
+    active_job_id: text('active_job_id'),
+    attempt: integer('attempt').default(0).notNull(),
+    enqueue_state: text('enqueue_state')
+      .$type<EnqueueState>()
+      .default('pending')
+      .notNull(),
+    enqueued_at: timestamp('enqueued_at', { withTimezone: true }),
+    heartbeat_lease: timestamp('heartbeat_lease', { withTimezone: true }),
+    last_error: text('last_error'),
     created_at: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -91,6 +110,7 @@ export const videos = pgTable(
     index('videos_user_id_idx').on(table.user_id),
     index('videos_playlist_id_idx').on(table.playlist_id),
     index('videos_status_idx').on(table.status),
+    index('videos_enqueue_state_idx').on(table.enqueue_state),
   ],
 );
 

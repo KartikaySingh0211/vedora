@@ -203,7 +203,8 @@ Signed payload posted to `POST /api/v1/transcoder/webhook`.
 | `renditions` | `string[]` | Yes | Transcoded ladders (e.g. `['720p', '1080p']`) |
 | `transcodedSize` | `number` | Yes | Cumulative byte size of all HLS TS chunks |
 | `status` | `'completed' \| 'failed'` | Yes | Transcode outcome |
-| `error` | `string` | No | Failure details if status is `'failed'` |
+| `attempt` | `number` | Yes | Monotonic execution attempt number (>= 1) |
+| `errorMessage` | `string` | No | Failure details if status is `'failed'` |
 
 ---
 

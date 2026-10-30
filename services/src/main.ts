@@ -130,8 +130,11 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const port = configService.get<number>('port') || 8080;
+  const appRole = process.env.APP_ROLE || 'monolith';
   await app.listen(port, '0.0.0.0');
-  console.log(`Vedora backend API running on port ${port} (prefix: /api/v1)`);
+  console.log(
+    `Vedora backend [role: ${appRole}] running on port ${port} (prefix: /api/v1)`,
+  );
 }
 
 void bootstrap();

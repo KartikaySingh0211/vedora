@@ -64,6 +64,16 @@ export class TranscoderWebhookDto {
   @IsIn(['completed', 'failed'])
   status: 'completed' | 'failed';
 
+  @ApiProperty({
+    description: 'Execution attempt number of the transcode job',
+    example: 1,
+    minimum: 1,
+  })
+  @IsInt({ message: 'attempt must be an integer' })
+  @Min(1, { message: 'attempt must be a positive integer greater than or equal to 1' })
+  @IsNotEmpty({ message: 'attempt is mandatory for transcode webhooks' })
+  attempt: number;
+
   @ApiPropertyOptional({
     description: 'Error diagnostics message if status is failed',
     example: 'Unsupported codec in source container',

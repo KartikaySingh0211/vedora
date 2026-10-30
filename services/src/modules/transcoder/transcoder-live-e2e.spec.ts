@@ -121,6 +121,14 @@ describe('TranscoderService Synthetic Live E2E Pipeline (Phase 3)', () => {
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockImplementation(() =>
+        Promise.resolve([
+          {
+            id: 'phase3-vid-001',
+            attempt: 1,
+          },
+        ]),
+      ),
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue([
@@ -128,6 +136,7 @@ describe('TranscoderService Synthetic Live E2E Pipeline (Phase 3)', () => {
           id: 'phase3-vid-001',
           user_id: 'user_live_01',
           status: 'uploaded',
+          attempt: 1,
           master_m3u8_key: null,
           transcoded_size: null,
         },

@@ -360,13 +360,44 @@ If progress is $100\%$, the UI transitions immediately to `"Finalizing multipart
 
 Vedora uses a resilient Redis-backed queue without heavy third-party dependencies:
 
-### 7.1 Delivery Semantics
-- **At-Least-Once Delivery**: Jobs are guaranteed to be processed at least once. Exactly-once processing is NOT claimed at the transport layer; instead, idempotency is enforced at the video state machine (`uploaded` $\to$ `processing` $\to$ `ready`).
+### 7.1 Delivery Semantics & Durability Hardening
+- **At-Least-Once Delivery**: Jobs are guaranteed to be processed at least once. Exactly-once processing is NOT claimed at the transport layer; instead, idempotency and concurrency fencing are enforced at the PostgreSQL database layer (`uploaded` $\to$ `processing` $\to$ `ready`).
 - **Atomic Job Claiming (`RPOPLPUSH`)**: Workers claim jobs from `vedora:transcode:queue` into `vedora:transcode:processing` in a single atomic Redis operation. If a worker crashes or is killed by OS/OOM killer, the job payload is never lost from Redis.
-- **Heartbeat & Lock Renewal**: While active, the transcoder worker periodically renews an execution lock (`vedora:transcode:lock:<videoId>`) with a 60-second TTL.
-- **Automated Stuck-Job Recovery**: A scheduled recovery process (`recoverStuckJobs`) runs periodically to inspect `vedora:transcode:processing`. Any job whose lock has expired and whose video is not `READY` or `FAILED` is recovered, re-enqueued (up to 3 retries), or marked `FAILED` if retries are exhausted. Upon successful completion, the job is removed via `LREM`.
+- **Redis Queue Durability**: Redis instances are configured with `--maxmemory-policy noeviction` (preventing silent drop of transcode queue items under memory pressure) and `--appendonly yes` (AOF persistence alongside periodic RDB snapshots).
+- **PostgreSQL Durable Enqueue Markers**: PostgreSQL maintains `enqueue_state ('pending' | 'enqueued' | 'processing')`, `active_job_id ('vdr_job_<videoId>_<attempt>')`, and `enqueued_at` timestamps. This guarantees that videos waiting in queue backlogs are never redundantly re-dispatched.
+- **Heartbeat & Lock Renewal**: While active, the transcoder worker periodically renews an execution lock (`vedora:transcode:lock:<videoId>`) with a 600-second TTL every 30 seconds, concurrently updating the database `heartbeat_lease`. If lock renewal fails, execution immediately halts and active FFmpeg processes are cleanly terminated.
+- **Monotonic Database Fencing**: Every video record contains an authoritative integer `attempt` counter. Workers fence claim (`WHERE id = :videoId AND attempt = :attempt`) and final status updates (`WHERE id = :videoId AND attempt = :attempt AND status = 'processing'`). Stale workers whose locks expired during network partitions are prevented from overwriting subsequent attempts.
+- **Graceful Shutdown & Child Process Await**: On `SIGTERM`/`SIGINT`, workers stop polling, issue `SIGTERM` to active FFmpeg child processes, await graceful termination (10s), escalate to `SIGKILL` if necessary, purge local scratch directories, and only then safely release Redis locks.
 
-### 7.2 Redis Worker Crash Recovery & Sweeper Sequence
+### 7.2 Headless Worker Process Decoupling Topology
+
+```mermaid
+flowchart TD
+    subgraph Ingestion ["HTTP Ingestion Layer (APP_ROLE=api)"]
+        API[NestJS HTTP API Container]
+        APIDB[(PostgreSQL Videos Table)]
+        APIQueue[(Redis Transcode Queue)]
+        API -->|1. Complete Upload| APIDB
+        API -->|2. Atomic Enqueue Marker\n(enqueue_state='enqueued')| APIDB
+        API -->|3. RPUSH vdr_job_<id>_1| APIQueue
+    end
+
+    subgraph Execution ["Transcoding Engine Layer (APP_ROLE=worker)"]
+        Worker[NestJS Headless Worker Container]
+        FFmpegProc[FFmpeg Child Process]
+        ScratchDir[Local Scratch Disk /tmp]
+        R2Storage[Cloudflare R2 Object Storage]
+
+        Worker -->|4. Atomic RPOPLPUSH| APIQueue
+        Worker -->|5. Fenced Claim (attempt=1)| APIDB
+        Worker -->|6. Spawn FFmpeg & Track PID| FFmpegProc
+        FFmpegProc -->|7. Write HLS Chunks| ScratchDir
+        Worker -->|8. Upload Variants & Master Manifest| R2Storage
+        Worker -->|9. Fenced Ready Transition\n(status='ready')| APIDB
+    end
+```
+
+### 7.3 Redis Worker Crash Recovery & Database Fencing Sequence
 
 ```mermaid
 sequenceDiagram
@@ -374,38 +405,40 @@ sequenceDiagram
     participant Queue as Redis (vedora:transcode:queue)
     participant Processing as Redis (vedora:transcode:processing)
     participant Lock as Redis (transcode:lock:<videoId>)
-    participant Worker as Transcoder Worker (Worker A)
+    participant Worker as Transcoder Worker (Attempt 1)
     participant Sweeper as Scheduled Sweeper (recoverStuckJobs)
-    participant DB as Neon PostgreSQL
+    participant DB as Neon PostgreSQL (Authoritative Source of Truth)
 
-    Note over Queue,Worker: Phase 1: Atomic Job Claiming
+    Note over Queue,Worker: Phase 1: Atomic Job Claiming & Database Fencing
     Worker->>Queue: RPOPLPUSH vedora:transcode:queue -> vedora:transcode:processing
-    Queue-->>Worker: Return Job Payload (Video UUID)
-    Worker->>Lock: SETNX transcode:lock:<videoId> (TTL: 60s, Token: UUID)
-    Worker->>DB: UPDATE video SET status = 'processing'
+    Queue-->>Worker: Return Job Payload (jobId: vdr_job_vid_1, attempt: 1)
+    Worker->>Lock: SETNX transcode:lock:<videoId> (TTL: 600s, Token: UUID)
+    Worker->>DB: UPDATE video SET status = 'processing', enqueue_state = 'processing' WHERE id = :vid AND attempt = 1
 
-    Note over Worker: Phase 2: Worker Crash Incident
-    Worker->>Worker: FFmpeg begins transcoding...
-    Note over Worker: Worker A crashed (OOM / Pod restart / SigKill)!
+    Note over Worker: Phase 2: Worker Crash / GC Pause Incident
+    Worker->>Worker: FFmpeg child process begins transcode...
+    Note over Worker: Worker 1 crashes or network partition occurs!
     Note over Processing: Job payload remains safely in processing queue
-    Note over Lock: Lock TTL expires after 60s without renewal
+    Note over Lock: Lock TTL expires after 600s without heartbeat renewal
 
-    Note over Sweeper,DB: Phase 3: Automated Stuck-Job Sweeper
-    Sweeper->>Processing: LRANGE vedora:transcode:processing 0 -1
-    Processing-->>Sweeper: Found orphaned Job Payload
+    Note over Sweeper,DB: Phase 3: Automated Stuck-Job Reconciliation & Fencing Protection
+    Sweeper->>DB: SELECT videos WHERE status = 'processing' AND heartbeat_lease < NOW()
     Sweeper->>Lock: GET transcode:lock:<videoId>
-    Lock-->>Sweeper: null (Lock has expired!)
-    Sweeper->>DB: SELECT status FROM video WHERE id = :videoId
-    DB-->>Sweeper: status = 'processing' (Abandoned)
+    Lock-->>Sweeper: null (Expired!)
 
-    alt Retry count < 3
-        Sweeper->>Processing: LREM vedora:transcode:processing 1 :payload
-        Sweeper->>Queue: RPUSH vedora:transcode:queue :payload (Re-enqueued)
-        Note over Queue: Job is immediately available for healthy workers
+    alt Recovery Attempt < 3
+        Sweeper->>DB: UPDATE video SET attempt = 2, enqueue_state = 'enqueued' WHERE id = :vid AND attempt = 1
+        Sweeper->>Queue: RPUSH vedora:transcode:queue (jobId: vdr_job_vid_2, attempt: 2)
+        Note over Queue: New Worker claims attempt 2
     else Retries Exhausted (>= 3)
-        Sweeper->>Processing: LREM vedora:transcode:processing 1 :payload
-        Sweeper->>DB: UPDATE video SET status = 'failed'
+        Sweeper->>DB: UPDATE video SET status = 'failed', last_error = 'Retries exhausted' WHERE id = :vid
     end
+
+    Note over Worker,DB: Phase 4: Stale Worker Revives (Zombie Fencing Test)
+    Worker->>Worker: Worker 1 finishes stale FFmpeg execution
+    Worker->>DB: UPDATE video SET status = 'ready' WHERE id = :vid AND attempt = 1 AND status = 'processing'
+    DB-->>Worker: 0 rows updated! (Fenced out: attempt is now 2)
+    Worker->>Worker: Fencing exception triggered; aborts without corrupting DB!
 ```
 
 ---

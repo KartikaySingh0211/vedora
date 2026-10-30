@@ -259,7 +259,7 @@ export class VideoService {
       throw new UnauthorizedException('Authentication required');
     }
 
-    return await this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       // 1. Fetch video record scoped to owner
       const [videoRecord] = await tx
         .select()
@@ -276,7 +276,11 @@ export class VideoService {
         videoRecord.status === 'processing' ||
         videoRecord.status === 'ready'
       ) {
-        return this.serializeVideo(videoRecord);
+        return {
+          updatedVideo: videoRecord,
+          serialized: this.serializeVideo(videoRecord),
+          alreadyCompleted: true,
+        };
       }
 
       if (videoRecord.status !== 'uploading') {
@@ -311,6 +315,7 @@ export class VideoService {
         .update(videos)
         .set({
           status: 'uploaded',
+          enqueue_state: 'pending',
           duration: dto.duration || videoRecord.duration,
           storage_key: dto.storageKey,
           updated_at: new Date(),
@@ -329,30 +334,87 @@ export class VideoService {
       }
 
       const serialized = this.serializeVideo(updatedVideo);
-
-      // 7. Enqueue asynchronous transcoding job
-      if (this.transcoderService) {
-        await this.transcoderService
-          .enqueueTranscodeJob({
-            videoId: updatedVideo.id,
-            userId: updatedVideo.user_id,
-            storageKey: updatedVideo.storage_key || dto.storageKey,
-            bucketId: updatedVideo.bucket_id || undefined,
-            resolutions: updatedVideo.resolutions || ['720p'],
-            title: updatedVideo.title,
-            slug: updatedVideo.slug,
-            duration: updatedVideo.duration,
-          })
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            this.logger.warn(
-              `Failed to enqueue transcode job for video ${updatedVideo.id}: ${msg}`,
-            );
-          });
-      }
-
-      return serialized;
+      return { updatedVideo, serialized };
     });
+
+    // 7. Enqueue asynchronous transcoding job AFTER database transaction commits
+    if (this.transcoderService && !result.alreadyCompleted) {
+      this.transcoderService
+        .enqueueTranscodeJob({
+          jobId: `vdr_job_${result.updatedVideo.id}_1`,
+          videoId: result.updatedVideo.id,
+          userId: result.updatedVideo.user_id,
+          storageKey: result.updatedVideo.storage_key || dto.storageKey,
+          bucketId: result.updatedVideo.bucket_id || undefined,
+          resolutions: result.updatedVideo.resolutions || ['720p'],
+          title: result.updatedVideo.title,
+          slug: result.updatedVideo.slug,
+          duration: result.updatedVideo.duration,
+          attempt: 1,
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(
+            `Failed to enqueue transcode job for video ${result.updatedVideo.id}: ${msg}. Video remains in 'pending' enqueue_state for sweeper reconciliation.`,
+          );
+        });
+    }
+
+    return result.serialized;
+  }
+
+  /**
+   * Safely retries a failed video transcode job.
+   */
+  async retryTranscode(
+    videoId: string,
+    userId: string,
+  ): Promise<VideoResponse> {
+    const [videoRecord] = await this.db
+      .select()
+      .from(videos)
+      .where(and(eq(videos.id, videoId), eq(videos.user_id, userId)))
+      .limit(1);
+
+    if (!videoRecord) {
+      throw new NotFoundException(`Video with ID ${videoId} not found`);
+    }
+
+    if (videoRecord.status !== 'failed') {
+      throw new BadRequestException(
+        `Only failed videos can be retried. Current status is '${videoRecord.status}'.`,
+      );
+    }
+
+    const [resetVideo] = await this.db
+      .update(videos)
+      .set({
+        status: 'uploaded',
+        enqueue_state: 'pending',
+        attempt: 0,
+        active_job_id: null,
+        last_error: null,
+        updated_at: new Date(),
+      })
+      .where(and(eq(videos.id, videoId), eq(videos.status, 'failed')))
+      .returning();
+
+    if (this.transcoderService) {
+      await this.transcoderService.enqueueTranscodeJob({
+        jobId: `vdr_job_${resetVideo.id}_1`,
+        videoId: resetVideo.id,
+        userId: resetVideo.user_id,
+        storageKey: resetVideo.storage_key || '',
+        bucketId: resetVideo.bucket_id || undefined,
+        resolutions: resetVideo.resolutions || ['720p'],
+        title: resetVideo.title,
+        slug: resetVideo.slug,
+        duration: resetVideo.duration,
+        attempt: 1,
+      });
+    }
+
+    return this.serializeVideo(resetVideo);
   }
 
   /**
