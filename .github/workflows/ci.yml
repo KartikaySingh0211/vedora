@@ -65,14 +65,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: sdks/vedora-sdk/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build SDK TypeScript declaration & distribution
-        run: npm run build
+        run: npx --package typescript@5.9.3 tsc
 
       - name: Run SDK test suite
         run: npm test
@@ -96,15 +91,11 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: |
-            sdks/vedora-sdk/package-lock.json
-            apps/main-dashboard/package-lock.json
+          cache-dependency-path: apps/main-dashboard/package-lock.json
 
       - name: Build SDK dependency
         working-directory: sdks/vedora-sdk
-        run: |
-          npm ci
-          npm run build
+        run: npx --package typescript@5.9.3 tsc
 
       - name: Install dashboard dependencies
         working-directory: apps/main-dashboard
