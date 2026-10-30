@@ -165,5 +165,28 @@ describe('PlayerSettingsService', () => {
         'https://cdn.vedora.com/videos/vid-3/raw.mp4',
       );
     });
+
+    it('should return resilient default player configuration if database settings retrieval fails', async () => {
+      const video = {
+        id: '00000000-0000-0000-0000-000000000004',
+        user_id: 'user_4',
+        title: 'Resilient Video',
+        duration: 90,
+        status: 'ready',
+        master_m3u8_key: 'videos/vid-4/master.m3u8',
+      };
+
+      mockDb.limit
+        .mockResolvedValueOnce([video])
+        .mockRejectedValueOnce(new Error('DB connection drop'));
+
+      const config = await service.getPublicPlayerConfig(video.id);
+
+      expect(config.primaryColor).toBe('#2563eb');
+      expect(config.watermarkText).toBe('Powered by Vedora');
+      expect(config.streamUrl).toBe(
+        'https://cdn.vedora.com/videos/vid-4/master.m3u8',
+      );
+    });
   });
 });

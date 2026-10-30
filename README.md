@@ -153,7 +153,7 @@ cp .env.example .env
 # Set DATABASE_URL to your Neon PostgreSQL connection string (or use the offline local-db profile below)
 
 # 3. Build and launch the containerized stack (API + FFmpeg Transcoder + Redis 7)
-docker compose up -d
+docker compose up -d --build
 
 # 4. Apply database schema migrations inside the running API container
 docker compose exec api npm run db:migrate
@@ -288,7 +288,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
-- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-014).
+- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-015).
 
 ---
 

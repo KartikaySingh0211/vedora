@@ -1179,3 +1179,33 @@ Following the stabilization roadmap outlined in `docs/STABILIZATION_ROADMAP.md`,
 - **Landing Page Lint & Build (`npm --prefix apps/landing-page run lint && npm --prefix apps/landing-page run build`)**: ESLint passed; all 5 routes compiled with exit code 0.
 - **CI Workflow Validation**: `.github/workflows/ci.yml` validated via `js-yaml` with 0 syntax errors.
 - **Whitespace & Diff Verification**: `git diff --check` passed with 0 errors.
+
+---
+
+## 2026-10-30 — Incident Resolution: BUG-015 Stale Docker Image & Player Settings Subscriptions Query
+
+### 1. Context & Incident Diagnosis
+During video playback verification, the user reported that after successfully uploading and transcoding 2 videos (`178060d7-da70-4be3-add5-37eae3621a30` and `5fda0f64-50cb-43e5-a8f5-eee9b2a602ad`), the frontend embed player displayed `Playback Status: Video not found or unavailable (HTTP 500)`. Both videos were present in Neon PostgreSQL (status `ready`, `master_m3u8_key` populated) and all HLS media playlists and chunks were present in Cloudflare R2.
+The backend logs emitted:
+```text
+ERROR [AllExceptionsFilter] [GET] /api/v1/player-settings/public/<videoId> - Status: 500 - Error: Failed query: select "id", "user_id", "stripe_customer_id", ... from "subscriptions" where "subscriptions"."user_id" = $1 limit $2
+```
+
+### 2. Root Cause
+1. In commit `d0e69c5a` (de-monetization refactor), the `subscriptions` table was dropped via Drizzle migration `0005_bouncy_boomerang.sql`, and all queries referencing `subscriptions` were removed from source code.
+2. However, the Docker image `vedora-api:latest` was built on 2026-10-28 (`2026-10-28T18:44:09Z`) prior to the de-monetization commit. When running via Docker Compose without `--build`, Docker reused the stale image containing pre-Oct 30 compiled JavaScript binaries that still queried `subscriptions`.
+3. Additionally, `PlayerSettingsService.getPublicPlayerConfig` lacked defensive error handling, failing with HTTP 500 if supplementary player settings encountered database query errors even though the underlying video and HLS streams were ready.
+
+### 3. Implementation Details
+1. Rebuilt the production Docker image with `docker compose build api`. Verified that `/app/dist/` in the new image contains 0 occurrences of `subscriptions`. Tagged `vedora-api:latest` and `services-api:latest`.
+2. Hardened `services/src/modules/player-settings/player-settings.service.ts`:
+   - Added `.onConflictDoNothing()` and race condition try/catch recovery in `getSettings(userId)`.
+   - Added defensive fallback defaults in `getPublicPlayerConfig(videoId)` to ensure public playback config never fails even if database settings retrieval encounters errors.
+3. Added regression unit test in `services/src/modules/player-settings/player-settings.service.spec.ts`.
+4. Logged `BUG-015` in `docs/bug-fixes/BUG-015-stale-docker-image-player-settings-subscriptions-query-500.md` and indexed in `docs/bug-fixes/README.md`.
+
+### 4. Verification Evidence
+- `docker run --rm vedora-api:latest grep -r "subscriptions" /app/dist/`: Exited with code 1 (no occurrences).
+- `npm --prefix services test -- player-settings.service.spec.ts`: 1 suite passed, 8 tests passed.
+- `npm --prefix services test`: 18 suites passed, 161 tests passed.
+- `git diff --check`: 0 whitespace errors.

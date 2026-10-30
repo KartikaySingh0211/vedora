@@ -50,30 +50,45 @@ export class PlayerSettingsService {
       return existing;
     }
 
-    // Insert default settings
-    const [created] = await this.db
-      .insert(schema.player_settings)
-      .values({
-        user_id: userId,
-        primary_color: '#2563eb',
-        control_bar_bg: 'rgba(0, 0, 0, 0.7)',
-        play_icon_style: 'default',
-        watermark_position: 'top-right',
-        watermark_opacity: 80,
-        enable_subtitles: true,
-        enabled_controls: [
-          'Play / Pause',
-          '10s Backward',
-          '10s Forward',
-          'Full Screen',
-          'Captions',
-          'Volume',
-          'Mute',
-        ],
-      })
-      .returning();
+    try {
+      // Insert default settings
+      const [created] = await this.db
+        .insert(schema.player_settings)
+        .values({
+          user_id: userId,
+          primary_color: '#2563eb',
+          control_bar_bg: 'rgba(0, 0, 0, 0.7)',
+          play_icon_style: 'default',
+          watermark_position: 'top-right',
+          watermark_opacity: 80,
+          enable_subtitles: true,
+          enabled_controls: [
+            'Play / Pause',
+            '10s Backward',
+            '10s Forward',
+            'Full Screen',
+            'Captions',
+            'Volume',
+            'Mute',
+          ],
+        })
+        .onConflictDoNothing()
+        .returning();
 
-    return created;
+      if (created) {
+        return created;
+      }
+    } catch (err) {
+      this.logger.warn(`Could not insert default player settings for ${userId}: ${err}`);
+    }
+
+    const [refetched] = await this.db
+      .select()
+      .from(schema.player_settings)
+      .where(eq(schema.player_settings.user_id, userId))
+      .limit(1);
+
+    return refetched;
   }
 
   /**
@@ -131,10 +146,15 @@ export class PlayerSettingsService {
       throw new NotFoundException(`Video with ID ${videoId} not found`);
     }
 
-    const settings = await this.getSettings(video.user_id);
+    let settings: schema.PlayerSettings | null = null;
+    try {
+      settings = await this.getSettings(video.user_id);
+    } catch (err) {
+      this.logger.warn(`Could not resolve player settings for user ${video.user_id}: ${err}`);
+    }
 
     // Open-source branding: users can configure their custom watermark
-    const watermarkUrl = settings.watermark_url || null;
+    const watermarkUrl = settings?.watermark_url || null;
     const watermarkText = watermarkUrl ? null : 'Powered by Vedora';
 
     // Resolve stream URL for playback:
@@ -153,15 +173,15 @@ export class PlayerSettingsService {
       duration: video.duration,
       status: video.status,
       streamUrl,
-      primaryColor: settings.primary_color,
-      controlBarBg: settings.control_bar_bg,
-      playIconStyle: settings.play_icon_style,
+      primaryColor: settings?.primary_color || '#2563eb',
+      controlBarBg: settings?.control_bar_bg || 'rgba(0, 0, 0, 0.7)',
+      playIconStyle: settings?.play_icon_style || 'default',
       watermarkUrl,
       watermarkText,
-      watermarkPosition: settings.watermark_position,
-      watermarkOpacity: settings.watermark_opacity,
-      enableSubtitles: settings.enable_subtitles,
-      enabledControls: settings.enabled_controls || [
+      watermarkPosition: settings?.watermark_position || 'top-right',
+      watermarkOpacity: settings?.watermark_opacity ?? 80,
+      enableSubtitles: settings?.enable_subtitles ?? true,
+      enabledControls: settings?.enabled_controls || [
         'Play / Pause',
         '10s Backward',
         '10s Forward',
