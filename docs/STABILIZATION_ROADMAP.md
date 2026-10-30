@@ -22,7 +22,7 @@ To ensure production viability, the platform requires systematic hardening:
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Security and Reliability Fixes | **P0 (Immediate)** | `Completed` | Backend Services, Queue, Webhooks | None |
 | **Phase 2** | Project Credibility & Documentation | **P1** | `Completed` | CI/CD, Documentation, Specifications | Phase 1 Completion |
-| **Phase 3** | Demonstration and Verification | **P2** | `Not Started` | Integration Tests, Benchmarks, Media Assets | Phase 1 & 2 Completion |
+| **Phase 3** | Demonstration and Verification | **P2** | `Completed` | Integration Tests, Benchmarks, Media Assets | Phase 1 & 2 Completion |
 | **Phase 4** | Architecture & Security Improvements | **P3** | `Not Started` | Worker Topologies, Throttling, Video DRM/Tokens | Phase 1, 2 & 3 Completion |
 
 > [!IMPORTANT]
@@ -215,7 +215,7 @@ Ensure the open-source repository reflects genuine, verifiable system capabiliti
 ### Objective & Architectural Rationale
 Provide reproducible, empirical proof that the platform works as claimed under real-world conditions. Build end-to-end integration tests using synthetic media, create walkthrough demonstrations, and publish genuine benchmark measurements.
 
-- **Status**: `Not Started`
+- **Status**: `Completed`
 - **Priority**: P2
 - **Dependencies**: Phase 1 & 2 Completion
 
@@ -273,10 +273,10 @@ Provide reproducible, empirical proof that the platform works as claimed under r
   2. Record measurements only with explicit hardware specifications and environment details. No speculative or estimated benchmarks will be published.
 
 ### Acceptance Criteria for Phase 3
-- [ ] An automated test executes real FFmpeg transcoding on synthetic media from input to playable HLS files with zero mocked video filters.
-- [ ] Demonstration assets showing upload, Cloudflare R2 bucket objects, and dashboard playback are documented in `README.md`.
-- [ ] Technical deep-dives for queue recovery, advisory lock quotas, and cache invalidation are complete with Mermaid diagrams.
-- [ ] All published benchmarks reflect genuinely measured execution metrics.
+- [x] An automated test executes real FFmpeg transcoding on synthetic media from input to playable HLS files with zero mocked video filters.
+- [x] Demonstration assets showing upload, Cloudflare R2 bucket objects, and dashboard playback are documented in `README.md`.
+- [x] Technical deep-dives for queue recovery, advisory lock quotas, and cache invalidation are complete with Mermaid diagrams.
+- [x] All published benchmarks reflect genuinely measured execution metrics.
 
 ---
 
@@ -360,14 +360,14 @@ As implementation progresses through each phase, update this ledger with dates, 
 | Phase 1 | 1.4 Eliminate Redis Mock Hacks | Completed | 2026-10-30 | f81d680 | Jest Suite (19 passed) |
 | Phase 1 | 1.5 Transcoder Error Propagation | Completed | 2026-10-30 | f81d680 | Jest Suite (19 passed) |
 | Phase 1 | 1.6 Webhook Regression Tests | Completed | 2026-10-30 | f81d680 | Jest Suite (158 passed across 17 suites) |
-| Phase 2 | 2.1 GitHub Actions CI Pipeline | Completed | 2026-10-30 | Working Tree | .github/workflows/ci.yml validated |
-| Phase 2 | 2.2 Reconcile Stale Documentation | Completed | 2026-10-30 | Working Tree | Audit confirmed & updated |
-| Phase 2 | 2.3 Bug Ledger Synchronization | Completed | 2026-10-30 | Working Tree | 14/14 incidents indexed in README & ledger |
-| Phase 2 | 2.4 Open-Source Positioning | Completed | 2026-10-30 | Working Tree | README, landing, and architecture aligned |
-| Phase 3 | 3.1 Walkthrough Demo & Media | Not Started | — | — | — |
-| Phase 3 | 3.2 Synthetic Video E2E Test Suite | Not Started | — | — | — |
-| Phase 3 | 3.3 Architecture Deep-Dives | Not Started | — | — | — |
-| Phase 3 | 3.4 Measured Benchmarks | Not Started | — | — | — |
+| Phase 2 | 2.1 GitHub Actions CI Pipeline | Completed | 2026-10-30 | abbab2c | .github/workflows/ci.yml validated |
+| Phase 2 | 2.2 Reconcile Stale Documentation | Completed | 2026-10-30 | abbab2c | Audit confirmed & updated |
+| Phase 2 | 2.3 Bug Ledger Synchronization | Completed | 2026-10-30 | abbab2c | 14/14 incidents indexed in README & ledger |
+| Phase 2 | 2.4 Open-Source Positioning | Completed | 2026-10-30 | abbab2c | README, landing, and architecture aligned |
+| Phase 3 | 3.1 Walkthrough Demo & Media | Completed | 2026-10-30 | Working Tree | docs/assets/demo/ gallery & walkthrough |
+| Phase 3 | 3.2 Synthetic Video E2E Test Suite | Completed | 2026-10-30 | Working Tree | transcoder-live-e2e.spec.ts (160 passed) |
+| Phase 3 | 3.3 Architecture Deep-Dives | Completed | 2026-10-30 | Working Tree | Mermaid diagrams in ARCHITECTURE.md |
+| Phase 3 | 3.4 Measured Benchmarks | Completed | 2026-10-30 | Working Tree | docs/BENCHMARKS.md (1.15x-8.94x measured) |
 | Phase 4 | 4.1 Worker Decoupling Evaluation | Not Started | — | — | — |
 | Phase 4 | 4.2 Throttling & Security Headers | Not Started | — | — | — |
 | Phase 4 | 4.3 Signed URLs & Private Videos | Not Started | — | — | — |

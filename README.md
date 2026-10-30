@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-158%20passing%20(17%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Tests](https://img.shields.io/badge/Tests-161%20passing%20(18%20suites)-brightgreen)](docs/FFmpeg/README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -135,6 +135,8 @@ User video library displaying lifecycle status badges (`uploading`, `uploaded`, 
 | **Playback Analytics** | `/analytics` | Views, watch minutes, unique viewers, retention curve, device/browser distribution via Recharts |
 | **Open-Source Safeguards** | `/settings` | Technical safeguard settings, active storage capacity metrics, 1080p encoding safeguard display |
 
+> 🎬 **Complete Visual Walkthrough Gallery**: Detailed visual evidence spanning direct client uploads, Cloudflare R2 bucket objects (`raw/` & `videos/`), multi-resolution `.m3u8` manifests, and MPEG-TS media segments is documented in [docs/assets/demo/README.md](docs/assets/demo/README.md).
+
 ---
 
 ## 🚀 Quick Start
@@ -239,7 +241,7 @@ Once the backend is running (via Docker or Node), open the interactive Swagger U
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (158 tests across 17 suites)
+# 1. Backend unit & integration test suite (161 tests across 18 suites)
 cd services
 npm test
 
@@ -286,6 +288,8 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 
 - 📖 **[Master Engineering Log & Ledger (`docs/ENGINEERING_LOG.md`)](docs/ENGINEERING_LOG.md)**: Full chronological ledger documenting every implementation run, exact changes, design rationale, and test verification results.
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
+- ⚡ **[Empirical Performance Benchmarks (`docs/BENCHMARKS.md`)](docs/BENCHMARKS.md)**: Real FFmpeg transcoding throughput, real-time speed factors (1.15x–8.94x), and HLS packaging measurements on physical hardware.
+- 🎬 **[End-to-End Walkthrough Demonstration (`docs/assets/demo/README.md`)](docs/assets/demo/README.md)**: Complete lifecycle walkthrough and gallery from presigned upload to Cloudflare R2 bucket storage and `<VedoraPlayer />` playback.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
 - 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-015).

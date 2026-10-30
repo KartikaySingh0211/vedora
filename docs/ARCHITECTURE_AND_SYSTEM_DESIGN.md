@@ -145,6 +145,36 @@ When an API key is revoked or regenerated:
 3. PostgreSQL is updated: `UPDATE api_key SET revoked_at = NOW() WHERE id = :uuid AND user_id = :userId`.
 4. LRU and Redis are invalidated a second time post-commit to eliminate any concurrent read race condition.
 
+### 3.1 Cache Eviction & Anti-Rehydration Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as User / Dashboard Admin
+    participant KeyService as ApiKeyService
+    participant Cache as ApiKeyCacheService (L1 LRU & L2 Redis)
+    participant DB as Neon PostgreSQL (L3)
+
+    Admin->>KeyService: POST /api/v1/api-keys/:id/revoke
+    KeyService->>DB: Verify key ownership (SELECT WHERE id = :id AND user_id = :userId)
+    DB-->>KeyService: Key Record Found (revoked_at IS NULL)
+
+    Note over KeyService,Cache: Step 1: Pre-Invalidation (Prevent Concurrent Cache Reads)
+    KeyService->>Cache: invalidateAll(hexKeyId)
+    Cache->>Cache: LRU.delete("v1:<hexKeyId>")
+    Cache->>Cache: Redis.del("vedora:api_key:v1:<hexKeyId>")
+
+    Note over KeyService,DB: Step 2: Database State Transition
+    KeyService->>DB: UPDATE api_key SET revoked_at = NOW() WHERE id = :uuid
+
+    Note over KeyService,Cache: Step 3: Post-Commit Invalidation (Eliminate Race Rehydration)
+    KeyService->>Cache: invalidateAll(hexKeyId)
+    Cache->>Cache: LRU.delete("v1:<hexKeyId>")
+    Cache->>Cache: Redis.del("vedora:api_key:v1:<hexKeyId>")
+
+    KeyService-->>Admin: 200 OK { success: true, id: uuid }
+```
+
 ---
 
 ## 4. Debounced Last-Used Activity Tracking
@@ -275,6 +305,46 @@ sequenceDiagram
     Worker->>API: Transition status to 'ready' with resolutions array
 ```
 
+### 6.1 Atomic Storage Quota Enforcement
+
+Vedora guarantees that concurrent upload requests cannot exceed the configurable per-user storage capacity default (500 GiB, controlled via `MAX_USER_STORAGE_CAP_BYTES`). To eliminate race conditions where multiple parallel uploads simultaneously pass validation before any writes commit, `VideoService.initVideo` executes within a PostgreSQL transaction guarded by an advisory transaction lock:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor ClientA as Upload Stream A (5 GiB)
+    actor ClientB as Upload Stream B (8 GiB)
+    participant VideoService as VideoService
+    participant DB as Neon PostgreSQL (Transaction)
+
+    Note over ClientA,ClientB: Current user storage usage: 495 GiB / 500 GiB Cap
+
+    par Concurrent Upload Initialization Requests
+        ClientA->>VideoService: POST /api/v1/videos/init (5 GiB)
+        VideoService->>DB: BEGIN TRANSACTION (Tx A)
+        VideoService->>DB: SELECT pg_advisory_xact_lock(hashtext('vedora_storage_quota_' || userId))
+        Note over DB: Tx A acquires exclusive user advisory lock
+    and
+        ClientB->>VideoService: POST /api/v1/videos/init (8 GiB)
+        VideoService->>DB: BEGIN TRANSACTION (Tx B)
+        VideoService->>DB: SELECT pg_advisory_xact_lock(hashtext('vedora_storage_quota_' || userId))
+        Note over DB: Tx B BLOCKS waiting for Tx A to commit/rollback
+    end
+
+    VideoService->>DB: (Tx A) SELECT SUM(raw_size + transcoded_size) FROM video WHERE user_id = userId
+    DB-->>VideoService: (Tx A) Current usage = 495 GiB
+    Note over VideoService: Tx A: 495 GiB + 5 GiB = 500 GiB <= 500 GiB (Approved)
+    VideoService->>DB: (Tx A) INSERT INTO video (status: 'uploading', raw_size: 5 GiB)
+    VideoService->>DB: (Tx A) COMMIT
+    Note over DB: Tx A commits; Lock released to Tx B
+
+    VideoService->>DB: (Tx B) SELECT SUM(raw_size + transcoded_size) FROM video WHERE user_id = userId
+    DB-->>VideoService: (Tx B) Current usage = 500 GiB (includes Tx A reservation)
+    Note over VideoService: Tx B: 500 GiB + 8 GiB = 508 GiB > 500 GiB (Quota Exceeded!)
+    VideoService->>DB: (Tx B) ROLLBACK
+    VideoService-->>ClientB: 400 Bad Request ('Storage quota exceeded. Used: 500.00 GiB, Limit: 500.00 GiB')
+```
+
 ### Telemetry Calculation Engine
 To prevent division-by-zero, negative intervals, or `NaN`/`Infinity` artifacts:
 $$\text{ElapsedSeconds} = \max\left(0.1, \frac{\text{Date.now}() - \text{StartTime}}{1000}\right)$$
@@ -295,6 +365,48 @@ Vedora uses a resilient Redis-backed queue without heavy third-party dependencie
 - **Atomic Job Claiming (`RPOPLPUSH`)**: Workers claim jobs from `vedora:transcode:queue` into `vedora:transcode:processing` in a single atomic Redis operation. If a worker crashes or is killed by OS/OOM killer, the job payload is never lost from Redis.
 - **Heartbeat & Lock Renewal**: While active, the transcoder worker periodically renews an execution lock (`vedora:transcode:lock:<videoId>`) with a 60-second TTL.
 - **Automated Stuck-Job Recovery**: A scheduled recovery process (`recoverStuckJobs`) runs periodically to inspect `vedora:transcode:processing`. Any job whose lock has expired and whose video is not `READY` or `FAILED` is recovered, re-enqueued (up to 3 retries), or marked `FAILED` if retries are exhausted. Upon successful completion, the job is removed via `LREM`.
+
+### 7.2 Redis Worker Crash Recovery & Sweeper Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Queue as Redis (vedora:transcode:queue)
+    participant Processing as Redis (vedora:transcode:processing)
+    participant Lock as Redis (transcode:lock:<videoId>)
+    participant Worker as Transcoder Worker (Worker A)
+    participant Sweeper as Scheduled Sweeper (recoverStuckJobs)
+    participant DB as Neon PostgreSQL
+
+    Note over Queue,Worker: Phase 1: Atomic Job Claiming
+    Worker->>Queue: RPOPLPUSH vedora:transcode:queue -> vedora:transcode:processing
+    Queue-->>Worker: Return Job Payload (Video UUID)
+    Worker->>Lock: SETNX transcode:lock:<videoId> (TTL: 60s, Token: UUID)
+    Worker->>DB: UPDATE video SET status = 'processing'
+
+    Note over Worker: Phase 2: Worker Crash Incident
+    Worker->>Worker: FFmpeg begins transcoding...
+    Note over Worker: Worker A crashed (OOM / Pod restart / SigKill)!
+    Note over Processing: Job payload remains safely in processing queue
+    Note over Lock: Lock TTL expires after 60s without renewal
+
+    Note over Sweeper,DB: Phase 3: Automated Stuck-Job Sweeper
+    Sweeper->>Processing: LRANGE vedora:transcode:processing 0 -1
+    Processing-->>Sweeper: Found orphaned Job Payload
+    Sweeper->>Lock: GET transcode:lock:<videoId>
+    Lock-->>Sweeper: null (Lock has expired!)
+    Sweeper->>DB: SELECT status FROM video WHERE id = :videoId
+    DB-->>Sweeper: status = 'processing' (Abandoned)
+
+    alt Retry count < 3
+        Sweeper->>Processing: LREM vedora:transcode:processing 1 :payload
+        Sweeper->>Queue: RPUSH vedora:transcode:queue :payload (Re-enqueued)
+        Note over Queue: Job is immediately available for healthy workers
+    else Retries Exhausted (>= 3)
+        Sweeper->>Processing: LREM vedora:transcode:processing 1 :payload
+        Sweeper->>DB: UPDATE video SET status = 'failed'
+    end
+```
 
 ---
 

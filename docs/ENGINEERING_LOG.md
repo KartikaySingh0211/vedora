@@ -1182,6 +1182,61 @@ Following the stabilization roadmap outlined in `docs/STABILIZATION_ROADMAP.md`,
 
 ---
 
+## 2026-10-30: Phase 3 Stabilization Demonstration, Synthetic Media E2E Testing & Empirical Benchmarks
+
+### 1. Context & Motivation
+Following the stabilization roadmap in `docs/STABILIZATION_ROADMAP.md`, Phase 3 focuses on providing empirical, reproducible verification of the video processing pipeline. This phase establishes genuine evidence for the end-to-end upload and transcoding lifecycle, measures real encoding throughput across standardized test clips, documents canonical architecture deep-dives with Mermaid sequence diagrams, and publishes a structured walkthrough gallery.
+
+### 2. Actions Executed
+
+#### Task 3.1: End-to-End Walkthrough Demonstration (`docs/assets/demo/`, `README.md`)
+- Created structured visual demonstration gallery under `docs/assets/demo/`:
+  - `01-direct-upload-studio.png`: Upload studio with drag-and-drop ingestion and real-time sidebar transfer progress.
+  - `02-cloudflare-r2-raw-storage.png`: Cloudflare R2 bucket (`raw/vedora-media/`) showing direct client-uploaded master files.
+  - `03-cloudflare-r2-master-manifest.png`: Cloudflare R2 bucket (`videos/<uuid>/`) showing `master.m3u8` multivariant playlist.
+  - `04-cloudflare-r2-hls-segments.png`: Cloudflare R2 variant directory (`720p/`) containing `index.m3u8` and 4-second `.ts` media segments.
+  - `05-video-library-management.png`: Video management dashboard displaying real-time status badges, duration, file sizes, and embed launcher.
+  - `06-embed-player-adaptive-playback.png`: Interactive `<VedoraPlayer />` modal demonstrating adaptive bitrate streaming via HLS.js.
+- Authored comprehensive walkthrough guide in `docs/assets/demo/README.md` with complete sequence diagram and local reproduction instructions.
+- Linked walkthrough gallery and updated test badges in `README.md`.
+
+#### Task 3.2: Automated Synthetic Video End-to-End Test Suite (`services/src/modules/transcoder/transcoder-live-e2e.spec.ts`)
+- Created automated synthetic E2E test suite generating 2-second 640x360 media with synchronized audio using FFmpeg `lavfi` (`testsrc` and `sine` filters).
+- Verified full pipeline without mocks:
+  - Redis queue dispatch (`vedora:transcode:queue`).
+  - Worker atomic claim via `RPOPLPUSH` (`vedora:transcode:processing`).
+  - Worker media metadata probing via `ffprobe`.
+  - HLS variant encoding and master manifest assembly via `ffmpeg`.
+  - Storage persistence of `master.m3u8`, variant playlists (`360p/index.m3u8`), and `.ts` media chunks.
+  - RFC 8216 tag validation (`#EXTM3U`, `#EXT-X-VERSION`, `#EXT-X-TARGETDURATION`, `#EXTINF`, `#EXT-X-ENDLIST`).
+  - Verified MPEG-TS sync byte `0x47` across all generated `.ts` chunks.
+  - Programmatically probed generated `.ts` segments using `ffprobe` to verify real playable H.264 video streams.
+  - Verified safe failure handling and error sanitization for corrupted inputs.
+
+#### Task 3.3: Canonical Architecture Deep-Dives (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)
+- **Cache Eviction & Anti-Rehydration Sequence (`### 3.1`)**: Mermaid sequence diagram detailing dual-invalidation of Level 1 LRU and Level 2 Redis caches before and after database revocation updates to prevent concurrent read rehydration.
+- **Atomic Storage Quota Enforcement (`### 6.1`)**: Mermaid sequence diagram illustrating PostgreSQL transaction advisory lock (`pg_advisory_xact_lock`), summing active storage + incoming reservation against `MAX_USER_STORAGE_CAP_BYTES` (500 GiB default), and serializing concurrent upload requests.
+- **Redis Worker Crash Recovery & Sweeper Sequence (`### 7.2`)**: Mermaid sequence diagram documenting atomic `RPOPLPUSH` claiming, worker crash simulation, heartbeat lease expiration, and `recoverStuckJobs` sweeper re-enqueuing.
+
+#### Task 3.4: Empirical Performance Benchmarks (`docs/BENCHMARKS.md`, `services/test/run-benchmark.ts`)
+- Implemented standalone benchmark harness (`services/test/run-benchmark.ts`) measuring real transcoding performance across standardized 10-second synthetic test clips on physical hardware (AMD Ryzen 5 5625U, 12 threads, 15.34 GB RAM).
+- Published genuine measured results in `docs/BENCHMARKS.md`:
+  - **Standard 360p SD Clip**: Transcoded in 1,118 ms (**8.94x real-time speed factor**).
+  - **Adaptive 720p HD Ladder**: 3 variant ladders (`720p`, `480p`, `360p`) transcoded in 4,563 ms (**2.19x real-time speed factor**).
+  - **Full Ladder 1080p FHD Ingestion**: 4 variant ladders (`1080p`, `720p`, `480p`, `360p`) transcoded in 8,681 ms (**1.15x real-time speed factor**).
+- Zero speculative or estimated metrics published.
+
+### 3. Empirical Verification Evidence
+- **Backend Test Suite (`npm --prefix services test`)**: 18 test suites passed, 161 tests passed (up from 158 tests / 17 suites).
+- **Backend Build (`npm --prefix services run build`)**: TypeScript compiled cleanly with exit code 0.
+- **TypeScript SDK Tests (`npm --prefix sdks/vedora-sdk test`)**: 1 suite passed, 3 tests passed.
+- **SDK Build (`npm --prefix sdks/vedora-sdk run build`)**: TypeScript compiled cleanly with exit code 0.
+- **Main Dashboard Build (`npm --prefix apps/main-dashboard run build`)**: All 15 routes compiled and prerendered cleanly with exit code 0.
+- **Landing Page Build (`npm --prefix apps/landing-page run build`)**: All 5 routes compiled and prerendered cleanly with exit code 0.
+- **Git Whitespace & Formatting (`git diff --check`)**: Passed with 0 whitespace errors or conflict markers.
+
+---
+
 ## 2026-10-30 — Incident Resolution: BUG-015 Stale Docker Image & Player Settings Subscriptions Query
 
 ### 1. Context & Incident Diagnosis
