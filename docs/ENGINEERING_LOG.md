@@ -1592,3 +1592,48 @@ Execute five targeted enhancements across the codebase:
 - **Landing Page Production Build**: 5 routes compiled and prerendered cleanly (`npm --prefix apps/landing-page run build`).
 - **Git Hygiene**: 0 whitespace errors or conflict markers (`git diff --check`).
 - **Strict Compliance**: Zero staged or committed files (`git add` and `git commit` withheld per user instructions).
+
+---
+
+## [2026-10-31] — Fix: Player Settings Transparent Control Bar Validation Rejection (BUG-017)
+
+- **Date**: 2026-10-31
+- **Component**: Backend / Player Settings & Main Dashboard
+- **Scope**: Resolved validation rejection when selecting the "Transparent" control bar background preset on `/player`.
+
+### 1. Context & Root Cause
+In `/player` (`apps/main-dashboard/app/player/page.tsx`), users can customize the player appearance and select from three control bar background presets:
+1. `Dark Glass (Default)` $\to$ `rgba(0, 0, 0, 0.7)`
+2. `Solid Black` $\to$ `#000000`
+3. `Transparent` $\to$ `transparent`
+
+When selecting the "Transparent" preset and saving, the backend rejected the request with HTTP 400 and the error toast:
+`Failed to save settings: controlBarBg must be a valid hex or rgb/rgba color string`.
+
+The root cause was that `UpdatePlayerSettingsDto.controlBarBg` in `services/src/modules/player-settings/dto/update-player-settings.dto.ts` used a restrictive regex `/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|rgba?\([\d\s,.]+\))$/`, which did not accept standard CSS `'transparent'` or 8-digit hex values (`#rrggbbaa`), despite the video player component natively supporting `'transparent'` via CSS `style={{ background: effectiveControlBarBg }}`.
+
+### 2. Actions Executed
+1. **DTO Validation Pattern Hardening (`services/src/modules/player-settings/dto/update-player-settings.dto.ts`)**:
+   - Expanded `@Matches` to `/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba?\([\d\s,.]+\)|transparent)$/i`.
+   - Updated validation error message: `'controlBarBg must be a valid hex, rgb/rgba, or transparent color string'`.
+   - Updated `@ApiPropertyOptional` description to note `'Hex, RGB/RGBA, or transparent background color for bottom control toolbar'`.
+2. **Frontend Helper Text Synchronization (`apps/main-dashboard/app/player/page.tsx`)**:
+   - Updated the subtitle under Control Bar Background to state `"Hex, rgba, or transparent background style for the player control bar."`.
+3. **OpenAPI Specification & DTO Documentation**:
+   - Regenerated `docs/openapi.json` via `npm --prefix services test -- swagger.spec.ts`.
+   - Updated `controlBarBg` entry in `docs/api-docs/SCHEMAS_AND_MODELS.md`.
+4. **Unit & Validation Tests (`services/src/modules/player-settings/player-settings.service.spec.ts`)**:
+   - Added unit test asserting `updateSettings` persists `'transparent'`.
+   - Added parameterized DTO validation test suite covering valid variants (`'transparent'`, `'TRANSPARENT'`, `'#000000'`, `'#fff'`, `'#00000000'`, `'rgba(0, 0, 0, 0.7)'`, `'rgb(255, 255, 255)'`) and invalid variants (`'not-a-color'`, `'transparent;'`, `'#12345'`, `'blue'`).
+5. **Bug Documentation**:
+   - Created `docs/bug-fixes/BUG-017-player-settings-transparent-control-bar-validation-rejection.md` and indexed in `docs/bug-fixes/README.md`.
+   - Updated test counts in `README.md` (now 240 Jest tests in `services`, 251 unit & integration tests across monorepo).
+
+### 3. Empirical Verification Evidence
+- `npm --prefix services test -- player-settings.service.spec.ts`: 20 tests passed across 1 suite.
+- `npm --prefix services test`: 240 tests passed across 20 suites.
+- `npm --prefix services run build`: Clean compilation (code 0).
+- `npm --prefix sdks/vedora-sdk test`: 11 tests passed across 5 suites.
+- `npm --prefix apps/main-dashboard run test:e2e`: 6 Playwright tests passed across 3 suites.
+- `npm --prefix apps/main-dashboard run build`: Clean Next.js build (15 routes generated).
+- `git diff --check`: 0 whitespace errors or conflict markers.

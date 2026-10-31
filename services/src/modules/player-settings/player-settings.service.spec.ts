@@ -4,6 +4,9 @@ import { PlayerSettingsService } from './player-settings.service';
 import { DRIZZLE_DB } from '../../database/database.module';
 import { StorageService } from '../../infra/storage/storage.service';
 import { ConfigService } from '@nestjs/config';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { UpdatePlayerSettingsDto } from './dto/update-player-settings.dto';
 
 describe('PlayerSettingsService', () => {
   let service: PlayerSettingsService;
@@ -90,6 +93,64 @@ describe('PlayerSettingsService', () => {
 
       expect(res.primary_color).toBe('#10b981');
       expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it('should update controlBarBg to transparent and return updated settings', async () => {
+      mockDb.returning.mockResolvedValueOnce([
+        { ...mockSettings, control_bar_bg: 'transparent' },
+      ]);
+
+      const res = await service.updateSettings('user_1', {
+        controlBarBg: 'transparent',
+      });
+
+      expect(res.control_bar_bg).toBe('transparent');
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.set).toHaveBeenCalledWith(
+        expect.objectContaining({ control_bar_bg: 'transparent' }),
+      );
+    });
+  });
+
+  describe('UpdatePlayerSettingsDto validation', () => {
+    it.each([
+      'transparent',
+      'TRANSPARENT',
+      '#000000',
+      '#fff',
+      '#00000000',
+      'rgba(0, 0, 0, 0.7)',
+      'rgb(255, 255, 255)',
+    ])('should accept valid controlBarBg: %s', async (color) => {
+      const dto = plainToInstance(UpdatePlayerSettingsDto, {
+        controlBarBg: color,
+      });
+      const errors = await validate(dto);
+      const controlBarBgErrors = errors.filter(
+        (e) => e.property === 'controlBarBg',
+      );
+      expect(controlBarBgErrors).toHaveLength(0);
+    });
+
+    it.each([
+      'not-a-color',
+      'transparent;',
+      '#12345',
+      'blue',
+    ])('should reject invalid controlBarBg: %s', async (color) => {
+      const dto = plainToInstance(UpdatePlayerSettingsDto, {
+        controlBarBg: color,
+      });
+      const errors = await validate(dto);
+      const controlBarBgError = errors.find(
+        (e) => e.property === 'controlBarBg',
+      );
+      expect(controlBarBgError).toBeDefined();
+      expect(
+        Object.values(controlBarBgError?.constraints || {})[0],
+      ).toBe(
+        'controlBarBg must be a valid hex, rgb/rgba, or transparent color string',
+      );
     });
   });
 

@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Unit & Integration Tests](https://img.shields.io/badge/Unit%20%26%20Integration-239%20passing%20(25%20suites)-brightgreen)](#-testing--verification)
+[![Unit & Integration Tests](https://img.shields.io/badge/Unit%20%26%20Integration-251%20passing%20(25%20suites)-brightgreen)](#-testing--verification)
 [![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-6%20passing%20(3%20suites)-blue)](#-testing--verification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -242,7 +242,7 @@ Once the backend is running (via Docker or Node), open the interactive Swagger U
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (228 tests across 20 suites)
+# 1. Backend unit & integration test suite (240 tests across 20 suites)
 cd services
 npm test
 
@@ -297,7 +297,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 🎬 **[End-to-End Walkthrough Demonstration (`docs/assets/demo/README.md`)](docs/assets/demo/README.md)**: Complete lifecycle walkthrough and gallery from presigned upload to Cloudflare R2 bucket storage and `<VedoraPlayer />` playback.
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
-- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-016).
+- 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-017).
 
 ---
 

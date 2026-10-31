@@ -219,7 +219,7 @@ export default function PlayerSettingsPage() {
               Control Bar Background
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Hex or rgba background style for the player control bar.
+              Hex, rgba, or transparent background style for the player control bar.
             </p>
             <input
               type="text"

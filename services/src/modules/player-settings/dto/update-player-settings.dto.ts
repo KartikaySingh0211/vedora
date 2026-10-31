@@ -24,14 +24,19 @@ export class UpdatePlayerSettingsDto {
   primaryColor?: string;
 
   @ApiPropertyOptional({
-    description: 'Hex or RGB/RGBA background color for bottom control toolbar',
+    description:
+      'Hex, RGB/RGBA, or transparent background color for bottom control toolbar',
     example: 'rgba(0, 0, 0, 0.7)',
   })
   @IsString()
   @IsOptional()
-  @Matches(/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|rgba?\([\d\s,.]+\))$/, {
-    message: 'controlBarBg must be a valid hex or rgb/rgba color string',
-  })
+  @Matches(
+    /^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba?\([\d\s,.]+\)|transparent)$/i,
+    {
+      message:
+        'controlBarBg must be a valid hex, rgb/rgba, or transparent color string',
+    },
+  )
   controlBarBg?: string;
 
   @ApiPropertyOptional({

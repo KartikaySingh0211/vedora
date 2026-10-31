@@ -218,7 +218,7 @@ Request body for customizing player branding:
 | Field | Type | Constraints | Example |
 | :--- | :--- | :--- | :--- |
 | `primaryColor` | `string` | Hex color code | `'#3b82f6'` |
-| `controlBarBg` | `string` | CSS color / rgba | `'rgba(0, 0, 0, 0.7)'` |
+| `controlBarBg` | `string` | Hex, RGB/RGBA, or `'transparent'` | `'rgba(0, 0, 0, 0.7)'` |
 | `playIconStyle` | `string` | `'default' \| 'glow' \| 'minimal'` | `'glow'` |
 | `watermarkUrl` | `string` | Valid URL | `'https://cdn.vedora.com/logos/brand.png'` |
 | `watermarkPosition` | `string` | `'top-left' \| 'top-right' \| 'bottom-left' \| 'bottom-right'` | `'bottom-right'` |
