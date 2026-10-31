@@ -72,6 +72,7 @@ export interface UploadOptions {
     signal?: AbortSignal;
     maxRetries?: number;
     duration?: number;
+    existingParts?: CompletedPart[];
 }
 export interface VedoraClientConfig {
     baseUrl?: string;

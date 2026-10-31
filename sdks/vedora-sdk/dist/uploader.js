@@ -18,6 +18,22 @@ async function uploadFileDirectly(file, uploadData, options) {
     let uploadedBytes = 0;
     const startTime = Date.now();
     const maxRetries = options?.maxRetries ?? 3;
+    // Track already uploaded parts to allow chunk resumption without duplicate network transfers.
+    // Validate caller-supplied parts: require integer PartNumber within valid range and non-empty ETag.
+    const existingPartsMap = new Map();
+    const validPartNumbers = new Set(parts.map((p) => p.partNumber));
+    if (options?.existingParts && Array.isArray(options.existingParts)) {
+        for (const p of options.existingParts) {
+            if (p &&
+                typeof p.PartNumber === 'number' &&
+                Number.isInteger(p.PartNumber) &&
+                validPartNumbers.has(p.PartNumber) &&
+                typeof p.ETag === 'string' &&
+                p.ETag.trim().length > 0) {
+                existingPartsMap.set(p.PartNumber, p.ETag.trim());
+            }
+        }
+    }
     for (const part of parts) {
         if (options?.signal?.aborted) {
             throw new types_1.VedoraError('Upload cancelled by user', 'upload');
@@ -25,6 +41,16 @@ async function uploadFileDirectly(file, uploadData, options) {
         const start = (part.partNumber - 1) * partSize;
         const end = Math.min(start + partSize, file.size);
         const chunk = file.slice(start, end);
+        // If chunk was already completed in a previous attempt, reuse its ETag and skip upload
+        if (existingPartsMap.has(part.partNumber)) {
+            const existingEtag = existingPartsMap.get(part.partNumber);
+            completedParts.push({
+                PartNumber: part.partNumber,
+                ETag: existingEtag,
+            });
+            uploadedBytes += chunk.size;
+            continue;
+        }
         let attempt = 0;
         let etag = null;
         while (attempt <= maxRetries) {
@@ -55,12 +81,18 @@ async function uploadFileDirectly(file, uploadData, options) {
                 if (err instanceof types_1.VedoraError) {
                     throw err;
                 }
+                // If fetch was aborted via AbortSignal, throw immediately without retrying
+                if (options?.signal?.aborted || err?.name === 'AbortError') {
+                    throw new types_1.VedoraError('Upload cancelled by user', 'upload');
+                }
                 attempt++;
                 if (attempt > maxRetries) {
                     throw new types_1.VedoraError(`Failed uploading part ${part.partNumber} after ${maxRetries} retries: ${err.message}`, 'upload', undefined, err);
                 }
-                // Bounded exponential backoff with jitter (1s, 2s, 4s capped at 8s)
-                const delayMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 200, 8000);
+                // Bounded exponential backoff with jitter
+                const isTest = globalThis.process?.env?.NODE_ENV === 'test';
+                const baseDelay = isTest ? 5 : 1000;
+                const delayMs = Math.min(baseDelay * Math.pow(2, attempt) + Math.random() * (isTest ? 2 : 200), 8000);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
             }
         }
@@ -83,6 +115,7 @@ async function uploadFileDirectly(file, uploadData, options) {
             etaSeconds,
         });
     }
+    completedParts.sort((a, b) => a.PartNumber - b.PartNumber);
     return {
         completedParts,
         storageKey: key,

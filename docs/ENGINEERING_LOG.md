@@ -4,7 +4,46 @@
 
 ---
 
-## Run 1: End-to-End Core Infrastructure & Implementation (Phases 0–5)
+## Engineering Ownership: Human Decisions and AI-Assisted Implementation
+
+To maintain absolute technical integrity and transparent auditability across this codebase, this section documents the division of labor between human architectural leadership and agentic AI execution throughout the engineering lifecycle of Vedora.
+
+### 1. Human Architectural Mandates vs. AI-Assisted Implementation
+
+| Engineering Focus | Human Architectural Direction & Decisions | AI Agent Implementation & Generation |
+| :--- | :--- | :--- |
+| **Worker Process Decoupling (Phase 4)** | Mandated the physical separation of the background video transcoder into a dedicated headless worker process (`run-transcoder.ts`) decoupled from the NestJS web API gateway, ensuring FFmpeg CPU saturation cannot stall HTTP endpoints or health checks. | Implemented the CLI runner bootstrap, signal trap hooks (`SIGTERM`, `SIGINT`), Nest application context lifecycle, and mock test harnesses. |
+| **Monotonic Database Fencing & Owner Tokens** | Mandated strict 3-predicate database fencing (`id = targetId`, `attempt = targetAttempt`, `status = 'processing'`) and atomic owner tokens in PostgreSQL to prevent split-brain workers from corrupting state or overwriting `ready` videos after Redis lease expiration. | Synthesized Drizzle query predicates, conditional update expressions, and unit test scenarios for worker rejection and fence-out logging. |
+| **Advisory Lock Quota Enforcement** | Mandated PostgreSQL transaction-level advisory locks (`pg_advisory_xact_lock`) to atomically serialize quota reservations against race conditions during concurrent chunked uploads. | Implemented the lock acquisition wrapper, deterministic BigInt hash key derivations (`CACHE_KEYS`), and quota calculation queries. |
+| **BUG-016 Static Linux FFprobe Diagnosis** | Human engineer diagnosed that the Ubuntu CI test failure was an ABI mismatch in the `@ffprobe-installer` static binary (SIGSEGV when probing generated MPEG-TS segments on Linux x64 runners), directing dynamic fallback to system binaries. | Implemented path resolution fallback order (`SYSTEM_FFPROBE_PATH` $\to$ system `PATH` discovery $\to$ `@ffprobe-installer`) and updated Dockerfile and CI configurations. |
+| **De-Monetization & Safeguard Architecture** | Mandated the complete elimination of Stripe webhooks, commercial payment walls, and mock subscription tiers in favor of 100% open-source software with technical safeguards (500 GiB user cap, 10 GiB file limit, 1080p open ceiling). | Refactored schemas, pruned unused billing controllers and frontend routes, and updated telemetry aggregations. |
+| **H.264 Level Calculation (ITU-T Annex A)** | Directed the removal of hardcoded `-level 3.1` (which violates ITU-T specifications for 1080p60 by over 4.5×) in favor of dynamic macroblock-per-second (`MaxMBPS`) and frame-size (`MaxFS`) calculation. | Implemented `H264_LEVEL_LIMITS` table, `resolveH264ProfileAndLevel` function, and RFC 6381 `avc1` hex codec string generator. |
+
+### 2. Critical Flaws Caught by the Human Engineer that the Agent Missed
+
+1. **The FFprobe Static Linux Architecture Mismatch (BUG-016)**:
+   - *Agent Assumption*: The AI assumed the test failure was caused by invalid synthetic test media arguments or corrupt raw byte buffers in Jest.
+   - *Human Insight*: The human engineer identified the underlying SIGSEGV as a static binary ELF / kernel ABI issue specific to the precompiled `@ffprobe-installer` package on Linux runners, instructing a resilient discovery sequence.
+2. **False-Positive Concurrency Test Passes**:
+   - *Agent Assumption*: The AI considered transcode worker fencing complete based on an initial in-memory Redis check.
+   - *Human Insight*: The human engineer exposed that if Worker A lost its Redis lease and Worker B acquired it, Worker A could still execute a late `markVideoFailed()` and overwrite the database. The human mandated atomic PostgreSQL owner token enforcement.
+3. **Telemetry Rate-Limit & Denial-of-Service Risk**:
+   - *Agent Assumption*: High-frequency segment pings (`POST /analytics/segment-ping`) were initially exposed without IP rate limits or payload length bounds.
+   - *Human Insight*: The human engineer required robust rate limiting via `@nestjs/throttler`, custom client IP sanitization behind reverse proxies (NAT-aware), and strict `@MaxLength(128)` constraints to prevent hash-table memory exhaustion.
+4. **Test Suite Counting Drift**:
+   - *Agent Assumption*: Outdated documentation claimed 161 tests across 18 suites without reconciling actual runner outputs.
+   - *Human Insight*: The human engineer ordered a strict empirical test audit across Jest, Node test runner, and Playwright, establishing exact verified counts without phantom suites.
+
+### 3. Human-Agent Collaboration Methodology
+
+- **Direction**: The human engineer defines system invariants, fault domains, threat models, and architectural boundaries.
+- **Synthesis & Scaffold**: The AI agent rapidly implements typed schemas, controllers, frontend layouts, mathematical specifications, and unit tests.
+- **Adversarial Verification**: The human engineer challenges implementations with hostile edge cases (split-brain workers, lost locks, process crashes, replay attacks).
+- **Empirical Grounding**: No change is committed or claimed without live command execution, verbatim log capture, and passing test suites.
+
+---
+
+## [2026-10-20] — End-to-End Core Infrastructure & Implementation (Phases 0–5)
 
 - **Date**: 2026-10-20
 - **Author**: Antigravity IDE (Gemini 3.8 Flash)
@@ -273,7 +312,7 @@ Execute comprehensive regression testing, static analysis, type checking, and pr
 
 ---
 
-## 2. Summary of Verification Test Suite
+### Summary of Verification Test Suite
 
 ```text
 PASS src/utils/api-key.util.spec.ts
@@ -336,7 +375,7 @@ Snapshots:   0 total
 
 ---
 
-## 3. Cycle 1 Release, Monorepo Git Hygiene & Remote Synchronization
+### Cycle 1 Release, Monorepo Git Hygiene & Remote Synchronization
 
 #### Context & Objective
 Prepare the codebase for remote publication to `https://github.com/KartikaySingh0211/vedora.git` representing Cycle 1 of development. Establish ironclad git hygiene to prevent accidental leak of sensitive credentials, environment files, build artifacts, and dependency trees.
@@ -362,7 +401,7 @@ Prepare the codebase for remote publication to `https://github.com/KartikaySingh
 
 ---
 
-## Run 2: Video Infrastructure, Direct-to-Cloud Ingestion, Plan Quotas & TypeScript SDK (Part 2)
+## [2026-10-20] — Video Infrastructure, Direct-to-Cloud Ingestion, Plan Quotas & TypeScript SDK
 
 - **Date**: 2026-10-20
 - **Author**: Antigravity IDE (Gemini 3.8 Flash)
@@ -521,7 +560,7 @@ POST /api/v1/videos/init (VDR_) ➔ 401 Unauthorized (Invalid or revoked API key
 
 ---
 
-## Run 3: Cycle 3 Implementation — Transcoding, HLS Player, Analytics & Billing
+## [2026-10-20] — Cycle 3: Transcoding, HLS Player, Analytics & Billing
 
 **Execution Date**: 2026-10-20  
 **Phase Target**: Video Transcoding, Rendition Ladders, Standalone Embeddable Player, Segment-Level Analytics Telemetry, Custom Player Settings, and Subscription Billing Engine.
@@ -671,7 +710,7 @@ apps/landing-page:   0 errors, 0 warnings
 
 ---
 
-## Run 2: Safe Modularity, Code Reusability & Frontend Component Architecture
+## [2026-10-27] — Safe Modularity, Code Reusability & Frontend Component Architecture
 
 - **Date**: 2026-10-27
 - **Author**: Antigravity IDE (Senior Staff Software Engineer)
@@ -784,7 +823,7 @@ apps/landing-page:   Compiled successfully via next build Turbopack (5 static & 
 
 ---
 
-## [2026-10-27] — Run #10: Complete Swagger / OpenAPI 3.0 Documentation & Developer API Docs Hub
+## [2026-10-27] — Complete Swagger / OpenAPI 3.0 Documentation & Developer API Docs Hub
 
 ### 1. Problem Statement & Audit
 Prior to this run, the Vedora backend exposed a Swagger UI interface at `/api/docs`, but endpoints suffered from severe documentation drift:
@@ -856,7 +895,7 @@ services:            Compiled successfully via nest build (dist/main.js)
 
 ---
 
-## [2026-10-28 / 2026-10-29] — Run #11: Cloudflare R2 Migration, Non-Blocking Background Upload Queue, and Automatic Adaptive Rendition Ladder (Option A)
+## [2026-10-28 / 2026-10-29] — Cloudflare R2 Migration, Non-Blocking Background Upload Queue & Automatic Adaptive Rendition Ladder
 
 ### 1. Problem Statement & Audit
 Following initial video ingestion and transcode development:
@@ -947,7 +986,7 @@ All objects retrieved and verified via GetObject/HeadObject; cleaned up afterwar
 
 ---
 
-## [2026-10-29] - Run #12: Mandatory Pre-Commit Documentation Update Rule & Workspace Assistant Policy
+## [2026-10-29] — Mandatory Pre-Commit Documentation Update Rule & Workspace Assistant Policy
 
 ### 1. Context & User Directive
 To ensure zero documentation drift across the lifetime of the Vedora project, the user established a strict development rule:
@@ -975,7 +1014,7 @@ To ensure zero documentation drift across the lifetime of the Vedora project, th
 
 ---
 
-## [2026-10-29] - Run #13: Replaced Static Dashboard Mock Data with Live Telemetry, Quota & Video Storage Aggregations
+## [2026-10-29] — Live Telemetry, Quota & Video Storage Aggregations Replacement
 
 ### 1. Context & User Directive
 The user reported:
@@ -1017,7 +1056,7 @@ The user reported:
 
 ---
 
-## 2026-10-29: Open-Source De-Monetization, Audit Remediation & Infrastructure Hardening
+## [2026-10-29] — Open-Source De-Monetization, Audit Remediation & Infrastructure Hardening
 
 ### 1. Context & Motivation
 1. **Transition to 100% Open-Source MIT Architecture**: Vedora transitioned into a non-monetized, zero-vendor-cost open-source platform. All Stripe dependencies, subscription tables, commercial tiers, and billing UIs were eliminated and replaced with robust, server-enforced technical safeguards.
@@ -1089,7 +1128,7 @@ The user reported:
 
 ---
 
-## 2026-10-30: AI Subtitle Roadmap References Removal & Documentation Synchronization
+## [2026-10-30] — AI Subtitle Roadmap References Removal & Documentation Synchronization
 
 ### 1. Context & Motivation
 Following the removal of billing and subscriptions in favor of a 100% open-source architecture, a comprehensive audit identified legacy and aspirational references to Whisper AI, automated subtitle generation, and transcription pipelines across the landing page, dashboard, README, and API documentation. Because AI transcription is not implemented in the codebase, these references created misleading claims about platform capabilities.
@@ -1135,7 +1174,7 @@ Following the removal of billing and subscriptions in favor of a 100% open-sourc
 
 ---
 
-## 2026-10-30: Phase 1 & Phase 2 Stabilization Hardening, CI/CD Pipeline & Documentation Reconcile
+## [2026-10-30] — Phase 1 & Phase 2 Stabilization Hardening, CI/CD Pipeline & Documentation Reconcile
 
 ### 1. Context & Motivation
 Following the stabilization roadmap outlined in `docs/STABILIZATION_ROADMAP.md`, Phase 1 and Phase 2 focused on hardening critical backend infrastructure (transcoder webhooks, queue recovery, mock removal) and establishing repository credibility through automated CI/CD workflows and synchronized documentation.
@@ -1390,7 +1429,7 @@ Following the approved Phase 4 roadmap (`docs/STABILIZATION_ROADMAP.md` and `doc
 
 ---
 
-## Run 14: Phase 4 Implementation Audit Remediation (P0.1, P0.2, P1.1, P1.2, P2)
+## [2026-10-30] — Phase 4 Implementation Audit Remediation (P0.1, P0.2, P1.1, P1.2, P2)
 
 - **Date**: 2026-10-30
 - **Scope**: Rigorous remediation of all findings from the Phase 4 architecture audit across failure fencing, graceful shutdown queue recovery, concurrent sweeper races, and continuous lock ownership verification.
@@ -1427,7 +1466,7 @@ Following the approved Phase 4 roadmap (`docs/STABILIZATION_ROADMAP.md` and `doc
 
 ---
 
-## Run 15: Phase 4 Mandatory Owner-Token Enforcement & Concurrency Hardening
+## [2026-10-31] — Phase 4 Mandatory Owner-Token Enforcement & Concurrency Hardening
 
 - **Date**: 2026-10-31
 - **Scope**: Final code-level audit and adversarial concurrency review of Phase 4 addressing mandatory owner-token enforcement, the Redis/PostgreSQL ownership transition race, `active_job_id` semantic harmonization, and accurate Redis recovery claims.
@@ -1463,3 +1502,93 @@ Following the approved Phase 4 roadmap (`docs/STABILIZATION_ROADMAP.md` and `doc
 - **Services TypeScript Build**: Clean compilation with exit code 0 (`npm --prefix services run build`).
 - **SDK Test Suite**: 3 tests passed in 142ms (`npm --prefix sdks/vedora-sdk test`).
 - **Git Diff Hygiene**: 0 whitespace errors or conflict markers (`git diff --check`).
+
+
+---
+
+## [2026-10-31] — Final Quality, Security & Testing Improvements
+
+- **Date**: 2026-10-31
+- **Scope**: Final stabilization, quality, security, and verification pass across services, TypeScript SDK, and main dashboard without architectural disruptions or database migrations.
+
+### 1. Context & Objectives
+Execute five targeted enhancements across the codebase:
+1. Verify and reconcile repository test counts across Jest, Node test runner, and Playwright.
+2. Production security hardening: HTTP security headers (`helmet`) and global rate limiting (`@nestjs/throttler`) with endpoint-specific protections for high-frequency telemetry and CPU-intensive operations.
+3. H.264 video codec level selection matching ITU-T H.264 Annex A Table A-1 specifications and dynamic RFC 6381 `CODECS` strings in HLS master playlists.
+4. SDK direct upload resilience (retries, aborts, chunk resumes) and Playwright E2E coverage for the main user journey.
+5. Documentation harmonization and ledger cleanup.
+
+### 2. Actions Executed
+
+#### Task 1: Test Count Audit & Reconciled Totals
+- **Audit Findings**:
+  - `services/`: Jest runner executes 20 suites, 228 unit and integration tests (100% passing).
+  - `sdks/vedora-sdk/`: Node test runner (`node --test`) executes 5 suites across 2 test files, 11 tests (100% passing).
+  - `apps/main-dashboard/`: 3 Playwright E2E test suites (files), 6 tests (100% passing).
+  - `apps/landing-page/`: 0 test files; build verified via `next build` (5 static/dynamic routes).
+- **README Synchronization**: Replaced outdated badge `161 passing (18 suites)` with dedicated badges: `Unit & Integration: 239 passing (25 suites)` and `Playwright E2E: 6 passing (3 suites)` for total monorepo automated test execution of 245 tests.
+
+#### Task 2: Production Security Hardening (Helmet & Throttler)
+- **Helmet HTTP Headers (`services/src/main.ts`)**:
+  - Integrated `helmet` with custom configuration tailored to media delivery:
+    - `crossOriginResourcePolicy: { policy: 'cross-origin' }`: Allows web applications, iframes, and media players on other origins to fetch HLS manifests (`master.m3u8`, `index.m3u8`) and `.ts` media segments without CORS/CORP blocking.
+    - `contentSecurityPolicy: false`: Preserves Swagger UI inline styles, script bundles, and schema graphs at `/api/docs`.
+- **Global & Endpoint Rate Limiting (`@nestjs/throttler`)**:
+  - Integrated `ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 120 }])` in `services/src/app.module.ts`.
+  - Created `AppThrottlerGuard` (`services/src/guards/app-throttler.guard.ts`):
+    - Authenticated users are tracked by stable user ID (`user:${id}`).
+    - Public requests track client IP (`ip:${rawIp}`) extracted from `req.ip` or the rightmost trusted proxy hop, preventing spoofed `x-forwarded-for` header injection.
+  - Hardened `POST /analytics/segment-ping` with `@Throttle({ default: { limit: 180, ttl: 60000 } })`:
+    - Allows up to 30 concurrent video viewers sharing a NAT/office IP sending 1 ping per 10 seconds.
+    - Mitigates ping-flood memory attacks.
+  - Strengthened `SegmentPingDto` with `@MaxLength(128)` on `sessionId`.
+  - Protected `POST /api/v1/api-keys` and regenerate mutations with `@Throttle({ default: { limit: 15, ttl: 60000 } })` to protect against Argon2id CPU exhaustion.
+  - Enhanced `AllExceptionsFilter` to preserve `exception.name` for string-based NestJS `HttpException` payloads (e.g. `ThrottlerException`).
+  - Created dedicated security test suite `services/src/security/security-rate-limit.spec.ts` (12 tests passing).
+
+#### Task 3: Spec-Compliant H.264 Level Selection (ITU-T Annex A) & RFC 6381 Codec Strings
+- **Problem & Root Cause**: `FfmpegService` previously hardcoded `-level 3.1` across all outputs. Under ITU-T Rec. H.264 Table A-1:
+  - Level 3.1 limits: MaxMBPS = 108,000, MaxFS = 3,600.
+  - A 1080p @ 60fps stream requires: MaxMBPS = 489,600, MaxFS = 8,160 (>4.5× over Level 3.1 limit).
+  - Master manifests hardcoded `CODECS="avc1.4d401f,mp4a.40.2"` (Level 3.1) even for 1080p streams.
+- **Implementation (`services/src/modules/transcoder/ffmpeg.service.ts`)**:
+  - Codified ITU-T Annex A limits in `H264_LEVEL_LIMITS` across Levels 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, and 5.2, including standard MaxBR bitrate limits (20 Mbps for Level 4.0; 50 Mbps for Level 4.1).
+  - Implemented `resolveH264ProfileAndLevel(width, height, fps, profile, targetBitrateKbps)`:
+    - Calculates macroblocks per frame: `ceil(w/16) * ceil(h/16)`.
+    - Calculates macroblocks per second: `mb * fps`.
+    - Evaluates bitrate limit (`targetBitrateKbps <= entry.maxBitrateKbps`).
+    - Resolves exact ITU-T level:
+      - 360p/480p/720p @ 30fps $\to$ Level 3.1 (`avc1.4d401f`)
+      - 720p @ 60fps $\to$ Level 3.2 (`avc1.4d4020`)
+      - 1080p @ 30fps @ 5 Mbps $\to$ Level 4.0 (`avc1.4d4028`) as minimal conforming level
+      - 1080p @ 30fps @ >20 Mbps $\to$ Level 4.1 (`avc1.4d4029`) due to MaxBR constraint
+      - 1080p @ 60fps $\to$ Level 4.2 (`avc1.4d402a`)
+      - 1080p @ 60fps High profile $\to$ Level 4.2 (`avc1.64002a`)
+  - Updated `transcodeToHls` and `buildMasterPlaylistContent` to pass dynamic `-level`, `-profile:v`, and calculate dynamic `CODECS` per ladder rendition.
+  - Added unit and multi-ladder regression tests in `services/src/modules/transcoder/ffmpeg.service.spec.ts` (38 tests passing).
+
+#### Task 4: SDK Reliability & Playwright E2E Integration
+- **TypeScript SDK (`sdks/vedora-sdk`)**:
+  - Added `existingParts?: CompletedPart[]` to `UploadOptions` in `types.ts`.
+  - Updated `uploader.ts` to validate caller-supplied `existingParts` (requires positive integer `PartNumber` within bounds and non-empty `ETag`), sorting completed parts monotonically before finalization.
+  - Layer 2 Storage Provider Defense: Documented and verified that Cloudflare R2 / S3 `CompleteMultipartUploadCommand` server-side atomically checks all parts and ETags, rejecting incomplete or unuploaded chunks with `InvalidPart` (HTTP 400).
+  - Handled `AbortError` cleanly: aborts in-progress chunk uploads immediately without retrying.
+  - Created test suite `sdks/vedora-sdk/test/uploader.test.ts` (8 tests covering retries, abort, resume, and malformed part rejection).
+- **Playwright E2E (`apps/main-dashboard`)**:
+  - Configured `@playwright/test` in `apps/main-dashboard/playwright.config.ts`.
+  - Hardened `apps/main-dashboard/proxy.ts`: strictly restricts test auth bypass to local loopback hosts (`127.0.0.1`/`localhost`), rejects bypass in production deployments (`VERCEL_ENV === 'production'`), and requires `x-playwright-auth: test-runner` header. Public `/embed/*` remains accessible for external iframe embeds.
+  - Created `apps/main-dashboard/e2e/smoke.spec.ts` (3 UI smoke tests verifying Upload Studio UI, Embed Player, and Player Settings).
+  - Created `apps/main-dashboard/e2e/user-journey.spec.ts` (frontend mock E2E verifying open app $\to$ upload video $\to$ queue telemetry $\to$ embed HLS player playback).
+  - Clarified that genuine video pipeline E2E testing (FFmpeg encoding, Redis dispatch, MPEG-TS sync bytes) is executed by `services/src/modules/transcoder/transcoder-live-e2e.spec.ts`.
+
+### 3. Verification Evidence
+- **Services Test Suite**: 20 suites passed, 228 tests passed in 14.49s (`npm --prefix services test`).
+- **Services TypeScript Build**: Clean compilation with exit code 0 (`npm --prefix services run build`).
+- **SDK Test Suite**: 5 suites passed, 11 tests passed in 278ms (`npm --prefix sdks/vedora-sdk test`).
+- **SDK TypeScript Build**: Clean compilation with exit code 0 (`npm --prefix sdks/vedora-sdk run build`).
+- **Dashboard Playwright E2E**: 3 suites passed, 6 tests passed in 7.2s (`npm --prefix apps/main-dashboard run test:e2e`).
+- **Dashboard Production Build**: 15 routes compiled and prerendered cleanly in 4.1s (`npm --prefix apps/main-dashboard run build`).
+- **Landing Page Production Build**: 5 routes compiled and prerendered cleanly (`npm --prefix apps/landing-page run build`).
+- **Git Hygiene**: 0 whitespace errors or conflict markers (`git diff --check`).
+- **Strict Compliance**: Zero staged or committed files (`git add` and `git commit` withheld per user instructions).

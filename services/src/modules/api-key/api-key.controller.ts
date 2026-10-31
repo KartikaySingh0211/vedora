@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -61,6 +62,7 @@ export class ApiKeyController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @ApiOperation({
     summary: 'Generate a new API key',
     description:
@@ -81,6 +83,7 @@ export class ApiKeyController {
   }
 
   @Post(':id/regenerate')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @ApiOperation({
     summary: 'Revoke and regenerate an API key',
     description:

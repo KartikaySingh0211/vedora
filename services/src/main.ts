@@ -3,11 +3,22 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AllExceptionsFilter } from './utils/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const configService = app.get(ConfigService);
+
+  // Security HTTP Headers (Helmet)
+  // crossOriginResourcePolicy: 'cross-origin' is required for cross-origin HLS streaming and iframe video embeds.
+  // contentSecurityPolicy: false ensures Swagger UI (/api/docs) and embed components load without script/style blocking.
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: false,
+    }),
+  );
 
   // Global exception filter for secure error masking and logging
   app.useGlobalFilters(new AllExceptionsFilter());

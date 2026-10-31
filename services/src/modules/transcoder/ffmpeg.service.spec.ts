@@ -448,6 +448,79 @@ describe('FfmpegService', () => {
       });
     });
 
+    describe('Resolution and Frame-Rate Aware H.264 Level Selection', () => {
+      it('should select Level 3.1 (avc1.4d401f) for 360p, 480p, and 720p at 30 FPS', () => {
+        const l360 = service.resolveH264ProfileAndLevel(640, 360, 30, 'main');
+        expect(l360.level).toBe('3.1');
+        expect(l360.levelIdc).toBe(31);
+        expect(l360.levelHex).toBe('1f');
+        expect(l360.avcCodecString).toBe('avc1.4d401f');
+
+        const l480 = service.resolveH264ProfileAndLevel(854, 480, 30, 'main');
+        expect(l480.level).toBe('3.1');
+        expect(l480.levelHex).toBe('1f');
+        expect(l480.avcCodecString).toBe('avc1.4d401f');
+
+        const l720 = service.resolveH264ProfileAndLevel(1280, 720, 30, 'main');
+        expect(l720.level).toBe('3.1');
+        expect(l720.macroblocksPerSecond).toBe(108000);
+        expect(l720.avcCodecString).toBe('avc1.4d401f');
+      });
+
+      it('should select Level 3.2 (avc1.4d4020) for 720p at 60 FPS due to MaxMBPS exceeding Level 3.1', () => {
+        const l720_60 = service.resolveH264ProfileAndLevel(1280, 720, 60, 'main');
+        expect(l720_60.level).toBe('3.2');
+        expect(l720_60.levelIdc).toBe(32);
+        expect(l720_60.levelHex).toBe('20');
+        expect(l720_60.macroblocksPerSecond).toBe(216000);
+        expect(l720_60.avcCodecString).toBe('avc1.4d4020');
+      });
+
+      it('should select Level 4.0 (avc1.4d4028) for 1080p at 30 FPS conforming to MaxFS and MaxMBPS', () => {
+        const l1080_30 = service.resolveH264ProfileAndLevel(1920, 1080, 30, 'main');
+        expect(l1080_30.level).toBe('4.0');
+        expect(l1080_30.levelIdc).toBe(40);
+        expect(l1080_30.levelHex).toBe('28');
+        expect(l1080_30.macroblocksPerFrame).toBe(8160);
+        expect(l1080_30.macroblocksPerSecond).toBe(244800);
+        expect(l1080_30.avcCodecString).toBe('avc1.4d4028');
+      });
+
+      it('should select Level 4.0 for 1080p@30 at 5 Mbps and Level 4.1 when bitrate exceeds 20 Mbps limit', () => {
+        const standardBitrate = service.resolveH264ProfileAndLevel(1920, 1080, 30, 'main', 5000);
+        expect(standardBitrate.level).toBe('4.0');
+        expect(standardBitrate.avcCodecString).toBe('avc1.4d4028');
+
+        const highBitrate = service.resolveH264ProfileAndLevel(1920, 1080, 30, 'main', 25000);
+        expect(highBitrate.level).toBe('4.1');
+        expect(highBitrate.avcCodecString).toBe('avc1.4d4029');
+      });
+
+      it('should select Level 4.2 (avc1.4d402a) for 1080p at 60 FPS because MBPS exceeds Level 4.1 limit', () => {
+        const l1080_60 = service.resolveH264ProfileAndLevel(1920, 1080, 60, 'main');
+        expect(l1080_60.level).toBe('4.2');
+        expect(l1080_60.levelIdc).toBe(42);
+        expect(l1080_60.levelHex).toBe('2a');
+        expect(l1080_60.macroblocksPerSecond).toBe(489600);
+        expect(l1080_60.avcCodecString).toBe('avc1.4d402a');
+      });
+
+      it('should generate correct CODECS attribute for High Profile (avc1.64002a)', () => {
+        const l1080_high = service.resolveH264ProfileAndLevel(1920, 1080, 60, 'high');
+        expect(l1080_high.profile).toBe('high');
+        expect(l1080_high.profileHex).toBe('64');
+        expect(l1080_high.constraintHex).toBe('00');
+        expect(l1080_high.avcCodecString).toBe('avc1.64002a');
+      });
+
+      it('should reject non-positive or invalid encoding configurations', () => {
+        expect(() => service.resolveH264ProfileAndLevel(0, 1080, 30)).toThrow('Invalid encoding parameters');
+        expect(() => service.resolveH264ProfileAndLevel(1920, -5, 30)).toThrow('Invalid encoding parameters');
+        expect(() => service.resolveH264ProfileAndLevel(1920, 1080, 0)).toThrow('Invalid encoding parameters');
+        expect(() => service.resolveH264ProfileAndLevel(NaN, 1080, 30)).toThrow('Invalid encoding parameters');
+      });
+    });
+
     describe('Master Playlist CODECS attribute compliance (RFC 8216)', () => {
       it('should include avc1.4d401f and mp4a.40.2 codecs when audio is present', () => {
         const renditions = service.selectRenditions(probe720p, ['360p']);
@@ -463,6 +536,33 @@ describe('FfmpegService', () => {
 
         expect(manifest).toContain('CODECS="avc1.4d401f"');
         expect(manifest).not.toContain('mp4a.40.2');
+      });
+
+      it('should generate distinct codec levels per rendition in a multi-rate ladder', () => {
+        const multiLadder = [
+          {
+            name: '1080p',
+            width: 1920,
+            height: 1080,
+            videoBitrateKbps: 5000,
+            audioBitrateKbps: 192,
+            fps: 60,
+            segmentDurationSec: 4,
+          },
+          {
+            name: '720p',
+            width: 1280,
+            height: 720,
+            videoBitrateKbps: 2800,
+            audioBitrateKbps: 128,
+            fps: 30,
+            segmentDurationSec: 4,
+          },
+        ];
+
+        const manifest = service.buildMasterPlaylistContent(multiLadder, true);
+        expect(manifest).toContain('RESOLUTION=1920x1080,FRAME-RATE=60,CODECS="avc1.4d402a,mp4a.40.2"');
+        expect(manifest).toContain('RESOLUTION=1280x720,FRAME-RATE=30,CODECS="avc1.4d401f,mp4a.40.2"');
       });
     });
   });

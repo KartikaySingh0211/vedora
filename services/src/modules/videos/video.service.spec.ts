@@ -213,6 +213,51 @@ describe('VideoService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should reject when duplicate part numbers are provided in completeVideo', async () => {
+      mockTx.where.mockResolvedValueOnce([sampleDbVideo]);
+
+      await expect(
+        service.completeVideo('user_1', {
+          videoId: 'vid-uuid-1',
+          storageKey: 'raw/bucket/test.mp4',
+          duration: 120,
+          parts: [
+            { PartNumber: 1, ETag: 'etag1' },
+            { PartNumber: 1, ETag: 'etag2' },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject when a part has an empty or invalid ETag', async () => {
+      mockTx.where.mockResolvedValueOnce([sampleDbVideo]);
+
+      await expect(
+        service.completeVideo('user_1', {
+          videoId: 'vid-uuid-1',
+          storageKey: 'raw/bucket/test.mp4',
+          duration: 120,
+          parts: [{ PartNumber: 1, ETag: '   ' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject and abort when storageService.completeMultipartUpload fails', async () => {
+      mockTx.where.mockResolvedValueOnce([sampleDbVideo]);
+      mockStorageService.completeMultipartUpload.mockRejectedValueOnce(
+        new Error('Cloudflare R2 multipart completion failed: InvalidPart'),
+      );
+
+      await expect(
+        service.completeVideo('user_1', {
+          videoId: 'vid-uuid-1',
+          storageKey: 'raw/bucket/test.mp4',
+          duration: 120,
+          parts: [{ PartNumber: 1, ETag: 'etag1' }],
+        }),
+      ).rejects.toThrow('Cloudflare R2 multipart completion failed');
+    });
+
     it('should update video to uploaded status and atomically increment playlist count', async () => {
       mockTx.where.mockResolvedValueOnce([sampleDbVideo]);
       const updatedDbVideo = {

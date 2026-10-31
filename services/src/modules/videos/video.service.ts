@@ -299,8 +299,30 @@ export class VideoService {
         );
       }
 
-      // 4. Notify storage provider of completion
+      // 4. Validate multipart parts and notify storage provider
       if (videoRecord.bucket_id && videoRecord.storage_key) {
+        if (dto.parts && dto.parts.length > 0) {
+          const seenPartNumbers = new Set<number>();
+          for (const p of dto.parts) {
+            if (!p || typeof p.PartNumber !== 'number' || p.PartNumber < 1) {
+              throw new BadRequestException(
+                `Invalid part number ${p?.PartNumber}: part numbers must be positive integers`,
+              );
+            }
+            if (!p.ETag || typeof p.ETag !== 'string' || !p.ETag.trim()) {
+              throw new BadRequestException(
+                `Missing or empty ETag for part number ${p.PartNumber}`,
+              );
+            }
+            if (seenPartNumbers.has(p.PartNumber)) {
+              throw new BadRequestException(
+                `Duplicate part number detected: ${p.PartNumber}`,
+              );
+            }
+            seenPartNumbers.add(p.PartNumber);
+          }
+        }
+
         await this.storageService.completeMultipartUpload(
           videoRecord.bucket_id,
           dto.uploadId || 'vdr_obj_verified',

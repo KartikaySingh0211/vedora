@@ -10,7 +10,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
 [![Redis](https://img.shields.io/badge/Redis-7%20Alpine-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Tests](https://img.shields.io/badge/Tests-161%20passing%20(18%20suites)-brightgreen)](docs/FFmpeg/README.md)
+[![Unit & Integration Tests](https://img.shields.io/badge/Unit%20%26%20Integration-239%20passing%20(25%20suites)-brightgreen)](#-testing--verification)
+[![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-6%20passing%20(3%20suites)-blue)](#-testing--verification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -241,23 +242,26 @@ Once the backend is running (via Docker or Node), open the interactive Swagger U
 Run tests, typechecks, and builds across all workspaces:
 
 ```bash
-# 1. Backend unit & integration test suite (161 tests across 18 suites)
+# 1. Backend unit & integration test suite (228 tests across 20 suites)
 cd services
 npm test
 
 # 2. Backend TypeScript compilation
 npm run build
 
-# 3. TypeScript SDK test suite
+# 3. TypeScript SDK test suite (11 tests across 5 suites)
 cd ../sdks/vedora-sdk
 npm test
 
-# 4. Main dashboard typecheck & build
+# 4. Main dashboard Playwright E2E test suite (6 tests across 3 suites)
 cd ../../apps/main-dashboard
+npm run test:e2e
+
+# 5. Main dashboard typecheck & build
 npx tsc --noEmit
 npm run build
 
-# 5. Landing page typecheck & build
+# 6. Landing page typecheck & build
 cd ../landing-page
 npm run build
 ```

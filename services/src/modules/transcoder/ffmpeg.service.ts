@@ -100,6 +100,44 @@ export const RESOLUTION_RANKS: Record<string, number> = {
   '1080p': 4,
 };
 
+export interface H264CodecLevelInfo {
+  level: string; // e.g. "3.1", "3.2", "4.1", "4.2", "5.1"
+  levelIdc: number; // e.g. 31, 32, 41, 42, 51
+  levelHex: string; // e.g. "1f", "20", "29", "2a", "33"
+  profile: 'main' | 'high' | 'baseline';
+  profileHex: string; // "4d" | "64" | "42"
+  constraintHex: string; // "40" | "00" | "e0"
+  avcCodecString: string; // e.g. "avc1.4d402a"
+  macroblocksPerFrame: number;
+  macroblocksPerSecond: number;
+}
+
+export interface H264LevelTableEntry {
+  level: string;
+  levelIdc: number;
+  maxMBPS: number;
+  maxFS: number;
+  maxBitrateKbps: number;
+}
+
+/**
+ * ITU-T H.264 / ISO/IEC 14496-10 Annex A Table A-1 Level Limits.
+ * - MaxMBPS: Maximum macroblock processing rate (macroblocks/sec)
+ * - MaxFS: Maximum frame size in macroblocks (ceil(width/16) * ceil(height/16))
+ * - MaxBitrateKbps: Maximum video bitrate limit (MaxBR) for Baseline/Main profiles
+ */
+export const H264_LEVEL_LIMITS: readonly H264LevelTableEntry[] = [
+  { level: '3.0', levelIdc: 30, maxMBPS: 40500, maxFS: 1620, maxBitrateKbps: 10000 },
+  { level: '3.1', levelIdc: 31, maxMBPS: 108000, maxFS: 3600, maxBitrateKbps: 14000 },
+  { level: '3.2', levelIdc: 32, maxMBPS: 216000, maxFS: 5120, maxBitrateKbps: 20000 },
+  { level: '4.0', levelIdc: 40, maxMBPS: 245760, maxFS: 8192, maxBitrateKbps: 20000 },
+  { level: '4.1', levelIdc: 41, maxMBPS: 245760, maxFS: 8192, maxBitrateKbps: 50000 },
+  { level: '4.2', levelIdc: 42, maxMBPS: 522240, maxFS: 8704, maxBitrateKbps: 50000 },
+  { level: '5.0', levelIdc: 50, maxMBPS: 589824, maxFS: 22080, maxBitrateKbps: 135000 },
+  { level: '5.1', levelIdc: 51, maxMBPS: 983040, maxFS: 36864, maxBitrateKbps: 240000 },
+  { level: '5.2', levelIdc: 52, maxMBPS: 2073600, maxFS: 36864, maxBitrateKbps: 240000 },
+];
+
 export interface TranscodeJobOptions {
   inputPath: string;
   outputDir: string;
@@ -432,6 +470,15 @@ export class FfmpegService {
       // GOP size aligned with segment duration to guarantee IDR keyframe at every segment boundary
       const gopSize = rend.fps * rend.segmentDurationSec;
 
+      // Determine correct resolution/frame-rate/bitrate-aware H.264 level (e.g. 3.1 for 720p@30, 3.2 for 720p@60, 4.0 for 1080p@30 <=20Mbps, 4.2 for 1080p@60)
+      const codecInfo = this.resolveH264ProfileAndLevel(
+        rend.width,
+        rend.height,
+        rend.fps,
+        'main',
+        rend.videoBitrateKbps,
+      );
+
       const args = [
         '-y',
         '-i',
@@ -442,9 +489,9 @@ export class FfmpegService {
         '-c:v',
         'libx264',
         '-profile:v',
-        'main',
+        codecInfo.profile,
         '-level',
-        '3.1',
+        codecInfo.level,
         '-preset',
         'veryfast',
         '-crf',
@@ -573,6 +620,98 @@ export class FfmpegService {
   }
 
   /**
+   * Calculates ITU-T H.264 macroblock constraints and determines the optimal
+   * H.264 level and RFC 6381 CODECS identifier based on resolution and frame rate.
+   *
+   * Rules & Constraints:
+   * 1. Macroblock = 16x16 pixels:
+   *    - macroblocksPerFrame = ceil(width / 16) * ceil(height / 16)
+   *    - macroblocksPerSecond = macroblocksPerFrame * fps
+   * 2. Floors at Level 3.1 for modern streaming / HLS hardware decoder compatibility.
+   * 3. 720p @ 30fps fits in Level 3.1 (3,600 MBs, 108,000 MBPS).
+   * 4. 720p @ 60fps requires Level 3.2 (3,600 MBs, 216,000 MBPS).
+   * 5. 1080p @ 30fps fits in Level 4.0 (8,160 MBs, 244,800 MBPS, MaxBR 20 Mbps) for bitrates <= 20 Mbps (e.g. 5 Mbps default).
+   *    If bitrate > 20 Mbps, Level 4.1 is required (MaxBR 50 Mbps).
+   * 6. 1080p @ 60fps requires Level 4.2 (8,160 MBs, 489,600 MBPS <= 522,240 MaxMBPS).
+   */
+  public resolveH264ProfileAndLevel(
+    width: number,
+    height: number,
+    fps: number,
+    profile: 'main' | 'high' | 'baseline' = 'main',
+    targetBitrateKbps?: number,
+  ): H264CodecLevelInfo {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      !Number.isFinite(fps) ||
+      width <= 0 ||
+      height <= 0 ||
+      fps <= 0
+    ) {
+      throw new Error(
+        `Invalid encoding parameters for H.264 level calculation: width=${width}, height=${height}, fps=${fps}`,
+      );
+    }
+
+    const macroblocksWidth = Math.ceil(width / 16);
+    const macroblocksHeight = Math.ceil(height / 16);
+    const macroblocksPerFrame = macroblocksWidth * macroblocksHeight;
+    const macroblocksPerSecond = Math.ceil(macroblocksPerFrame * fps);
+
+    // Floor at Level 3.1 for Apple HLS and modern device streaming compatibility
+    let selected: H264LevelTableEntry = H264_LEVEL_LIMITS[1];
+
+    for (const entry of H264_LEVEL_LIMITS) {
+      const satisfiesBitrate =
+        !targetBitrateKbps || targetBitrateKbps <= entry.maxBitrateKbps;
+
+      if (
+        macroblocksPerFrame <= entry.maxFS &&
+        macroblocksPerSecond <= entry.maxMBPS &&
+        satisfiesBitrate
+      ) {
+        if (entry.levelIdc < 31) {
+          // Keep floor at 3.1 for streaming stability
+          selected = H264_LEVEL_LIMITS[1];
+        } else {
+          selected = entry;
+        }
+        break;
+      }
+      selected = entry; // clamp to highest level if exceeding table
+    }
+
+    let profileHex = '4d';
+    let constraintHex = '40';
+    if (profile === 'high') {
+      profileHex = '64';
+      constraintHex = '00';
+    } else if (profile === 'baseline') {
+      profileHex = '42';
+      constraintHex = 'e0';
+    }
+
+    const levelHex = selected.levelIdc
+      .toString(16)
+      .padStart(2, '0')
+      .toLowerCase();
+    const avcCodecString = `avc1.${profileHex}${constraintHex}${levelHex}`;
+
+    return {
+      level: selected.level,
+      levelIdc: selected.levelIdc,
+      levelHex,
+      profile,
+      profileHex,
+      constraintHex,
+      avcCodecString,
+      macroblocksPerFrame,
+      macroblocksPerSecond,
+    };
+  }
+
+  /**
    * Builds an RFC 8216 compliant HLS Master Playlist referencing active renditions.
    */
   public buildMasterPlaylistContent(
@@ -585,11 +724,18 @@ export class FfmpegService {
       '# Generated by Vedora FFmpeg Engine',
     ];
 
-    const codecAttr = hasAudio
-      ? 'avc1.4d401f,mp4a.40.2'
-      : 'avc1.4d401f';
-
     for (const rend of renditions) {
+      const codecInfo = this.resolveH264ProfileAndLevel(
+        rend.width,
+        rend.height,
+        rend.fps,
+        'main',
+        rend.videoBitrateKbps,
+      );
+      const codecAttr = hasAudio
+        ? `${codecInfo.avcCodecString},mp4a.40.2`
+        : codecInfo.avcCodecString;
+
       const bandwidth =
         (rend.videoBitrateKbps + rend.audioBitrateKbps) * 1000;
       lines.push(

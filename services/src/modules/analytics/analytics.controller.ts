@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -42,6 +43,7 @@ export class AnalyticsController {
 
   @Post('segment-ping')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 180, ttl: 60000 } })
   @ApiOperation({
     summary: 'Public playback heartbeat ingestion',
     description:

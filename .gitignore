@@ -44,6 +44,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # Testing & Coverage
 coverage/
 .nyc_output
+test-results/
+playwright-report/
 
 # OS & Workspace
 .DS_Store
