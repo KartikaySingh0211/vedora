@@ -112,7 +112,21 @@ flowchart TD
 
 ---
 
-## 📸 Product Preview
+## 🎬 Demo Videos
+
+Experience Vedora's end-to-end video pipeline through recorded walkthroughs demonstrating live workflow execution:
+
+### 1. Application Walkthrough
+- 🎥 **Video File**: [Watch Application Walkthrough](docs/assets/demo/main-walkthrough.mp4)
+- **Workflow Highlights**: Complete operational walkthrough of the Vedora web application. Demonstrates dashboard navigation, API key provisioning, drag-and-drop video ingestion, simultaneous non-blocking uploads in the active sidebar queue, real-time transfer telemetry (MB/s throughput and ETA), Redis-backed background transcode progress, responsive adaptive HLS video playback in `<VedoraPlayer />` with resolution switching (360p to 1080p), browser DevTools network inspection of `.m3u8` manifests and `.ts` transport stream segments, and custom player branding controls.
+
+### 2. Cloudflare R2 Storage Walkthrough
+- 🎥 **Video File**: [Watch Cloudflare R2 Walkthrough](docs/assets/demo/R2.mp4)
+- **Storage Architecture Highlights**: Demonstrates the physical Cloudflare R2 S3-compatible object storage layout. Shows the separation between the raw master ingestion zone (`raw/<videoId>.<ext>`) and the transcoded output directory structure (`videos/<videoId>/`), including the multivariant `master.m3u8` playlist, variant resolution folders (`360p/`, `480p/`, `720p/`, `1080p/`), rendition-specific `index.m3u8` playlists, and uniform 4-second MPEG-2 Transport Stream media chunks (`segment_000.ts`).
+
+---
+
+## 📸 Screenshots & Visual Evidence
 
 ### Embed Video Player Modal
 Full-featured interactive video player modal with responsive (16:9) and fixed pixel aspect ratios, live HLS/MP4 preview, custom brand watermark, player theme colors, and instant iframe embed code generation:
@@ -123,6 +137,12 @@ Full-featured interactive video player modal with responsive (16:9) and fixed pi
 User video library displaying lifecycle status badges (`uploading`, `uploaded`, `processing`, `ready`, `failed`), multi-resolution encoding presets (720p/1080p), playlist filtering, size/duration metrics, and direct embed code extraction:
 
 ![Vedora Video Management Dashboard](docs/assets/screenshots/my-videos-dashboard.png)
+
+### Background Transcoding Execution Logs
+Visual evidence of the background video-processing worker executing in real time: Redis transcode job dequeuing, media probing via FFprobe, adaptive H.264/AAC rendition ladder generation (360p to 1080p with strict no-upscaling guards), multivariant RFC 8216 master manifest assembly, and Cloudflare R2 artifact upload:
+
+![Vedora Background Transcoding Logs](docs/assets/screenshots/transcoding-logs.png)
+*Figure: Terminal logs from the Vedora background transcode worker verifying Redis job claiming, FFprobe media metadata analysis, multi-resolution HLS packaging, and Cloudflare R2 storage upload.*
 
 ### Interface Walkthrough Checklist
 | View | Route | Implemented & Verified Capabilities |
@@ -294,7 +314,7 @@ Vedora's design decisions are documented as formalized **Architecture Decision R
 - 📖 **[Master Engineering Log & Ledger (`docs/ENGINEERING_LOG.md`)](docs/ENGINEERING_LOG.md)**: Full chronological ledger documenting every implementation run, exact changes, design rationale, and test verification results.
 - 📐 **[System Design & Architecture Document (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`)](docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md)**: Deep architectural blueprints, threat modeling, multi-tier caching sequences, and telemetry engines.
 - ⚡ **[Empirical Performance Benchmarks (`docs/BENCHMARKS.md`)](docs/BENCHMARKS.md)**: Real FFmpeg transcoding throughput, real-time speed factors (1.15x–8.94x), and HLS packaging measurements on physical hardware.
-- 🎬 **[End-to-End Walkthrough Demonstration (`docs/assets/demo/README.md`)](docs/assets/demo/README.md)**: Complete lifecycle walkthrough and gallery from presigned upload to Cloudflare R2 bucket storage and `<VedoraPlayer />` playback.
+- 🎬 **[End-to-End Walkthrough Demonstration (`docs/assets/demo/README.md`)](docs/assets/demo/README.md)**: Complete lifecycle walkthrough and demonstration guide featuring the [Application Walkthrough Video](docs/assets/demo/main-walkthrough.mp4), [Cloudflare R2 Storage Walkthrough Video](docs/assets/demo/R2.mp4), and [Background Transcoding Logs](docs/assets/screenshots/transcoding-logs.png).
 - 🚀 **[Swagger / OpenAPI 3.0 API Documentation (`docs/api-docs/README.md`)](docs/api-docs/README.md)**: Comprehensive developer API reference, Swagger UI configuration, DTO schemas, dual authentication, webhooks, and client generation.
 - 🌐 **[Raw OpenAPI 3.0 Specification (`docs/openapi.json`)](docs/openapi.json)**: Fully typed, machine-readable OpenAPI 3.0 specification for Postman, Insomnia, and SDK code generation.
 - 🛠️ **[Bug Fixes & Incident Ledger (`docs/bug-fixes/README.md`)](docs/bug-fixes/README.md)**: Immutable record of incidents, root-cause analyses, and resolutions (BUG-001 through BUG-017).

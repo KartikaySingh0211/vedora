@@ -1637,3 +1637,44 @@ The root cause was that `UpdatePlayerSettingsDto.controlBarBg` in `services/src/
 - `npm --prefix apps/main-dashboard run test:e2e`: 6 Playwright tests passed across 3 suites.
 - `npm --prefix apps/main-dashboard run build`: Clean Next.js build (15 routes generated).
 - `git diff --check`: 0 whitespace errors or conflict markers.
+
+---
+
+## [2026-11-01] — Documentation & Demonstration Assets Update
+
+- **Date**: 2026-11-01
+- **Component**: Documentation, Technical Ledgers & Demonstration Assets
+- **Scope**: Comprehensive audit and update of repository documentation to incorporate newly provided demonstration screencasts (`main-walkthrough.mp4`, `R2.mp4`) and visual evidence (`transcoding-logs.png`).
+
+### 1. Context & Objectives
+1. **Incorporate Real Screencast Assets**:
+   - `docs/assets/demo/main-walkthrough.mp4`: Complete end-to-end application workflow video (dashboard, API keys, simultaneous non-blocking sidebar uploads, transfer telemetry, transcoding progress, adaptive HLS playback, and player settings).
+   - `docs/assets/demo/R2.mp4`: Physical Cloudflare R2 object storage inspection video (raw master uploads under `raw/` vs. multi-resolution HLS variant ladders under `videos/<videoId>/`).
+   - `docs/assets/screenshots/transcoding-logs.png`: Terminal logs showing live worker process execution (Redis job claiming via `RPOPLPUSH`, FFprobe media probing, adaptive H.264/AAC rendition ladder generation without upscaling, multivariant master manifest assembly, and Cloudflare R2 artifact upload).
+2. **Eliminate Broken Placeholder References**:
+   - Removed obsolete broken image links (`01-direct-upload-studio.png` ... `06-embed-player-adaptive-playback.png`) from `docs/assets/demo/README.md`.
+3. **Elevate Root Presentation (`README.md`)**:
+   - Added a dedicated **Demo Videos** section with relative GitHub-compatible links and concise, developer-focused operational summaries.
+   - Updated **Screenshots & Visual Evidence** section to feature the real transcoding logs alongside the embed player modal and video library dashboard.
+4. **Harmonize Technical Deep-Dives**:
+   - Connected architecture, storage, transcoding, and playback documentation (`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`, `docs/assets/demo/README.md`, `docs/FFmpeg/`, and ADRs) to the demonstration media.
+5. **Purge Outdated Tier References**:
+   - Corrected obsolete plan tier file limits in `docs/api-docs/README.md` and added explanatory status notes to historical ADRs (`ADR-006`, `ADR-008`) clarifying the transition to 100% open-source technical safeguards (10 GiB single file, 500 GiB user capacity cap, open 1080p ceiling for all users per `ADR-010`).
+
+### 2. Files Modified & Changes Executed
+- **`README.md`**: Added dedicated `## 🎬 Demo Videos` section featuring `main-walkthrough.mp4` and `R2.mp4`; updated `## 📸 Screenshots & Visual Evidence` with `transcoding-logs.png` and descriptive caption; updated documentation index links.
+- **`docs/assets/demo/README.md`**: Completely replaced obsolete deleted image links with structured video demonstration breakdowns (`main-walkthrough.mp4` and `R2.mp4`), directory tree blueprint for Cloudflare R2 storage layout, and visual evidence embeds.
+- **`docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md`**: Added Section 6.2 detailing Cloudflare R2 storage hierarchy (`raw/` vs. `videos/`) linked to demo videos; added Section 7.2 visual execution proof featuring `transcoding-logs.png`.
+- **`docs/FFmpeg/PHASE_1_IMPLEMENTATION_AND_VERIFICATION.md`**: Incorporated `transcoding-logs.png` under manual verification step 3 and added demonstration screencast references.
+- **`docs/FFmpeg/README.md`**: Added demonstration screencast and screenshot index entries.
+- **`docs/decisions/ADR-005-video-storage-token-proxy.md`**: Linked direct-to-cloud upload screencasts (`R2.mp4`, `main-walkthrough.mp4`).
+- **`docs/decisions/ADR-006-plan-based-quotas-and-direct-uploads.md`**: Added ADR-010 status update note and linked demonstration assets.
+- **`docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md`**: Added ADR-010 open 1080p ceiling status note and linked transcoding screenshot and storage video.
+- **`docs/decisions/ADR-011-safe-modularity-and-frontend-reusability.md`**: Linked application walkthrough demonstrating `<VedoraPlayer />` and unified dashboard components.
+- **`docs/api-docs/README.md`**: Corrected obsolete tier file-size limits to technical safeguards (10 GiB single file, 500 GiB quota); added walkthrough evidence notes to video ingestion and transcoding engine sections.
+- **`docs/ENGINEERING_LOG.md`**: Appended current dated audit entry.
+
+### 3. Verification Evidence
+- Verified all relative paths to `docs/assets/demo/*.mp4` and `docs/assets/screenshots/*.png` resolve from their respective Markdown document locations.
+- Verified zero application source code, configuration, or database migration files were modified.
+- `git diff --check`: 0 whitespace errors or conflict markers.

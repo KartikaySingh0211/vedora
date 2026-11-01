@@ -228,7 +228,7 @@ Request body for customizing player branding:
 
 ### `PublicPlayerConfigResponseDto`
 Public model for embed players (`GET /api/v1/player-settings/public/:videoId`):
-Returns the resolved streaming URL and theme settings. On Free tier, `isFreeTier: true` enforces the "Powered by Vedora" watermark.
+Returns the resolved streaming URL and theme settings. Under the open-source architecture, custom watermarks are enabled for all users (`isFreeTier: false`); when no custom watermark is configured, the player defaults to displaying "Powered by Vedora".
 
 ---
 

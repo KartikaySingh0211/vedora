@@ -1,10 +1,13 @@
-﻿# ADR-006: Plan-Based Storage Quotas and Concurrency-Safe Direct-to-Cloud Uploads
+# ADR-006: Plan-Based Storage Quotas and Concurrency-Safe Direct-to-Cloud Uploads
 
 ## Status
 Accepted
 
 ## Context
 Video platforms ingest large assets (ranging from 100 MB to 100 GB). Routing massive video byte payloads directly through Node.js API servers would quickly saturate application CPU, thread pools, and memory. Simultaneously, enterprise video infrastructure must enforce subscription tier limits (e.g. Free: 5 GiB, Starter: 250 GiB, Pro: 600 GiB, Business: 2 TiB), restrict high resolutions (e.g., 1080p prohibited on Free tier), and prevent concurrent upload requests from exploiting race conditions to overrun storage quotas.
+
+> [!NOTE]
+> **Status Update (ADR-010)**: Per **[ADR-010](ADR-010-subscription-billing-and-usage-accounting.md)**, commercial plan limits were removed in favor of 100% open-source software: 1080p encoding is open to all users, governed by server-side technical safeguards (10 GiB single-file limit, 500 GiB user storage capacity default).
 
 ## Decision
 1. **Direct-to-Cloud Ingestion with Server-Authorized Presigned Chunks**:
@@ -33,3 +36,7 @@ Video platforms ingest large assets (ranging from 100 MB to 100 GB). Routing mas
 ## Consequences
 - **Positive**: The Node.js API server never buffers video binaries, guaranteeing horizontal scalability. Storage quotas cannot be overrun by concurrent requests.
 - **Negative**: Requires cloud storage provider to support presigned multipart PUT URLs with standard CORS and ETag response headers.
+
+## Demonstration References
+- 🎥 **[Watch Application Walkthrough](../assets/demo/main-walkthrough.mp4)**: Demonstrates direct-to-cloud upload ingestion and queue telemetry.
+- 🎥 **[Watch Cloudflare R2 Storage Walkthrough](../assets/demo/R2.mp4)**: Inspects the raw master video files uploaded directly into Cloudflare R2 object storage.

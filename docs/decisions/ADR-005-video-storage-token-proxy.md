@@ -1,4 +1,4 @@
-﻿# ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry
+# ADR-005: Video Ingestion Token Proxy & Client-Side Telemetry
 
 ## Status
 **Accepted** (Implemented in Phase 4)
@@ -29,3 +29,7 @@ Video files can be multiple gigabytes in size. Routing multi-gigabyte video stre
 
 ### Negative / Trade-offs
 - The browser must maintain network connectivity for the duration of the multipart stream.
+
+## Demonstration References
+- 🎥 **[Watch Cloudflare R2 Storage Walkthrough](../assets/demo/R2.mp4)**: Screencast showing the uploaded master files in Cloudflare R2 object storage under `raw/<videoId>.<ext>`.
+- 🎥 **[Watch Application Walkthrough](../assets/demo/main-walkthrough.mp4)**: Demonstrates presigned multipart direct-to-cloud upload execution with real-time transfer telemetry.

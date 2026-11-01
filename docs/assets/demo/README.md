@@ -1,6 +1,6 @@
 # Vedora End-to-End Walkthrough & Demonstration Guide
 
-This guide provides visual and programmatic walkthrough evidence of the complete Vedora video lifecycle: **Direct Client Upload $\to$ Cloudflare R2 Raw Storage $\to$ Redis Job Queue $\to$ FFmpeg Adaptive HLS Packaging $\to$ Multi-Rendition Cloudflare R2 Delivery $\to$ Embedded Video Playback**.
+This guide provides visual, architectural, and operational walkthrough evidence of the complete Vedora video lifecycle: **Direct Client Upload $\to$ Cloudflare R2 Raw Storage $\to$ Redis Job Queue $\to$ FFmpeg Adaptive HLS Packaging $\to$ Multi-Rendition Cloudflare R2 Delivery $\to$ Embedded Video Playback**.
 
 ---
 
@@ -55,51 +55,76 @@ sequenceDiagram
 
 ---
 
-## 2. Visual Demonstration Gallery
+## 2. Demonstration Videos
 
-### Step 1: Direct Upload Studio (`/uploads`)
-Users drag-and-drop video files into the upload studio. Vedora enforces server-side technical safeguards (10 GiB single-file limit, 500 GiB user quota) and allows selecting an adaptive quality ceiling (360p to 1080p). Active uploads are tracked in the persistent background queue sidebar with real-time transfer speeds and progress bars.
+Vedora's full operational lifecycle and cloud storage integrations are captured in two high-definition demonstration screencasts:
 
-![Direct Upload Studio](01-direct-upload-studio.png)
+### 2.1 Complete Application Walkthrough
+- 🎥 **Video File**: [Watch Application Walkthrough](main-walkthrough.mp4)
+- **Lifecycle Scope**: Demonstrates the end-to-end user experience and operational workflow across the platform:
+  1. **Dashboard & API Keys**: Inspecting active API keys, one-time reveal modals, and key regeneration with cooldown controls.
+  2. **Non-Blocking Sidebar Uploads (`/uploads`)**: Drag-and-drop video ingestion, selecting an adaptive quality ceiling (360p to 1080p), and simultaneously uploading multiple files inside the persistent right sidebar queue with real-time transfer telemetry (MB/s throughput and ETA countdowns).
+  3. **Lifecycle State Transitions (`/my-videos`)**: Real-time status transitions (`uploading` $\to$ `uploaded` $\to$ `processing` $\to$ `ready`) synchronized via TanStack Query.
+  4. **Adaptive HLS Playback (`<VedoraPlayer />`)**: Opening the responsive player modal, adaptive stream resolution switching, playback rate controls, and picture-in-picture (PiP).
+  5. **Network Request Inspection**: Verifying client-side retrieval of the multivariant `master.m3u8` playlist, variant rendition manifests (`720p/index.m3u8`), and uniform MPEG-2 Transport Stream media chunks (`segment_000.ts`).
+  6. **Player Customization (`/player`)**: Adjusting player accent colors, control bar themes (including transparent backgrounds), watermark positions, and toolbar controls.
+
+### 2.2 Cloudflare R2 Storage Walkthrough
+- 🎥 **Video File**: [Watch Cloudflare R2 Walkthrough](R2.mp4)
+- **Object Storage Inspection**: Deep dive into the physical Cloudflare R2 bucket hierarchy confirming clean separation between raw master video uploads and generated multi-resolution HLS media artifacts:
+
+```text
+cloudflare-r2-bucket/
+├── raw/
+│   └── <videoId>.<ext>                 # Original un-transcoded master video
+└── videos/
+    └── <videoId>/
+        ├── master.m3u8                 # RFC 8216 multivariant master playlist
+        ├── 1080p/                      # 1080p FHD rendition folder
+        │   ├── index.m3u8              # 1080p variant media playlist
+        │   ├── segment_000.ts          # Uniform 4-second MPEG-TS chunks
+        │   └── segment_001.ts
+        ├── 720p/                       # 720p HD rendition folder
+        │   ├── index.m3u8              # 720p variant media playlist
+        │   ├── segment_000.ts
+        │   └── segment_001.ts
+        ├── 480p/                       # 480p SD rendition folder
+        │   ├── index.m3u8
+        │   └── segment_000.ts
+        └── 360p/                       # 360p mobile rendition folder
+            ├── index.m3u8
+            └── segment_000.ts
+```
+
+- **Key Architectural Findings**:
+  - **Zero Server Bandwidth Ingestion**: Video files are transferred directly from client browsers to Cloudflare R2 using AWS SDK S3 presigned multipart upload URLs.
+  - **Standardized Multi-Resolution Output**: FFmpeg transcode workers unpack the raw source, generate the full adaptive ladder without quality upscaling, and upload each rendition's variant playlist and TS segments alongside the root `master.m3u8` multivariant playlist.
 
 ---
 
-### Step 2: Raw Ingestion Zone in Cloudflare R2 (`raw/`)
-The original high-resolution master video is uploaded directly from the browser to Cloudflare R2 using AWS SDK S3 presigned multipart URLs, ensuring zero server-bandwidth overhead:
+## 3. Visual Execution Evidence & Screenshots
 
-![Cloudflare R2 Raw Storage](02-cloudflare-r2-raw-storage.png)
+### Background Transcoding Worker Execution Logs
+Terminal output proving genuine background transcode worker execution: atomic Redis job claiming (`RPOPLPUSH`), FFprobe media topology inspection, multi-resolution ladder encoding (360p to 1080p with strict no-upscaling guards), multivariant RFC 8216 master manifest generation, and Cloudflare R2 artifact upload:
 
----
+![Vedora Background Transcoding Logs](../screenshots/transcoding-logs.png)
+*Figure: Terminal execution logs from the Vedora background worker demonstrating real FFprobe probing, multi-ladder H.264/AAC transcoding, master manifest assembly, and database status updates.*
 
-### Step 3: Master Manifest Generation (`videos/<uuid>/master.m3u8`)
-Following FFmpeg background processing, the multi-resolution HLS manifest is assembled and stored in the video's root storage directory alongside variant resolution subdirectories:
+### Video Management Dashboard (`/my-videos`)
+User video library tracking real-time status transitions, resolution badges, duration, file sizes, and embed launcher:
 
-![Cloudflare R2 Master Manifest](03-cloudflare-r2-master-manifest.png)
+![Video Management Dashboard](../screenshots/my-videos-dashboard.png)
+*Figure: Video library dashboard showing active lifecycle badges, duration metadata, and playback launcher.*
 
----
+### Embed Video Player Modal (`/embed/[videoid]`)
+Embed player modal featuring adaptive HLS streaming via HLS.js, rendition quality selector, playback speed, brand watermark, and iframe embed code generation:
 
-### Step 4: Variant Rendition Folders & MPEG-TS Segments (`720p/`)
-Each rendition contains an RFC 8216-compliant `index.m3u8` variant playlist and uniform 4-second MPEG-2 Transport Stream media chunks (`segment_000.ts`, `segment_001.ts`...):
-
-![Cloudflare R2 HLS Segments](04-cloudflare-r2-hls-segments.png)
-
----
-
-### Step 5: Video Library Management (`/my-videos`)
-The video management dashboard tracks lifecycle status transitions (`uploading` $\to$ `uploaded` $\to$ `processing` $\to$ `ready`), video duration, file sizes, and rendition badges with real-time TanStack Query synchronization:
-
-![Video Management Dashboard](05-video-library-management.png)
+![Embed Video Player Modal](../screenshots/embed-player-modal.png)
+*Figure: Interactive embed video player modal with responsive aspect ratio, quality level selector, and custom styling.*
 
 ---
 
-### Step 6: Responsive Adaptive Playback (`<VedoraPlayer />`)
-The embeddable player modal provides adaptive bitrate streaming via HLS.js, rendition quality selection, playback speed controls, picture-in-picture (PiP), custom brand watermarks, and instant iframe embed code extraction:
-
-![Embed Player Adaptive Playback](06-embed-player-adaptive-playback.png)
-
----
-
-## 3. How to Run the Demonstration Locally
+## 4. How to Run the Demonstration Locally
 
 Follow these steps to run and verify the entire upload-to-playback demonstration on a local workstation:
 
@@ -112,11 +137,11 @@ npm run start:dev
 
 # 2. In a second terminal, start the main dashboard
 cd apps/main-dashboard
-npm ci
-npm run dev
+npm install
+npm run dev -- -p 3001
 
-# 3. Open http://localhost:3000 in your browser
-# - Navigate to /uploads to perform a live upload
+# 3. Open http://localhost:3001 in your browser
+# - Navigate to /uploads to perform a live upload with sidebar queue tracking
 # - Navigate to /my-videos to inspect real-time status transitions
 # - Open /embed/[videoid] to test HLS adaptive streaming
 ```

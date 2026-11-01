@@ -45,3 +45,6 @@ As the Vedora platform grew across backend microservices and multiple Next.js da
 
 ### Negative / Trade-offs
 - Developers must import shared keys from `CACHE_KEYS` rather than defining ad-hoc string constants.
+
+## Demonstration References
+- 🎥 **[Watch Application Walkthrough](../assets/demo/main-walkthrough.mp4)**: Demonstrates the reusable `<VedoraPlayer />` component, status badges, page headers, and player settings in the live application.

@@ -228,16 +228,17 @@ Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts). Enforces
 ### 4. Video Ingestion & Processing (`/api/v1/videos`)
 Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`UploadVideoGuard`](services/src/guards/upload-video.guard.ts).
 
+> 🎥 **Walkthrough Evidence**: Direct-to-cloud upload execution, non-blocking sidebar transfer telemetry, and adaptive playback are demonstrated in the **[Application Walkthrough Video](../assets/demo/main-walkthrough.mp4)**. The underlying storage hierarchy is inspected in the **[Cloudflare R2 Storage Walkthrough Video](../assets/demo/R2.mp4)**.
+
 #### `POST /api/v1/videos/init`
 - **Summary**: Authorize and initialize a direct-to-cloud upload.
 - **Behavior**:
   1. Acquires atomic PostgreSQL advisory lock on storage quota key.
   2. Reserves storage allowance: $\text{Raw Size} + 1.5 \times \text{Raw Size (Transcoding overhead)}$.
-  3. Verifies file size against tier limits:
-     - **Free**: 500 MB max file size
-     - **Starter**: 5 GB max file size
-     - **Pro**: 25 GB max file size
-     - **Business**: 100 GB max file size
+  3. Verifies file size against technical safeguards:
+     - **Single-File Safeguard**: 10 GiB maximum per file
+     - **Storage Capacity Cap**: 500 GiB per-user storage capacity default (`MAX_USER_STORAGE_CAP_BYTES`)
+     - **Open Encoding Ceiling**: 1080p open to all users with strict no-upscaling guards
   4. Returns presigned S3-compatible multipart chunk upload URLs.
 - **Request Body**: [`CreateVideoInitDto`](services/src/modules/videos/dto/create-video-init.dto.ts)
   ```json
@@ -296,10 +297,9 @@ Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`Upl
   }
   ```
 - **Errors**:
-  - `400 Bad Request`: Validation failure on slug, size, or title.
+  - `400 Bad Request`: Validation failure on slug, size, or title, file size exceeding single-file safeguard limit (10 GiB), or storage quota exceeded (active storage + incoming reservation exceeds user capacity limit).
   - `401 Unauthorized`: Missing or invalid token.
-  - `403 Forbidden`: Storage quota exceeded, or requesting 1080p/watermark on Free tier.
-  - `413 Payload Too Large`: Size exceeds single upload limit for tier.
+  - `413 Payload Too Large`: Documented in OpenAPI specification for payloads exceeding single upload limit.
 
 #### `POST /api/v1/videos/complete`
 - **Summary**: Confirm upload completion and trigger background transcoding.
@@ -366,6 +366,8 @@ Protected by [`DualAuthGuard`](services/src/guards/dual-auth.guard.ts) and [`Upl
 ---
 
 ### 6. Transcoding Engine (`/api/v1/transcoder`)
+
+> 📸 **Execution Evidence**: Real-world worker terminal execution logs (Redis job claiming, FFprobe metadata analysis, multi-resolution ladder packaging) are captured in **[Transcoding Execution Logs](../assets/screenshots/transcoding-logs.png)**.
 
 #### `POST /api/v1/transcoder/webhook`
 - **Auth**: Public endpoint authenticated via HMAC-SHA256 signature ([`ADR-008`](docs/decisions/ADR-008-hls-transcoding-and-rendition-ladder.md)).

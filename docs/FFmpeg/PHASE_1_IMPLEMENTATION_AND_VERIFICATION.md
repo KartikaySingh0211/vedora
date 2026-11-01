@@ -1,4 +1,4 @@
-﻿# Vedora Phase 1 — Real FFmpeg Video Transcoding: Implementation & Verification Report
+# Vedora Phase 1 — Real FFmpeg Video Transcoding: Implementation & Verification Report
 
 ## 1. Executive Summary
 
@@ -121,14 +121,18 @@ To manually verify real video transcoding from end to end:
    - The upload will slice the file into chunks, send them to `/api/v1/storage/mock-upload`, and call `/api/v1/videos/complete`.
 
 3. **Observe Transcoding Logs**:
-   - In the API server terminal, observe:
-     ```text
-     [TranscoderService] Enqueueing transcoding job for video ...
-     [TranscoderService] Transcoding video ... started.
-     [FfmpegService] Starting FFmpeg HLS transcoding for video ...
-     [FfmpegService] FFmpeg HLS transcoding finished successfully ...
-     [TranscoderService] FFmpeg transcoding completed successfully ... Status: ready.
-     ```
+   - In the worker/API terminal, observe real-time job processing, FFprobe analysis, multi-resolution ladder generation, and Cloudflare R2 upload:
+
+   ![Vedora Background Transcoding Logs](../assets/screenshots/transcoding-logs.png)
+   *Figure: Actual terminal output from the Vedora background worker showing FFprobe probing, resolution ladder selection, FFmpeg HLS encoding, and status update.*
+
+   ```text
+   [TranscoderService] Enqueueing transcoding job for video ...
+   [TranscoderService] Transcoding video ... started.
+   [FfmpegService] Starting FFmpeg HLS transcoding for video ...
+   [FfmpegService] FFmpeg HLS transcoding finished successfully ...
+   [TranscoderService] FFmpeg transcoding completed successfully ... Status: ready.
+   ```
 
 4. **Play Back Real HLS Stream**:
    - Navigate to `http://localhost:3001/my-videos`.
@@ -138,3 +142,11 @@ To manually verify real video transcoding from end to end:
      - Notice `720p/index.m3u8` is fetched (status 200).
      - Notice `segment_000.ts`, `segment_001.ts` are fetched with `Content-Type: video/mp2t` (status 200/206).
    - Video plays smoothly with genuine adaptive bitrate switching.
+
+---
+
+## 6. Live Demonstration Screencasts
+
+Visual verification of the transcoding engine and object storage integration can be reviewed in:
+- 🎥 **[Watch Application Walkthrough](../assets/demo/main-walkthrough.mp4)**: Complete walkthrough demonstrating dashboard navigation, non-blocking uploads, transcoding progress, and adaptive HLS playback.
+- 🎥 **[Watch Cloudflare R2 Walkthrough](../assets/demo/R2.mp4)**: Inspection of original video files and generated HLS output structures in Cloudflare R2.

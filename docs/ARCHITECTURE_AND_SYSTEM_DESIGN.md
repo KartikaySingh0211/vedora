@@ -354,6 +354,37 @@ $$\text{RemainingSeconds} = \left\lceil \frac{\text{TotalBytes} - \text{LoadedBy
 
 If progress is $100\%$, the UI transitions immediately to `"Finalizing multipart upload..."` until the provider returns confirmation.
 
+### 6.2 Cloudflare R2 Storage Hierarchy: Raw Ingestion vs. HLS Delivery
+
+Vedora maintains clean architectural isolation between raw master video uploads and transcoded adaptive streaming assets in Cloudflare R2 object storage:
+
+```text
+cloudflare-r2-bucket/
+├── raw/
+│   └── <videoId>.<ext>                 # Raw master video uploaded directly via presigned URLs
+└── videos/
+    └── <videoId>/
+        ├── master.m3u8                 # RFC 8216 multivariant master playlist
+        ├── 1080p/                      # 1080p FHD rendition folder
+        │   ├── index.m3u8              # 1080p variant media playlist
+        │   ├── segment_000.ts          # Uniform 4-second MPEG-TS chunks
+        │   └── segment_001.ts
+        ├── 720p/                       # 720p HD rendition folder
+        │   ├── index.m3u8              # 720p variant media playlist
+        │   ├── segment_000.ts
+        │   └── segment_001.ts
+        ├── 480p/                       # 480p SD rendition folder
+        │   ├── index.m3u8
+        │   └── segment_000.ts
+        └── 360p/                       # 360p mobile rendition folder
+            ├── index.m3u8
+            └── segment_000.ts
+```
+
+- **Live Demonstration Screencasts**:
+  - 🎥 **[Application Walkthrough Video](assets/demo/main-walkthrough.mp4)**: Demonstrates the upload process from user drag-and-drop to background queue telemetry and adaptive HLS playback.
+  - 🎥 **[Cloudflare R2 Storage Walkthrough Video](assets/demo/R2.mp4)**: Inspects the real Cloudflare R2 bucket objects, showing original uploaded files under `raw/` and generated HLS ladders under `videos/<videoId>/`.
+
 ---
 
 ## 7. Queue Delivery Guarantees & Crash Recovery
@@ -369,7 +400,14 @@ Vedora uses a resilient Redis-backed queue without heavy third-party dependencie
 - **Monotonic Database Fencing**: Every video record contains an authoritative integer `attempt` counter. Workers fence claim (`WHERE id = :videoId AND attempt = :attempt`) and final status updates (`WHERE id = :videoId AND attempt = :attempt AND status = 'processing'`). Stale workers whose locks expired during network partitions are prevented from overwriting subsequent attempts.
 - **Graceful Shutdown & Child Process Await**: On `SIGTERM`/`SIGINT`, workers stop polling, issue `SIGTERM` to active FFmpeg child processes, await graceful termination (10s), escalate to `SIGKILL` if necessary, purge local scratch directories, and only then safely release Redis locks.
 
-### 7.2 Headless Worker Process Decoupling Topology
+### 7.2 Visual Proof: Worker Transcoding Execution
+
+Terminal evidence from live background worker processing illustrates the Redis-backed transcoding lifecycle in action: Redis job claiming, FFprobe metadata extraction, dynamic H.264 profile/level calculation conforming to ITU-T Annex A, multi-rendition segment encoding, and database completion callbacks:
+
+![Vedora Background Transcoding Logs](assets/screenshots/transcoding-logs.png)
+*Figure 7.1: Live terminal logs of the Vedora background worker processing jobs dequeued from Redis, performing media probing, HLS variant segment encoding, and database state updates.*
+
+### 7.3 Headless Worker Process Decoupling Topology
 
 ```mermaid
 flowchart TD

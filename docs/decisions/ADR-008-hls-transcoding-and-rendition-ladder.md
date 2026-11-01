@@ -1,4 +1,4 @@
-﻿# ADR-008: Asynchronous HLS Transcoding Pipeline and Rendition Ladder
+# ADR-008: Asynchronous HLS Transcoding Pipeline and Rendition Ladder
 
 ## Status
 Accepted
@@ -27,7 +27,9 @@ When raw video uploads complete, they cannot be served directly as monolithic MP
      - **480p**: 854x480, 1400 kbps video, 128 kbps audio, 30 fps, 4-sec segments.
      - **720p**: 1280x720, 2800 kbps video, 128 kbps audio, 30 fps, 4-sec segments.
      - **1080p**: 1920x1080, 5000 kbps video, 192 kbps audio, 60 fps, 4-sec segments.
-   - **Plan-Based Resolution Capping**: Free and Starter plans are capped at 720p maximum encoding ceiling; 1080p is restricted to Starter/Pro/Business plans.
+   - **Plan-Based Resolution Capping (Historical Decision)**: Free and Starter plans were capped at 720p maximum encoding ceiling; 1080p was restricted to Starter/Pro/Business plans.
+     > [!NOTE]
+     > **Superseded by [ADR-010](ADR-010-subscription-billing-and-usage-accounting.md)**: Commercial plan limits were eliminated in favor of 100% open-source software: 1080p encoding is open to all users, governed by server-side technical safeguards (10 GiB single-file limit, 500 GiB user storage capacity default).
 
 3. **Manifest Generation & Artifact Storage**:
    - Master manifest (`videos/<video-id>/master.m3u8`) is generated following the HLS RFC 8216 specification with `#EXT-X-STREAM-INF` declarations linking each successfully generated variant rendition.
@@ -42,3 +44,8 @@ When raw video uploads complete, they cannot be served directly as monolithic MP
 ## Consequences
 - **Positive**: Zero blocking during upload completion; robust adaptive bitrate streaming; separate accounting for raw vs. transcoded storage prevents quota discrepancies; strong cryptographic security on completion callbacks.
 - **Negative**: Requires Redis infrastructure to maintain worker queues and transient job states.
+
+## Demonstration References
+- 📸 **[Background Transcoding Execution Logs](../assets/screenshots/transcoding-logs.png)**: Terminal evidence of FFprobe metadata inspection and H.264 multi-rendition ladder packaging.
+- 🎥 **[Watch Cloudflare R2 Storage Walkthrough](../assets/demo/R2.mp4)**: Inspects the generated multi-rendition directory structure (`videos/<videoId>/`) and MPEG-TS media segments.
+- 🎥 **[Watch Application Walkthrough](../assets/demo/main-walkthrough.mp4)**: Demonstrates the transcode progress and playback in the embed video player.
